@@ -18,8 +18,8 @@ class AnalysisStatusResponse(BaseModel):
     id: int
     category_id: str
     status: AnalysisStatus
-    started_at: datetime
-    finished_at: Optional[datetime]
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
     total_products: int
     processed_products: int
     error_message: Optional[str]
@@ -33,7 +33,7 @@ class AnalysisRunItemOut(BaseModel):
     row_number: int
     ean: str
     input_name: Optional[str]
-    input_purchase_price: Decimal
+    input_purchase_price: Optional[Decimal]
     source: AnalysisItemSource
     allegro_price: Optional[Decimal]
     allegro_sold_count: Optional[int]

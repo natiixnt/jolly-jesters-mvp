@@ -151,6 +151,23 @@
         </div>
       </div>
       <div>
+        <label>Strategie scrapera</label>
+        <div class="modes" style="flex-direction: column">
+          <label class="mode">
+            <input type="checkbox" name="use_api" value="true" checked />
+            <div><strong>Użyj Allegro API</strong></div>
+          </label>
+          <label class="mode">
+            <input type="checkbox" name="use_cloud_http" value="true" checked />
+            <div><strong>Użyj cloud HTTP (proxy)</strong></div>
+          </label>
+          <label class="mode">
+            <input type="checkbox" name="use_local_scraper" value="true" checked />
+            <div><strong>Użyj lokalnego Selenium</strong></div>
+          </label>
+        </div>
+      </div>
+      <div>
         <button type="submit">Uruchom analizę</button>
       </div>
       <div class="error" id="error"></div>
@@ -201,6 +218,9 @@
           downloadLink.href = `/api/v1/analysis/${runId}/download`;
           downloadLink.style.display = 'inline-flex';
           clearInterval(pollTimer);
+        } else if (data.status === 'failed') {
+          runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się';
+          clearInterval(pollTimer);
         }
       };
       await fetchStatus();
@@ -212,6 +232,12 @@
       errorBox.textContent = '';
       downloadLink.style.display = 'none';
       const fd = new FormData(form);
+      // unchecked checkboxes are not sent; ensure false is sent explicitly
+      ['use_api','use_cloud_http','use_local_scraper'].forEach(name => {
+        if (!form.querySelector(`input[name="${name}"]`).checked) {
+          fd.append(name, 'false');
+        }
+      });
       const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

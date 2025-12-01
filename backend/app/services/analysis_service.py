@@ -268,3 +268,16 @@ def _process_mixed_item(
     item.profitability_score = score
     item.profitability_label = label
     item.error_message = None
+
+
+def get_run_status(db: Session, run_id: int) -> AnalysisRun | None:
+    return db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
+
+
+def get_run_items(db: Session, run_id: int) -> List[AnalysisRunItem]:
+    return (
+        db.query(AnalysisRunItem)
+        .filter(AnalysisRunItem.analysis_run_id == run_id)
+        .order_by(AnalysisRunItem.row_number)
+        .all()
+    )

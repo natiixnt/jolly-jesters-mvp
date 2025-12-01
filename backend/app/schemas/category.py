@@ -8,10 +8,10 @@ from pydantic import BaseModel, Field
 
 
 class CategoryBase(BaseModel):
-    name: str = Field(..., max_length=255)
+    name: str = Field(..., max_length=255, min_length=1)
     description: Optional[str] = None
-    profitability_multiplier: Decimal = Field(default=Decimal("1.5"))
-    commission_rate: Optional[Decimal] = None
+    profitability_multiplier: Decimal = Field(default=Decimal("1.5"), ge=0)
+    commission_rate: Optional[Decimal] = Field(default=None, ge=0)
     is_active: bool = True
 
 
@@ -20,14 +20,14 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, max_length=255)
+    name: Optional[str] = Field(default=None, max_length=255, min_length=1)
     description: Optional[str] = None
-    profitability_multiplier: Optional[Decimal] = None
-    commission_rate: Optional[Decimal] = None
+    profitability_multiplier: Optional[Decimal] = Field(default=None, ge=0)
+    commission_rate: Optional[Decimal] = Field(default=None, ge=0)
     is_active: Optional[bool] = None
 
 
-class CategoryOut(CategoryBase):
+class CategoryRead(CategoryBase):
     id: str
     created_at: datetime
     updated_at: datetime

@@ -16,3 +16,5 @@ uvicorn
 python-multipart
 blinker==1.6.2
 seleniumbase
+httpx
+pytest
