@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analiza opłacalności | Jolly Jesters</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #8b5cf6;
+      --accent-2: #22d3ee;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --border: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.12), transparent 30%),
+                  radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.12), transparent 25%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .shell {
+      width: min(1100px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.45);
+      backdrop-filter: blur(4px);
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+    }
+    p.lead { color: var(--muted); margin-top: 6px; }
+    form { margin-top: 20px; display: grid; gap: 16px; }
+    label { font-weight: 700; font-size: 13px; letter-spacing: 0.01em; color: var(--muted); text-transform: uppercase; }
+    select, input[type="file"], .modes {
+      width: 100%;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text);
+    }
+    .modes { display: flex; gap: 10px; }
+    .mode {
+      flex: 1;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .mode input { accent-color: var(--accent); }
+    .mode:hover { border-color: var(--accent); transform: translateY(-1px); }
+    button {
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: #0b0f1a;
+      border: none;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+    }
+    button:hover { transform: translateY(-1px); }
+    .status-panel {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: #0d1424;
+    }
+    .status-row { display: flex; gap: 10px; margin-top: 6px; color: var(--muted); font-size: 14px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .muted { color: var(--muted); }
+    a.download {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      color: var(--accent-2);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .error { color: #f87171; margin-top: 8px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Analiza opłacalności Allegro</h1>
+    <p class="lead">Wgraj plik, wybierz kategorię i tryb. Analiza ruszy w tle, a wynik pobierzesz jako Excel.</p>
+
+    <form id="upload-form">
+      <div>
+        <label for="category">Kategoria</label>
+        <select id="category" name="category_id" required></select>
+      </div>
+      <div>
+        <label for="file">Plik (xlsx / csv)</label>
+        <input id="file" type="file" name="file" accept=".xlsx,.xls,.csv" required />
+      </div>
+      <div>
+        <label>Tryb</label>
+        <div class="modes">
+          <label class="mode">
+            <input type="radio" name="mode" value="mixed" checked />
+            <div>
+              <div><strong>Mixed</strong></div>
+              <div class="muted">Offline + odświeżenie jeśli dane są stare</div>
+            </div>
+          </label>
+          <label class="mode">
+            <input type="radio" name="mode" value="offline" />
+            <div>
+              <div><strong>Offline</strong></div>
+              <div class="muted">Bez scrapingu, tylko dane z bazy</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div>
+        <button type="submit">Uruchom analizę</button>
+      </div>
+      <div class="error" id="error"></div>
+    </form>
+
+    <div class="status-panel" id="status-panel" style="display:none;">
+      <div class="pill">Run ID: <span id="run-id"></span></div>
+      <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
+      <div class="status-row"><strong>Przetworzono:</strong> <span id="run-progress"></span></div>
+      <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
+      <a class="download" id="download-link" href="#" style="display:none;">⬇ Pobierz raport</a>
+    </div>
+  </div>
+
+  <script>
+    const categorySelect = document.getElementById('category');
+    const form = document.getElementById('upload-form');
+    const errorBox = document.getElementById('error');
+    const panel = document.getElementById('status-panel');
+    const runIdEl = document.getElementById('run-id');
+    const runStatusEl = document.getElementById('run-status');
+    const runProgressEl = document.getElementById('run-progress');
+    const runErrorEl = document.getElementById('run-error');
+    const downloadLink = document.getElementById('download-link');
+    let pollTimer = null;
+
+    async function loadCategories() {
+      const res = await fetch('/api/v1/categories/');
+      if (!res.ok) throw new Error('Nie udało się pobrać kategorii');
+      const data = await res.json();
+      categorySelect.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    async function pollStatus(runId) {
+      clearInterval(pollTimer);
+      const fetchStatus = async () => {
+        const res = await fetch(`/api/v1/analysis/${runId}`);
+        if (!res.ok) {
+          runStatusEl.textContent = 'błąd';
+          return;
+        }
+        const data = await res.json();
+        runStatusEl.textContent = data.status;
+        runProgressEl.textContent = `${data.processed_products}/${data.total_products}`;
+        runErrorEl.textContent = data.error_message || '';
+
+        if (data.status === 'completed') {
+          downloadLink.href = `/api/v1/analysis/${runId}/download`;
+          downloadLink.style.display = 'inline-flex';
+          clearInterval(pollTimer);
+        }
+      };
+      await fetchStatus();
+      pollTimer = setInterval(fetchStatus, 3000);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.textContent = '';
+      downloadLink.style.display = 'none';
+      const fd = new FormData(form);
+      const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        errorBox.textContent = data.detail || 'Nie udało się uruchomić analizy';
+        return;
+      }
+      const data = await res.json();
+      panel.style.display = 'block';
+      runIdEl.textContent = data.analysis_run_id;
+      runStatusEl.textContent = data.status;
+      runProgressEl.textContent = '0/0';
+      runErrorEl.textContent = '';
+      await pollStatus(data.analysis_run_id);
+    });
+
+    loadCategories().catch(err => { errorBox.textContent = err.message; });
+  </script>
+</body>
+</html>

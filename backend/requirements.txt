@@ -1,0 +1,18 @@
+# Plik: backend/requirements.txt
+fastapi
+uvicorn[standard]
+jinja2
+SQLAlchemy
+psycopg2-binary
+alembic
+pandas
+celery[redis]
+redis
+python-dotenv
+requests
+openpyxl
+pydantic
+uvicorn
+python-multipart
+blinker==1.6.2
+seleniumbase

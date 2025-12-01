@@ -1,0 +1,112 @@
+# Plik: docker-compose.yml
+# usunieto 'version: "3.9"' (przestarzale)
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: pilot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pilot
+      POSTGRES_PASSWORD: pilot
+      POSTGRES_DB: pilotdb
+      SELENIUM_HEADED: "true"
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pilot -d pilotdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: pilot_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: pilot_backend
+    env_file:
+      - ./backend/.env
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend:/app
+      - workspace_data:/workspace
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      
+  worker:
+    build:
+      context: ./backend
+    container_name: pilot_worker
+    env_file:
+      - ./backend/.env
+    command: >
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis"
+    volumes:
+      - ./backend:/app
+      - workspace_data:/workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      
+  scraper_worker:
+    build:
+      context: ./backend
+    container_name: pilot_scraper_worker
+    # --- POPRAWKA: dodalem env_file zeby wczytac proxy ---
+    env_file:
+      - ./backend/.env
+    command: >
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1"
+    volumes:
+      - ./backend:/app
+      - workspace_data:/workspace
+    shm_size: 2gb # potrzebne dla selenium/chrome
+    environment:
+      - WORKSPACE=/workspace
+      # reszta (CELERY_BROKER_URL, DATABASE_URL) jest juz w .env
+      
+
+    dns:
+      - 8.8.8.8
+    depends_on:
+      postgres: 
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: pilot_frontend
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  workspace_data: {}
