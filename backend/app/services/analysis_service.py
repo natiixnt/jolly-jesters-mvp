@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -17,67 +17,21 @@ from app.models.product import Product
 from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
 from app.services.profitability_service import calculate_profitability
+from app.services.schemas import ScrapingStrategyConfig
 from app.services.scraping_service import fetch_allegro_data
-from app.utils.excel_reader import ParsedRow, read_input_file
 
 
 def _stale_cutoff() -> datetime:
     return datetime.now(timezone.utc) - timedelta(days=settings.stale_days)
 
 
-def start_run(db: Session, category: Category, filename: str) -> AnalysisRun:
-    run = AnalysisRun(
-        category_id=category.id,
-        input_file_name=filename,
-        status=AnalysisStatus.pending,
-    )
-    db.add(run)
-    db.commit()
-    db.refresh(run)
-    return run
-
-
-def _ensure_product(db: Session, category: Category, row: ParsedRow) -> Product:
-    product = (
-        db.query(Product)
-        .filter(Product.category_id == category.id, Product.ean == row.ean)
-        .first()
-    )
-    if not product:
-        product = Product(
-            category_id=category.id,
-            ean=row.ean,
-            name=row.name or row.ean,
-            purchase_price=row.purchase_price,
-        )
-        db.add(product)
-        db.flush()
-    else:
-        product.name = row.name or product.name
-        product.purchase_price = row.purchase_price
-    return product
-
-
-def _ensure_effective_state(db: Session, product: Product) -> ProductEffectiveState:
+def _ensure_product_state(db: Session, product: Product) -> ProductEffectiveState:
     state = product.effective_state
     if not state:
         state = ProductEffectiveState(product_id=product.id, is_stale=True)
         db.add(state)
         db.flush()
     return state
-
-
-def _prepare_cached_result(
-    state: ProductEffectiveState,
-) -> Tuple[Decimal | None, int | None, bool]:
-    if not state.last_market_data:
-        return None, None, state.is_not_found
-    market = state.last_market_data
-    return (
-        Decimal(market.allegro_price) if market.allegro_price is not None else None,
-        market.allegro_sold_count,
-        market.is_not_found,
-    )
 
 
 def _persist_market_data(
@@ -89,15 +43,14 @@ def _persist_market_data(
     is_not_found: bool,
     raw_payload: dict | None,
 ) -> ProductMarketData:
-    source_value = (
-        source if source in MarketDataSource._value2member_map_ else MarketDataSource.scraping.value
-    )
+    source_value = source if source in MarketDataSource._value2member_map_ else MarketDataSource.scraping.value
     safe_payload = raw_payload
     try:
         if raw_payload is not None:
             json.dumps(raw_payload, default=str)
     except TypeError:
         safe_payload = {"raw": str(raw_payload)}
+
     md = ProductMarketData(
         product_id=product.id,
         allegro_price=price,
@@ -130,6 +83,21 @@ def _update_effective_state(
     state.last_analysis_at = now
 
 
+def _prepare_cached_result(state: ProductEffectiveState) -> Tuple[Decimal | None, int | None, bool]:
+    if not state.last_market_data:
+        return None, None, state.is_not_found
+    market = state.last_market_data
+    return (
+        Decimal(market.allegro_price) if market.allegro_price is not None else None,
+        market.allegro_sold_count,
+        market.is_not_found,
+    )
+
+
+def _fetch_with_strategy(ean: str, strategy: ScrapingStrategyConfig):
+    return asyncio.run(fetch_allegro_data(ean, strategy))
+
+
 def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
     run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
     if not run:
@@ -143,49 +111,59 @@ def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
         db.commit()
         return
 
-    file_path = Path(settings.upload_dir) / run.input_file_name
+    items: List[AnalysisRunItem] = (
+        db.query(AnalysisRunItem)
+        .filter(AnalysisRunItem.analysis_run_id == run.id)
+        .order_by(AnalysisRunItem.row_number)
+        .all()
+    )
+    if not items:
+        run.status = AnalysisStatus.failed
+        run.error_message = "Brak pozycji do analizy"
+        run.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        return
+
     run.status = AnalysisStatus.running
     run.error_message = None
     run.started_at = datetime.now(timezone.utc)
     db.commit()
 
-    try:
-        rows = read_input_file(file_path)
-    except Exception as exc:
-        run.status = AnalysisStatus.failed
-        run.error_message = str(exc)
-        run.finished_at = datetime.now(timezone.utc)
-        db.commit()
-        return
-
-    run.total_products = len(rows)
-    db.commit()
-
     cutoff = _stale_cutoff()
+    strategy = ScrapingStrategyConfig(
+        use_api=run.use_api,
+        use_cloud_http=run.use_cloud_http,
+        use_local_scraper=run.use_local_scraper,
+    )
 
-    for row in rows:
-        product = _ensure_product(db, category, row)
-        state = _ensure_effective_state(db, product)
+    for item in items:
+        if item.source == AnalysisItemSource.error:
+            continue
+
+        product = (
+            db.query(Product)
+            .filter(Product.id == item.product_id)
+            .first()
+        )
+        if not product:
+            item.source = AnalysisItemSource.error
+            item.error_message = "Brak produktu dla wiersza"
+            run.processed_products += 1
+            db.commit()
+            continue
+
+        state = _ensure_product_state(db, product)
         state.is_stale = not state.last_fetched_at or state.last_fetched_at < cutoff
 
         try:
             if mode == "offline":
-                item = _process_offline_row(db, run, category, product, state, row)
+                _process_offline_item(db, run, category, product, state, item)
             else:
-                item = _process_mixed_row(db, run, category, product, state, row, cutoff)
-        except Exception as exc:  # capture per-row errors
-            item = AnalysisRunItem(
-                analysis_run_id=run.id,
-                product_id=product.id,
-                row_number=row.row_number,
-                ean=row.ean,
-                input_name=row.name,
-                input_purchase_price=row.purchase_price,
-                source=AnalysisItemSource.error,
-                error_message=str(exc),
-            )
+                _process_mixed_item(db, run, category, product, state, item, cutoff, strategy)
+        except Exception as exc:
+            item.source = AnalysisItemSource.error
+            item.error_message = str(exc)
 
-        db.add(item)
         run.processed_products += 1
         db.commit()
 
@@ -194,14 +172,14 @@ def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
     db.commit()
 
 
-def _process_offline_row(
+def _process_offline_item(
     db: Session,
     run: AnalysisRun,
     category: Category,
     product: Product,
     state: ProductEffectiveState,
-    row: ParsedRow,
-) -> AnalysisRunItem:
+    item: AnalysisRunItem,
+) -> None:
     price, sold_count, is_not_found = _prepare_cached_result(state)
     source = AnalysisItemSource.not_found if is_not_found else AnalysisItemSource.baza
 
@@ -209,34 +187,27 @@ def _process_offline_row(
         score = None
         label = ProfitabilityLabel.nieokreslony
     else:
-        score, label = calculate_profitability(row.purchase_price, price, sold_count, category)
+        score, label = calculate_profitability(item.input_purchase_price, price, sold_count, category)
 
     _update_effective_state(state, state.last_market_data, score, label)
 
-    return AnalysisRunItem(
-        analysis_run_id=run.id,
-        product_id=product.id,
-        row_number=row.row_number,
-        ean=row.ean,
-        input_name=row.name,
-        input_purchase_price=row.purchase_price,
-        source=source,
-        allegro_price=price,
-        allegro_sold_count=sold_count,
-        profitability_score=score,
-        profitability_label=label,
-    )
+    item.source = source
+    item.allegro_price = price
+    item.allegro_sold_count = sold_count
+    item.profitability_score = score
+    item.profitability_label = label
 
 
-def _process_mixed_row(
+def _process_mixed_item(
     db: Session,
     run: AnalysisRun,
     category: Category,
     product: Product,
     state: ProductEffectiveState,
-    row: ParsedRow,
+    item: AnalysisRunItem,
     cutoff: datetime,
-) -> AnalysisRunItem:
+    strategy: ScrapingStrategyConfig,
+) -> None:
     use_cached = state.last_fetched_at and not state.is_not_found and state.last_fetched_at >= cutoff
     cached_not_found = state.last_fetched_at and state.is_not_found and state.last_fetched_at >= cutoff
 
@@ -244,39 +215,30 @@ def _process_mixed_row(
         score = None
         label = ProfitabilityLabel.nieokreslony
         _update_effective_state(state, state.last_market_data, score, label)
-        return AnalysisRunItem(
-            analysis_run_id=run.id,
-            product_id=product.id,
-            row_number=row.row_number,
-            ean=row.ean,
-            input_name=row.name,
-            input_purchase_price=row.purchase_price,
-            source=AnalysisItemSource.not_found,
-            allegro_price=None,
-            allegro_sold_count=None,
-            profitability_score=score,
-            profitability_label=label,
-        )
+        item.source = AnalysisItemSource.not_found
+        item.allegro_price = None
+        item.allegro_sold_count = None
+        item.profitability_score = score
+        item.profitability_label = label
+        return
 
     if use_cached:
         price, sold_count, _ = _prepare_cached_result(state)
-        score, label = calculate_profitability(row.purchase_price, price, sold_count, category)
+        score, label = calculate_profitability(item.input_purchase_price, price, sold_count, category)
         _update_effective_state(state, state.last_market_data, score, label)
-        return AnalysisRunItem(
-            analysis_run_id=run.id,
-            product_id=product.id,
-            row_number=row.row_number,
-            ean=row.ean,
-            input_name=row.name,
-            input_purchase_price=row.purchase_price,
-            source=AnalysisItemSource.baza,
-            allegro_price=price,
-            allegro_sold_count=sold_count,
-            profitability_score=score,
-            profitability_label=label,
-        )
+        item.source = AnalysisItemSource.baza
+        item.allegro_price = price
+        item.allegro_sold_count = sold_count
+        item.profitability_score = score
+        item.profitability_label = label
+        return
 
-    result = fetch_allegro_data(row.ean)
+    result = _fetch_with_strategy(item.ean, strategy)
+    if result.is_temporary_error:
+        item.source = AnalysisItemSource.error
+        item.error_message = json.dumps(result.raw_payload, ensure_ascii=False)
+        return
+
     price = result.price
     sold_count = result.sold_count
 
@@ -293,37 +255,16 @@ def _process_mixed_row(
     if result.is_not_found:
         score = None
         label = ProfitabilityLabel.nieokreslony
-        source = AnalysisItemSource.not_found
+        source_val = AnalysisItemSource.not_found
     else:
-        score, label = calculate_profitability(row.purchase_price, price, sold_count, category)
-        source = AnalysisItemSource.scraping
+        score, label = calculate_profitability(item.input_purchase_price, price, sold_count, category)
+        source_val = AnalysisItemSource.scraping
 
     _update_effective_state(state, market_data, score, label)
 
-    return AnalysisRunItem(
-        analysis_run_id=run.id,
-        product_id=product.id,
-        row_number=row.row_number,
-        ean=row.ean,
-        input_name=row.name,
-        input_purchase_price=row.purchase_price,
-        source=source,
-        allegro_price=price,
-        allegro_sold_count=sold_count,
-        profitability_score=score,
-        profitability_label=label,
-        error_message=None,
-    )
-
-
-def get_run_status(db: Session, run_id: int) -> AnalysisRun | None:
-    return db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
-
-
-def get_run_items(db: Session, run_id: int) -> List[AnalysisRunItem]:
-    return (
-        db.query(AnalysisRunItem)
-        .filter(AnalysisRunItem.analysis_run_id == run_id)
-        .order_by(AnalysisRunItem.row_number)
-        .all()
-    )
+    item.source = source_val
+    item.allegro_price = price
+    item.allegro_sold_count = sold_count
+    item.profitability_score = score
+    item.profitability_label = label
+    item.error_message = None
