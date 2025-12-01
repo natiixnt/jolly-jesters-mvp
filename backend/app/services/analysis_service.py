@@ -236,7 +236,10 @@ def _process_mixed_item(
     result = _fetch_with_strategy(item.ean, strategy)
     if result.is_temporary_error:
         item.source = AnalysisItemSource.error
-        item.error_message = json.dumps(result.raw_payload, ensure_ascii=False)
+        try:
+            item.error_message = json.dumps(result.raw_payload, ensure_ascii=False)
+        except TypeError:
+            item.error_message = str(result.raw_payload)
         return
 
     price = result.price

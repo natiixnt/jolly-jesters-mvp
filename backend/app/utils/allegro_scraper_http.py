@@ -20,7 +20,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
 
     proxies = None
     if proxy:
-        proxies = {"http://": proxy, "https://": proxy}
+        proxies = {"http": proxy, "https": proxy}
 
     try:
         async with httpx.AsyncClient(timeout=settings.proxy_timeout, proxies=proxies) as client:
