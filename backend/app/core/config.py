@@ -27,9 +27,11 @@ class Settings(BaseSettings):
     allegro_api_client_id: Optional[str] = Field(default=None, env="ALLEGRO_API_CLIENT_ID")
     allegro_api_client_secret: Optional[str] = Field(default=None, env="ALLEGRO_API_CLIENT_SECRET")
     allegro_api_token: Optional[str] = Field(default=None, env="ALLEGRO_API_TOKEN")
-    proxy_list: List[str] = Field(default_factory=list, env="PROXY_LIST")
+    proxy_list_raw: Optional[str] = Field(default=None, env="PROXY_LIST")
     proxy_timeout: float = Field(default=15.0)
     scraping_retries: int = Field(default=2)
+    local_scraper_enabled: bool = Field(default=False, env="LOCAL_SCRAPER_ENABLED")
+    local_scraper_url: Optional[str] = Field(default=None, env="LOCAL_SCRAPER_URL")
 
     sqlalchemy_echo: bool = Field(default=False)
 
@@ -38,13 +40,13 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
-    @validator("proxy_list", pre=True)
-    def _split_proxy_list(cls, value):
-        if not value:
+    @property
+    def proxy_list(self) -> List[str]:
+        if not self.proxy_list_raw:
             return []
-        if isinstance(value, list):
-            return value
-        return [item.strip() for item in str(value).split(",") if item.strip()]
+        if isinstance(self.proxy_list_raw, list):
+            return self.proxy_list_raw
+        return [item.strip() for item in str(self.proxy_list_raw).split(",") if item.strip()]
 
     @property
     def upload_dir(self) -> Path:
@@ -65,6 +67,23 @@ class Settings(BaseSettings):
     @property
     def celery_backend(self) -> str:
         return self.celery_result_backend or self.redis_url
+
+    # Friendly aliases mirroring env var names (used by some callers/tests)
+    @property
+    def ALLEGRO_API_TOKEN(self) -> Optional[str]:
+        return self.allegro_api_token
+
+    @property
+    def PROXY_LIST(self) -> List[str]:
+        return self.proxy_list
+
+    @property
+    def LOCAL_SCRAPER_ENABLED(self) -> bool:
+        return bool(self.local_scraper_enabled)
+
+    @property
+    def LOCAL_SCRAPER_URL(self) -> Optional[str]:
+        return self.local_scraper_url
 
 
 settings = Settings()

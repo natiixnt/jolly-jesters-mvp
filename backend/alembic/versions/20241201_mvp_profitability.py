@@ -1,7 +1,7 @@
 """Add profitability analysis schema with categories and analysis runs
 
 Revision ID: 20241201_mvp_profitability
-Revises: 15afad0d971b
+Revises: None
 Create Date: 2025-12-01
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "20241201_mvp_profitability"
-down_revision: Union[str, Sequence[str], None] = "15afad0d971b"
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -161,6 +161,9 @@ def upgrade() -> None:
         sa.Column(
             "processed_products", sa.Integer(), nullable=False, server_default="0"
         ),
+        sa.Column("use_api", sa.Boolean(), nullable=False, server_default="true"),
+        sa.Column("use_cloud_http", sa.Boolean(), nullable=False, server_default="true"),
+        sa.Column("use_local_scraper", sa.Boolean(), nullable=False, server_default="true"),
     )
     op.create_index("ix_analysis_runs_category", "analysis_runs", ["category_id"])
 
@@ -206,13 +209,13 @@ def upgrade() -> None:
             "product_id",
             postgresql.UUID(as_uuid=True),
             sa.ForeignKey("products.id"),
-            nullable=False,
+            nullable=True,
             index=True,
         ),
         sa.Column("row_number", sa.Integer(), nullable=False),
         sa.Column("ean", sa.String(length=64), nullable=False),
         sa.Column("input_name", sa.Text(), nullable=True),
-        sa.Column("input_purchase_price", sa.Numeric(12, 4), nullable=False),
+        sa.Column("input_purchase_price", sa.Numeric(12, 4), nullable=True),
         sa.Column("source", sa.Enum(name="analysisitemsource"), nullable=False),
         sa.Column("allegro_price", sa.Numeric(12, 4), nullable=True),
         sa.Column("allegro_sold_count", sa.Integer(), nullable=True),

@@ -1,57 +1,101 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from decimal import Decimal
-from typing import Optional
+from decimal import Decimal, InvalidOperation
+from typing import Any, Dict
 
-import requests
+import httpx
 
 from app.core.config import settings
+from app.services.schemas import AllegroResult
+
+API_URL = "https://api.allegro.pl/public/allegro-offers"  # placeholder endpoint
 
 
-@dataclass
-class AllegroAPIStruct:
-    price: Optional[Decimal]
-    sold_count: Optional[int]
-    raw_payload: dict
+async def fetch_from_allegro_api(ean: str) -> AllegroResult:
+    token = settings.ALLEGRO_API_TOKEN
+    if not token:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": "missing_token", "source": "api"},
+            source="api",
+        )
 
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+    }
 
-class AllegroAPIClient:
-    def __init__(self, token: Optional[str] = None):
-        self.token = token or settings.allegro_api_token
+    try:
+        async with httpx.AsyncClient(timeout=settings.proxy_timeout) as client:
+            resp = await client.get(API_URL, params={"ean": ean}, headers=headers)
+    except Exception as exc:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": str(exc), "source": "api"},
+            source="api",
+        )
 
-    def fetch_by_ean(self, ean: str) -> Optional[AllegroAPIStruct]:
-        """Placeholder Allegro API call. Returns None when API token is missing.
+    payload: Dict[str, Any] = {"status_code": resp.status_code}
+    try:
+        payload_body = resp.json()
+        payload["body"] = payload_body
+    except Exception:
+        payload["body"] = resp.text
 
-        The call is intentionally minimal for MVP; it can be extended with
-        authenticated requests once real Allegro credentials are available.
-        """
+    if resp.status_code == 404:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=True,
+            is_temporary_error=False,
+            raw_payload=payload,
+            source="api",
+        )
 
-        if not self.token:
-            return None
-
-        try:
-            resp = requests.get(
-                "https://api.allegro.pl/public/allegro-offers",
-                params={"ean": ean},
-                headers={"Authorization": f"Bearer {self.token}"},
-                timeout=10,
-            )
-            if resp.status_code != 200:
-                return AllegroAPIStruct(None, None, {"status": resp.status_code})
-            payload = resp.json()
-        except Exception:
-            return AllegroAPIStruct(None, None, {"status": "error"})
-
+    if resp.status_code == 200:
+        offers = (payload.get("body") or {}).get("offers") if isinstance(payload.get("body"), dict) else []
         price = None
         sold_count = None
         try:
-            offers = payload.get("offers") or []
             if offers:
                 price_value = offers[0].get("price")
+                sold_value = offers[0].get("soldCount")
                 price = Decimal(str(price_value)) if price_value is not None else None
-                sold_count = offers[0].get("soldCount")
-        except Exception:
-            pass
+                sold_count = int(sold_value) if sold_value is not None else None
+        except (InvalidOperation, ValueError, TypeError):
+            price = None
+            sold_count = None
 
-        return AllegroAPIStruct(price=price, sold_count=sold_count, raw_payload=payload)
+        return AllegroResult(
+            price=price,
+            sold_count=sold_count,
+            is_not_found=price is None and sold_count is None,
+            is_temporary_error=False,
+            raw_payload=payload,
+            source="api",
+        )
+
+    if resp.status_code in (429, 500, 502, 503, 504):
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload=payload,
+            source="api",
+        )
+
+    return AllegroResult(
+        price=None,
+        sold_count=None,
+        is_not_found=False,
+        is_temporary_error=True,
+        raw_payload=payload,
+        source="api",
+    )

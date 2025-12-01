@@ -1,49 +1,72 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import random
 from decimal import Decimal
-from typing import Optional
+from typing import Dict
 
-import requests
+import httpx
 
 from app.core.config import settings
+from app.services.schemas import AllegroResult
 
 
-@dataclass
-class AllegroScrapeResult:
-    price: Optional[Decimal]
-    sold_count: Optional[int]
-    is_not_found: bool
-    raw_payload: dict
-    source: str = "scraping"
-
-
-def scrape_listing(ean: str) -> AllegroScrapeResult:
-    """Very small HTTP scraper placeholder.
-
-    The implementation intentionally avoids aggressive parsing; it only
-    checks whether the Allegro listing search page is reachable. Real
-    parsing can be added later without changing the public interface.
-    """
-
-    url = f"https://allegro.pl/listing"
+async def fetch_via_http_scraper(ean: str) -> AllegroResult:
+    url = "https://allegro.pl/listing"
     params = {"string": ean}
 
-    proxies = None
+    proxy = None
     if settings.proxy_list:
-        proxies = {"http": settings.proxy_list[0], "https": settings.proxy_list[0]}
+        proxy = random.choice(settings.proxy_list)
+
+    proxies = None
+    if proxy:
+        proxies = {"http://": proxy, "https://": proxy}
 
     try:
-        resp = requests.get(url, params=params, timeout=settings.proxy_timeout, proxies=proxies)
-        not_found = resp.status_code == 404
-        payload = {"status": resp.status_code}
+        async with httpx.AsyncClient(timeout=settings.proxy_timeout, proxies=proxies) as client:
+            resp = await client.get(url, params=params)
     except Exception as exc:
-        not_found = True
-        payload = {"error": str(exc)}
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": str(exc), "source": "cloud_http"},
+            source="cloud_http",
+        )
 
-    return AllegroScrapeResult(
+    payload: Dict[str, object] = {"status_code": resp.status_code}
+    try:
+        payload["body_snippet"] = resp.text[:500]
+    except Exception:
+        pass
+
+    if resp.status_code == 404:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=True,
+            is_temporary_error=False,
+            raw_payload=payload,
+            source="cloud_http",
+        )
+
+    if resp.status_code in (403, 429) or resp.status_code >= 500:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload=payload,
+            source="cloud_http",
+        )
+
+    # No HTML parsing yet - treat as temporary to allow local scraper fallback
+    return AllegroResult(
         price=None,
         sold_count=None,
-        is_not_found=not_found,
-        raw_payload=payload,
+        is_not_found=False,
+        is_temporary_error=True,
+        raw_payload=payload | {"note": "unparsed_html", "source": "cloud_http"},
+        source="cloud_http",
     )

@@ -7,12 +7,15 @@ from app.models.enums import ProfitabilityLabel
 
 
 def calculate_profitability(
-    purchase_price: Decimal,
+    purchase_price: Decimal | None,
     allegro_price: Decimal | None,
     sold_count: int | None,
     category: Category,
 ) -> tuple[Decimal | None, ProfitabilityLabel]:
-    """Return profitability score and label based on category settings."""
+    """Compute profitability based on category multiplier and commission."""
+
+    if purchase_price is None or purchase_price <= 0:
+        return None, ProfitabilityLabel.nieokreslony
 
     if allegro_price is None:
         return None, ProfitabilityLabel.nieokreslony
@@ -22,14 +25,8 @@ def calculate_profitability(
 
     net_revenue = allegro_price * (Decimal("1") - commission_rate)
     margin = net_revenue - purchase_price
-
-    if purchase_price is None or purchase_price == 0:
-        return None, ProfitabilityLabel.nieokreslony
-
     score = margin / purchase_price
-    if score >= multiplier:
-        label = ProfitabilityLabel.oplacalny
-    else:
-        label = ProfitabilityLabel.nieoplacalny
 
-    return score, label
+    if score >= multiplier:
+        return score, ProfitabilityLabel.oplacalny
+    return score, ProfitabilityLabel.nieoplacalny

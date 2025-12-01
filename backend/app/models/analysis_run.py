@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -18,6 +18,9 @@ class AnalysisRun(Base):
     error_message = Column(Text, nullable=True)
     total_products = Column(Integer, nullable=False, default=0)
     processed_products = Column(Integer, nullable=False, default=0)
+    use_api = Column(Boolean, nullable=False, server_default="true", default=True)
+    use_cloud_http = Column(Boolean, nullable=False, server_default="true", default=True)
+    use_local_scraper = Column(Boolean, nullable=False, server_default="true", default=True)
 
     category = relationship("Category", back_populates="analysis_runs")
     items = relationship(

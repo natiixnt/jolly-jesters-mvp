@@ -2,80 +2,84 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
+from io import BytesIO
 from typing import List, Optional
 
 import pandas as pd
 
 
 @dataclass
-class ParsedRow:
+class InputRow:
     row_number: int
     ean: str
     name: str
-    purchase_price: Decimal
+    purchase_price: Optional[Decimal]
+    is_valid: bool
+    error: Optional[str]
 
 
-def _normalize_ean(raw: Optional[str]) -> Optional[str]:
-    if raw is None:
-        return None
-    digits = "".join(ch for ch in str(raw).strip() if ch.isdigit())
-    digits = digits.lstrip("0")
-    return digits or None
+def _normalize_column(col: str) -> str:
+    return str(col).strip().lower().replace(" ", "").replace("_", "")
 
 
-def _parse_decimal(value: object) -> Optional[Decimal]:
+def _parse_price(value: object) -> Optional[Decimal]:
     if value is None:
         return None
+    raw = str(value).strip().replace(",", ".")
     try:
-        cleaned = str(value).strip().replace(",", ".")
-        cleaned = "".join(ch for ch in cleaned if (ch.isdigit() or ch == "." or ch == "-"))
+        cleaned = "".join(ch for ch in raw if ch.isdigit() or ch == "." or ch == "-")
         if cleaned in {"", "-"}:
             return None
-        return Decimal(cleaned)
+        dec = Decimal(cleaned)
+        return dec
     except (InvalidOperation, ValueError):
         return None
 
 
-def _detect_column(columns, keys) -> Optional[str]:
-    for col in columns:
-        if any(key in str(col).lower() for key in keys):
-            return col
-    return None
+def read_excel_file(file_bytes: bytes) -> List[InputRow]:
+    try:
+        df = pd.read_excel(BytesIO(file_bytes), dtype=str)
+    except Exception as exc:
+        raise ValueError(f"Nie udało się wczytać pliku Excel: {exc}")
 
+    normalized_cols = {_normalize_column(c): c for c in df.columns}
+    required = {"ean", "name", "purchaseprice"}
+    if not required.issubset(normalized_cols.keys()):
+        missing = required - set(normalized_cols.keys())
+        raise ValueError(f"Brak wymaganych kolumn: {', '.join(sorted(missing))}")
 
-def read_input_file(path: Path) -> List[ParsedRow]:
-    if not path.exists():
-        raise FileNotFoundError(f"Input file not found: {path}")
+    ean_col = normalized_cols["ean"]
+    name_col = normalized_cols["name"]
+    price_col = normalized_cols["purchaseprice"]
 
-    loader = pd.read_excel if path.suffix.lower() in {".xls", ".xlsx"} else pd.read_csv
-    df = loader(path, dtype=str)
-    df.columns = [str(c).lower() for c in df.columns]
-
-    ean_col = _detect_column(df.columns, ["ean", "barcode", "kod"])
-    name_col = _detect_column(df.columns, ["name", "nazwa", "title"])
-    price_col = _detect_column(df.columns, ["price", "cena", "purchase", "netto", "cost"])
-
-    if not ean_col or not price_col:
-        raise ValueError("Missing required columns (EAN and price) in uploaded file")
-
-    rows: List[ParsedRow] = []
+    rows: List[InputRow] = []
     for idx, row in df.iterrows():
-        ean = _normalize_ean(row.get(ean_col))
-        price = _parse_decimal(row.get(price_col))
-        if not ean or price is None:
-            continue
-        name = str(row.get(name_col) or "").strip() if name_col else ""
+        ean_raw = (row.get(ean_col) or "").strip()
+        name_raw = (row.get(name_col) or "").strip()
+        price_raw = row.get(price_col)
+
+        ean = ean_raw
+        price = _parse_price(price_raw)
+
+        is_valid = True
+        error = None
+
+        if not ean:
+            is_valid = False
+            error = "Brak EAN"
+        elif price is None or price <= 0:
+            is_valid = False
+            error = "Nieprawidłowa cena zakupu"
+
         rows.append(
-            ParsedRow(
-                row_number=int(idx) + 1,
+            InputRow(
+                row_number=int(idx) + 2,  # include header row offset
                 ean=ean,
-                name=name,
+                name=name_raw,
                 purchase_price=price,
+                is_valid=is_valid,
+                error=error,
             )
         )
-
-    if not rows:
-        raise ValueError("No valid rows found in the uploaded file")
 
     return rows
