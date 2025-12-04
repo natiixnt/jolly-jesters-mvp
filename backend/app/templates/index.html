@@ -33,6 +33,7 @@
       padding: 32px 16px 48px;
     }
     .shell {
+      position: relative;
       max-width: 1200px;
       margin: 0 auto;
       background: var(--panel);
@@ -65,9 +66,14 @@
       display: grid;
       grid-template-columns: 2fr 1fr;
       gap: 16px;
+      align-items: start;
+    }
+    .layout.sidebar-collapsed {
+      grid-template-columns: 1fr;
     }
     @media (max-width: 960px) {
-      .layout { grid-template-columns: 1fr; }
+      .layout,
+      .layout.sidebar-collapsed { grid-template-columns: 1fr; }
     }
     .card {
       background: var(--panel-2);
@@ -184,13 +190,8 @@
       transition: max-width 0.2s ease, width 0.2s ease, opacity 0.2s;
     }
     .sidebar.collapsed {
-      max-width: 42px;
-      width: 42px;
-      padding: 6px;
-      overflow: hidden;
-      border-radius: 12px;
+      display: none;
     }
-    .sidebar.collapsed .sidebar-content { display: none; }
     .sidebar-toggle {
       cursor: pointer;
       border: 1px solid var(--border);
@@ -201,6 +202,18 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+    }
+    .sidebar-restore {
+      position: absolute;
+      right: 10px;
+      top: 96px;
+      background: #0b152b;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 12px 0 0 12px;
+      cursor: pointer;
+      display: none;
     }
     .history-card {
       margin-top: 16px;
@@ -300,6 +313,7 @@
 </head>
 <body>
   <div class="shell">
+    <button class="sidebar-restore" id="sidebar-restore">Panel</button>
     <div class="top">
       <div>
         <h1>MVP: import i analiza produktów</h1>
@@ -308,11 +322,14 @@
       <button class="ghost-btn" id="faq-btn">FAQ / pomoc</button>
     </div>
 
-    <div class="layout">
-      <div class="card">
+    <div class="layout" id="layout">
+      <div class="card main-card" id="main-card">
         <form id="upload-form">
           <div>
-            <label for="category-select">Kategoria</label>
+            <label for="category-select" style="display:flex; align-items:center; gap:8px;">
+              <span>Kategoria</span>
+              <button type="button" class="ghost-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
+            </label>
             <select id="category-select" name="category_id" required></select>
             <div class="helper" id="category-info"></div>
           </div>
@@ -506,6 +523,8 @@
     const faqClose = document.getElementById('faq-close');
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarRestore = document.getElementById('sidebar-restore');
+    const layout = document.getElementById('layout');
     const historyList = document.getElementById('history-list');
     const historyEmpty = document.getElementById('history-empty');
     const historyToggle = document.getElementById('history-toggle');
@@ -732,11 +751,13 @@
       await saveSettings('ttl');
     });
 
-    addCategoryBtn.addEventListener('click', () => {
+    function openCategoryModal() {
       categoryModal.style.display = 'flex';
       categoryModalError.textContent = '';
       categoryModalForm.reset();
-    });
+    }
+    addCategoryBtn.addEventListener('click', openCategoryModal);
+    document.getElementById('main-add-category').addEventListener('click', openCategoryModal);
     categoryCancel.addEventListener('click', () => {
       categoryModal.style.display = 'none';
     });
@@ -775,9 +796,27 @@
     faqClose.addEventListener('click', () => { faqModal.style.display = 'none'; });
     faqModal.addEventListener('click', (e) => { if (e.target === faqModal) faqModal.style.display = 'none'; });
 
+    function collapseSidebar() {
+      sidebar.classList.add('collapsed');
+      layout.classList.add('sidebar-collapsed');
+      sidebarRestore.style.display = 'block';
+    }
+    function expandSidebar() {
+      sidebar.classList.remove('collapsed');
+      layout.classList.remove('sidebar-collapsed');
+      sidebarRestore.style.display = 'none';
+    }
     sidebarToggle.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      sidebarToggle.textContent = sidebar.classList.contains('collapsed') ? 'Rozwiń' : 'Zwiń';
+      if (sidebar.classList.contains('collapsed')) {
+        expandSidebar();
+      } else {
+        collapseSidebar();
+      }
+      sidebarToggle.textContent = sidebar.classList.contains('collapsed') ? 'Rozwiń panel' : 'Zwiń panel';
+    });
+    sidebarRestore.addEventListener('click', () => {
+      expandSidebar();
+      sidebarToggle.textContent = 'Zwiń panel';
     });
 
     historyToggle.addEventListener('click', () => {
