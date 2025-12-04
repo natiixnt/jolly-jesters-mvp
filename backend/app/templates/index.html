@@ -83,6 +83,18 @@
     }
     form { display: grid; gap: 16px; }
     label { font-weight: 700; font-size: 13px; letter-spacing: 0.01em; color: var(--muted); text-transform: uppercase; }
+    .icon-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 16px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
     select, input[type="file"], .modes, .checkboxes, input[type="number"], input[type="text"] {
       width: 100%;
       background: #0b152b;
@@ -205,15 +217,19 @@
     }
     .sidebar-restore {
       position: absolute;
-      right: 10px;
-      top: 96px;
+      right: 0;
+      top: 110px;
       background: #0b152b;
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 8px 10px;
+      padding: 10px 10px;
       border-radius: 12px 0 0 12px;
       cursor: pointer;
       display: none;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-size: 12px;
+      letter-spacing: 0.05em;
     }
     .history-card {
       margin-top: 16px;
@@ -319,7 +335,7 @@
         <h1>MVP: import i analiza produktów</h1>
         <p class="lead">MVP analizy opłacalności Allegro. Wgraj plik, wybierz kategorię i strategię scrapera.</p>
       </div>
-      <button class="ghost-btn" id="faq-btn">FAQ / pomoc</button>
+        <button class="ghost-btn" id="faq-btn">FAQ / pomoc</button>
     </div>
 
     <div class="layout" id="layout">
@@ -328,7 +344,7 @@
           <div>
             <label for="category-select" style="display:flex; align-items:center; gap:8px;">
               <span>Kategoria</span>
-              <button type="button" class="ghost-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
+              <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
             </label>
             <select id="category-select" name="category_id" required></select>
             <div class="helper" id="category-info"></div>
@@ -390,9 +406,9 @@
       </div>
 
       <div class="card sidebar" id="sidebar">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; position: relative;">
           <span style="font-weight:700;">Panel</span>
-          <button class="sidebar-toggle" id="sidebar-toggle">Zwiń</button>
+          <button class="sidebar-toggle" id="sidebar-toggle" title="Zwiń panel">«</button>
         </div>
         <div class="sidebar-content" style="display:grid; gap:18px;">
           <div>
@@ -486,6 +502,15 @@
       <div class="faq-item">
         <strong>Co zrobić, gdy analiza kończy się błędem</strong>
         <div>Sprawdź komunikat w sekcji statusu. Upewnij się, że co najmniej jedna strategia scrapera jest włączona i że kategoria jest aktywna.</div>
+      </div>
+      <div class="faq-item">
+        <strong>Co oznaczają pola kategorii: nazwa, mnożnik opłacalności i prowizja Allegro?</strong>
+        <div>
+          <div><em>Nazwa kategorii</em> – dowolna nazwa, która pozwala Ci rozpoznać grupę produktów, np. „Perfumy”, „Chemia gospodarcza”, „Zabawki”.</div>
+          <div><em>Mnożnik opłacalności</em> – minimalny docelowy zwrot z inwestycji (marża względem ceny zakupu). Przykład: jeżeli ustawisz mnożnik 1,5, to system oznaczy produkt jako „opłacalny” tylko wtedy, gdy po odjęciu prowizji Allegro zarobek będzie co najmniej 50% ceny zakupu.</div>
+          <div><em>Prowizja Allegro (%)</em> – szacowany procent prowizji Allegro w danej kategorii. System odejmuje tę prowizję od ceny sprzedaży i dopiero z tej „netto” ceny liczy marżę.</div>
+          <div>Dzięki temu opłacalność jest liczona dla każdej kategorii inaczej – np. jeśli w jednej kategorii prowizja jest wyższa, próg opłacalności jest automatycznie bardziej wymagający. Każda analiza jest powiązana z jedną kategorią, a każda kategoria ma własne parametry, więc możesz osobno ustawić logikę dla „Perfum” vs „Chemii” itp.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -812,11 +837,11 @@
       } else {
         collapseSidebar();
       }
-      sidebarToggle.textContent = sidebar.classList.contains('collapsed') ? 'Rozwiń panel' : 'Zwiń panel';
+      sidebarToggle.textContent = sidebar.classList.contains('collapsed') ? '»' : '«';
     });
     sidebarRestore.addEventListener('click', () => {
       expandSidebar();
-      sidebarToggle.textContent = 'Zwiń panel';
+      sidebarToggle.textContent = '«';
     });
 
     historyToggle.addEventListener('click', () => {
