@@ -7,6 +7,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from app.models.enums import AnalysisItemSource, AnalysisStatus, ProfitabilityLabel
+from app.schemas.category import CategoryRead
 
 
 class AnalysisUploadResponse(BaseModel):
@@ -47,3 +48,21 @@ class AnalysisRunItemOut(BaseModel):
 
 class AnalysisRunDetail(AnalysisStatusResponse):
     items: List[AnalysisRunItemOut]
+
+
+class AnalysisRunSummary(BaseModel):
+    id: int
+    category_id: str
+    category_name: str
+    status: AnalysisStatus
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    total_products: int
+    processed_products: int
+    mode: Optional[str] = None
+    use_api: bool
+    use_cloud_http: bool
+    use_local_scraper: bool
+
+    class Config:
+        orm_mode = True

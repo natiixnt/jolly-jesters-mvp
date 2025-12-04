@@ -54,6 +54,7 @@ def prepare_analysis_run(
     rows: List[InputRow],
     filename: str,
     strategy: ScrapingStrategyConfig,
+    mode: str = "mixed",
 ) -> AnalysisRun:
     run = AnalysisRun(
         category_id=category.id,
@@ -61,6 +62,7 @@ def prepare_analysis_run(
         status=AnalysisStatus.pending,
         total_products=len(rows),
         processed_products=0,
+        mode=mode,
         use_api=strategy.use_api,
         use_cloud_http=strategy.use_cloud_http,
         use_local_scraper=strategy.use_local_scraper,
@@ -111,9 +113,10 @@ async def handle_upload(
     category: Category,
     upload_file: UploadFile,
     strategy: ScrapingStrategyConfig,
+    mode: str = "mixed",
 ) -> AnalysisRun:
     data = await upload_file.read()
     rows = read_excel_file(data)
     saved_path = store_uploaded_file_bytes(data, upload_file.filename)
-    run = prepare_analysis_run(db, category, rows, saved_path.name, strategy)
+    run = prepare_analysis_run(db, category, rows, saved_path.name, strategy, mode=mode)
     return run

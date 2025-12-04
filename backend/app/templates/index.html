@@ -13,7 +13,7 @@
       --panel: #0f172a;
       --panel-2: #0b1327;
       --accent: #22d3ee;
-      --accent-2: #f59e0b;
+      --accent-2: #10b981;
       --text: #e5e7eb;
       --muted: #93a4c1;
       --border: #1f2937;
@@ -26,22 +26,20 @@
       font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
       background:
         radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.12), transparent 32%),
-        radial-gradient(circle at 80% 0%, rgba(245, 158, 11, 0.12), transparent 28%),
+        radial-gradient(circle at 80% 0%, rgba(16, 185, 129, 0.12), transparent 28%),
         var(--bg);
       color: var(--text);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       padding: 32px 16px 48px;
     }
     .shell {
-      width: min(1200px, 100%);
+      max-width: 1200px;
+      margin: 0 auto;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 28px;
-      box-shadow: 0 20px 80px rgba(0,0,0,0.4);
+      padding: 24px;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.35);
     }
     .top {
       display: flex;
@@ -50,11 +48,7 @@
       align-items: flex-start;
       flex-wrap: wrap;
     }
-    h1 {
-      margin: 0;
-      font-size: 30px;
-      letter-spacing: -0.02em;
-    }
+    h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; }
     p.lead { color: var(--muted); margin: 6px 0 0; }
     .ghost-btn {
       background: transparent;
@@ -66,14 +60,14 @@
       transition: border-color 0.2s, color 0.2s, transform 0.2s;
     }
     .ghost-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
-    .grid {
+    .layout {
       margin-top: 20px;
       display: grid;
       grid-template-columns: 2fr 1fr;
       gap: 16px;
     }
     @media (max-width: 960px) {
-      .grid { grid-template-columns: 1fr; }
+      .layout { grid-template-columns: 1fr; }
     }
     .card {
       background: var(--panel-2);
@@ -91,6 +85,20 @@
       padding: 12px 14px;
       color: var(--text);
     }
+    select {
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+      background-position:
+        calc(100% - 22px) center,
+        calc(100% - 16px) center;
+      background-size: 6px 6px,
+                      6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 48px;
+    }
+    input[type="file"], input[type="number"], input[type="text"] { appearance: auto; background-image: none; padding-right: 14px; }
     .helper { color: var(--muted); font-size: 13px; margin-top: 4px; }
     .modes { display: flex; gap: 10px; padding: 0; border: none; background: transparent; }
     .mode {
@@ -110,8 +118,8 @@
     .checkboxes { display: grid; gap: 10px; padding: 12px; }
     .checkboxes label { text-transform: none; color: var(--text); font-size: 15px; letter-spacing: 0; }
     .primary-btn {
-      background: linear-gradient(120deg, #10b981, #22d3ee);
-      color: #0b0f1a;
+      background: linear-gradient(120deg, var(--accent-2), var(--accent));
+      color: #fff;
       border: none;
       padding: 14px 18px;
       border-radius: 12px;
@@ -122,7 +130,7 @@
       box-shadow: 0 14px 40px rgba(16, 185, 129, 0.35);
     }
     .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .primary-btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .primary-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 40px rgba(34, 211, 238, 0.3); }
     .status-panel {
       margin-top: 18px;
       border: 1px solid var(--border);
@@ -167,11 +175,104 @@
     }
     .progress-bar {
       height: 100%;
-      background: linear-gradient(120deg, #10b981, #22d3ee);
+      background: linear-gradient(120deg, var(--accent-2), var(--accent));
       width: 0%;
       transition: width 0.4s ease;
     }
-    .section-title { margin: 0 0 8px; font-size: 18px; }
+    .section-title { margin: 0 0 8px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+    .sidebar {
+      transition: max-width 0.2s ease, width 0.2s ease, opacity 0.2s;
+    }
+    .sidebar.collapsed {
+      max-width: 42px;
+      width: 42px;
+      padding: 6px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+    .sidebar.collapsed .sidebar-content { display: none; }
+    .sidebar-toggle {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #0b152b;
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .history-card {
+      margin-top: 16px;
+    }
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .history-list {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+    }
+    .history-row {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #0b152b;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    @media (max-width: 900px) {
+      .history-row { grid-template-columns: 1fr 1fr; }
+    }
+    .history-row small { color: var(--muted); display: block; }
+    .badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #fff;
+      display: inline-block;
+    }
+    .badge.pending { background: #f59e0b; }
+    .badge.running { background: #22d3ee; }
+    .badge.completed { background: #10b981; }
+    .badge.failed { background: #ef4444; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.55);
+      padding: 20px;
+      z-index: 1100;
+    }
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 480px;
+      width: 100%;
+      padding: 20px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      justify-content: flex-end;
+    }
+    .close-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
     .faq-modal {
       position: fixed;
       inset: 0;
@@ -195,14 +296,6 @@
     .faq-content h2 { margin-top: 0; }
     .faq-item { margin-top: 12px; }
     .faq-item strong { display: block; margin-bottom: 4px; }
-    .close-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
@@ -215,7 +308,7 @@
       <button class="ghost-btn" id="faq-btn">FAQ / pomoc</button>
     </div>
 
-    <div class="grid">
+    <div class="layout">
       <div class="card">
         <form id="upload-form">
           <div>
@@ -279,48 +372,75 @@
         </div>
       </div>
 
-      <div class="card" style="display:grid; gap:18px;">
-        <div>
-          <h3 class="section-title">Ustawienia</h3>
-          <div style="display:grid; gap:12px;">
-            <div>
-              <label for="local-windows">Liczba jednocześnie otwieranych okien lokalnego scrapera</label>
-              <input type="number" id="local-windows" min="1" max="10" />
-              <button class="ghost-btn" id="save-windows-btn" style="margin-top:8px;">Zapisz ustawienia scrapera</button>
-            </div>
-            <div>
-              <label for="cache-ttl">TTL cache (dni)</label>
-              <input type="number" id="cache-ttl" min="1" max="365" />
-              <div class="helper">Po ilu dniach dane z Allegro uznajemy za przestarzałe</div>
-              <button class="ghost-btn" id="save-ttl-btn" style="margin-top:8px;">Zapisz TTL cache</button>
-            </div>
-            <div class="success" id="settings-success"></div>
-            <div class="error" id="settings-error"></div>
-          </div>
+      <div class="card sidebar" id="sidebar">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-weight:700;">Panel</span>
+          <button class="sidebar-toggle" id="sidebar-toggle">Zwiń</button>
         </div>
+        <div class="sidebar-content" style="display:grid; gap:18px;">
+          <div>
+            <h3 class="section-title">Ustawienia</h3>
+            <div style="display:grid; gap:12px;">
+              <div>
+                <label for="local-windows">Liczba jednocześnie otwieranych okien lokalnego scrapera</label>
+                <input type="number" id="local-windows" min="1" max="10" />
+                <div class="helper" id="settings-info"></div>
+                <button class="ghost-btn" id="save-windows-btn" style="margin-top:8px;">Zapisz ustawienia scrapera</button>
+                <div class="success" id="settings-windows-success"></div>
+              </div>
+              <div>
+                <label for="cache-ttl">TTL cache (dni)</label>
+                <input type="number" id="cache-ttl" min="1" max="365" />
+                <div class="helper">Po ilu dniach dane z Allegro uznajemy za przestarzałe</div>
+                <button class="ghost-btn" id="save-ttl-btn" style="margin-top:8px;">Zapisz TTL cache</button>
+                <div class="success" id="settings-ttl-success"></div>
+              </div>
+              <div class="error" id="settings-error"></div>
+            </div>
+          </div>
 
-        <div>
-          <h3 class="section-title">Kategorie</h3>
-          <form id="category-form">
-            <div>
-              <label for="cat-name">Nazwa kategorii</label>
-              <input type="text" id="cat-name" name="name" required />
-            </div>
-            <div>
-              <label for="cat-multiplier">Mnożnik opłacalności</label>
-              <input type="number" id="cat-multiplier" name="profitability_multiplier" step="0.01" min="0" value="1.5" required />
-            </div>
-            <div>
-              <label for="cat-commission">Prowizja Allegro (%)</label>
-              <input type="number" id="cat-commission" name="commission_rate" step="0.01" min="0" value="0" />
-            </div>
-            <button type="submit" class="ghost-btn">Dodaj kategorię</button>
+          <div>
+            <h3 class="section-title">Kategorie <button id="add-category-btn" class="ghost-btn">+</button></h3>
+            <div class="helper" id="categories-list"></div>
             <div class="success" id="category-success"></div>
             <div class="error" id="category-error"></div>
-          </form>
-          <div class="helper" id="categories-list"></div>
+          </div>
         </div>
       </div>
+    </div>
+
+    <div class="card history-card">
+      <div class="history-header" id="history-toggle">
+        <h3 class="section-title" style="margin:0;">Historia analiz</h3>
+        <span id="history-caret" style="cursor:pointer;">▼</span>
+      </div>
+      <div class="history-list" id="history-list"></div>
+      <div class="helper" id="history-empty" style="display:none;">Brak wcześniejszych analiz.</div>
+    </div>
+  </div>
+
+  <div class="modal" id="category-modal">
+    <div class="modal-content">
+      <h3 style="margin-top:0;">Dodaj nową kategorię</h3>
+      <form id="category-modal-form">
+        <div>
+          <label for="modal-cat-name">Nazwa kategorii</label>
+          <input type="text" id="modal-cat-name" name="name" required />
+        </div>
+        <div>
+          <label for="modal-cat-multiplier">Mnożnik opłacalności</label>
+          <input type="number" id="modal-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" value="1.5" required />
+        </div>
+        <div>
+          <label for="modal-cat-commission">Prowizja Allegro (%)</label>
+          <input type="number" id="modal-cat-commission" name="commission_rate" step="0.01" min="0" value="0" />
+        </div>
+        <div class="error" id="category-modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="close-btn" id="category-cancel">Anuluj</button>
+          <button type="submit" class="primary-btn">Dodaj kategorię</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -340,7 +460,7 @@
       </div>
       <div class="faq-item">
         <strong>Jak dodać nową kategorię</strong>
-        <div>Użyj formularza „Kategorie” po prawej stronie. Wpisz nazwę, mnożnik opłacalności i prowizję Allegro.</div>
+        <div>Użyj przycisku „+” w sekcji Kategorie i wypełnij formularz.</div>
       </div>
       <div class="faq-item">
         <strong>Jakie pliki są obsługiwane</strong>
@@ -370,18 +490,36 @@
     const downloadLink = document.getElementById('download-link');
     const localWindowsInput = document.getElementById('local-windows');
     const cacheTtlInput = document.getElementById('cache-ttl');
-    const settingsSuccess = document.getElementById('settings-success');
+    const settingsInfo = document.getElementById('settings-info');
     const settingsError = document.getElementById('settings-error');
-    const categoryForm = document.getElementById('category-form');
+    const settingsWindowsSuccess = document.getElementById('settings-windows-success');
+    const settingsTtlSuccess = document.getElementById('settings-ttl-success');
+    const addCategoryBtn = document.getElementById('add-category-btn');
+    const categoryModal = document.getElementById('category-modal');
+    const categoryModalForm = document.getElementById('category-modal-form');
+    const categoryModalError = document.getElementById('category-modal-error');
     const categorySuccess = document.getElementById('category-success');
     const categoryError = document.getElementById('category-error');
+    const categoryCancel = document.getElementById('category-cancel');
     const faqModal = document.getElementById('faq-modal');
     const faqBtn = document.getElementById('faq-btn');
     const faqClose = document.getElementById('faq-close');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const historyList = document.getElementById('history-list');
+    const historyEmpty = document.getElementById('history-empty');
+    const historyToggle = document.getElementById('history-toggle');
+    const historyCaret = document.getElementById('history-caret');
+    let historyExpanded = true;
     let pollTimer = null;
 
     function setMessage(msg, target) {
       target.textContent = msg || '';
+    }
+
+    function briefSuccess(target) {
+      target.textContent = 'Zapisano';
+      setTimeout(() => { target.textContent = ''; }, 2000);
     }
 
     async function loadCategories() {
@@ -401,7 +539,7 @@
         categorySelect.disabled = false;
         submitBtn.disabled = false;
         categoryInfo.textContent = '';
-        categoriesList.textContent = 'Dostępne kategorie: ' + data.map(c => c.name).join(', ');
+        categoriesList.textContent = 'Dostępne kategorie: ' + data.map(c => `${c.name}`).join(', ');
       } catch (err) {
         categoryInfo.textContent = err.message;
         submitBtn.disabled = true;
@@ -447,9 +585,11 @@
             downloadLink.href = `/api/v1/analysis/${runId}/download`;
             downloadLink.style.display = 'inline-flex';
             stopPolling();
+            await loadHistory();
           } else if (data.status === 'failed') {
             runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
             stopPolling();
+            await loadHistory();
           }
         } catch (err) {
           setMessage(err.message, errorBox);
@@ -466,13 +606,15 @@
         const data = await res.json();
         cacheTtlInput.value = data.cache_ttl_days ?? 30;
         localWindowsInput.value = data.local_scraper_windows ?? 1;
+        setMessage('', settingsInfo);
       } catch (err) {
-        setMessage(err.message, settingsError);
+        cacheTtlInput.value = cacheTtlInput.value || 30;
+        localWindowsInput.value = localWindowsInput.value || 1;
+        setMessage('Nie udało się pobrać ustawień. Używane są wartości domyślne.', settingsInfo);
       }
     }
 
-    async function saveSettings() {
-      setMessage('', settingsSuccess);
+    async function saveSettings(field) {
       setMessage('', settingsError);
       const payload = {
         cache_ttl_days: Number(cacheTtlInput.value) || 30,
@@ -491,9 +633,44 @@
         }
         cacheTtlInput.value = data.cache_ttl_days;
         localWindowsInput.value = data.local_scraper_windows;
-        setMessage('Zapisano ustawienia.', settingsSuccess);
+        if (field === 'windows') briefSuccess(settingsWindowsSuccess);
+        if (field === 'ttl') briefSuccess(settingsTtlSuccess);
       } catch (err) {
         setMessage(err.message, settingsError);
+      }
+    }
+
+    async function loadHistory() {
+      historyList.innerHTML = '';
+      try {
+        const res = await fetch('/api/v1/analysis');
+        if (!res.ok) throw new Error('Nie udało się pobrać historii.');
+        const data = await res.json();
+        if (!data.length) {
+          historyEmpty.style.display = 'block';
+          return;
+        }
+        historyEmpty.style.display = 'none';
+        data.forEach(run => {
+          const row = document.createElement('div');
+          row.className = 'history-row';
+          const started = run.started_at ? new Date(run.started_at).toLocaleString() : '-';
+          const finished = run.finished_at ? new Date(run.finished_at).toLocaleString() : '';
+          row.innerHTML = `
+            <div><strong>ID ${run.id}</strong><small>${started}${finished ? ' → ' + finished : ''}</small></div>
+            <div><strong>${run.category_name || ''}</strong><small>Tryb: ${run.mode?.toUpperCase()}</small></div>
+            <div><small>Strategie:</small> ${run.use_api ? 'API ' : ''}${run.use_cloud_http ? 'HTTP ' : ''}${run.use_local_scraper ? 'Selenium' : ''}</div>
+            <div><small>Postęp:</small> ${run.processed_products}/${run.total_products}</div>
+            <div>
+              <span class="badge ${run.status}">${run.status}</span>
+              ${run.status === 'completed' ? `<div><a class="download" href="/api/v1/analysis/${run.id}/download">⬇</a></div>` : ''}
+            </div>
+          `;
+          historyList.appendChild(row);
+        });
+      } catch (err) {
+        historyEmpty.style.display = 'block';
+        historyEmpty.textContent = err.message;
       }
     }
 
@@ -535,6 +712,7 @@
         runIdEl.textContent = data.analysis_run_id;
         setStatus({ status: data.status, processed_products: 0, total_products: 0, error_message: '' });
         await pollStatus(data.analysis_run_id);
+        await loadHistory();
       } catch (err) {
         setMessage(err.message || 'Wystąpił błąd.', errorBox);
       } finally {
@@ -547,21 +725,32 @@
 
     document.getElementById('save-windows-btn').addEventListener('click', async () => {
       if (!localWindowsInput.value) localWindowsInput.value = 1;
-      await saveSettings();
+      await saveSettings('windows');
     });
     document.getElementById('save-ttl-btn').addEventListener('click', async () => {
       if (!cacheTtlInput.value) cacheTtlInput.value = 30;
-      await saveSettings();
+      await saveSettings('ttl');
     });
 
-    categoryForm.addEventListener('submit', async (e) => {
+    addCategoryBtn.addEventListener('click', () => {
+      categoryModal.style.display = 'flex';
+      categoryModalError.textContent = '';
+      categoryModalForm.reset();
+    });
+    categoryCancel.addEventListener('click', () => {
+      categoryModal.style.display = 'none';
+    });
+    categoryModal.addEventListener('click', (e) => {
+      if (e.target === categoryModal) categoryModal.style.display = 'none';
+    });
+    categoryModalForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      setMessage('', categoryModalError);
       setMessage('', categorySuccess);
-      setMessage('', categoryError);
       const payload = {
-        name: document.getElementById('cat-name').value,
-        profitability_multiplier: Number(document.getElementById('cat-multiplier').value || 0),
-        commission_rate: (Number(document.getElementById('cat-commission').value || 0) / 100),
+        name: document.getElementById('modal-cat-name').value,
+        profitability_multiplier: Number(document.getElementById('modal-cat-multiplier').value || 0),
+        commission_rate: (Number(document.getElementById('modal-cat-commission').value || 0) / 100),
       };
       try {
         const res = await fetch('/api/v1/categories/', {
@@ -571,31 +760,38 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(data.detail || 'Nie udało się dodać kategorii.', categoryError);
+          setMessage(data.detail || 'Nie udało się dodać kategorii.', categoryModalError);
           return;
         }
+        categoryModal.style.display = 'none';
         setMessage('Kategoria dodana.', categorySuccess);
-        categoryForm.reset();
         await loadCategories();
       } catch (err) {
-        setMessage(err.message || 'Błąd podczas dodawania kategorii.', categoryError);
+        setMessage(err.message || 'Błąd podczas dodawania kategorii.', categoryModalError);
       }
     });
 
-    faqBtn.addEventListener('click', () => {
-      faqModal.style.display = 'flex';
+    faqBtn.addEventListener('click', () => { faqModal.style.display = 'flex'; });
+    faqClose.addEventListener('click', () => { faqModal.style.display = 'none'; });
+    faqModal.addEventListener('click', (e) => { if (e.target === faqModal) faqModal.style.display = 'none'; });
+
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      sidebarToggle.textContent = sidebar.classList.contains('collapsed') ? 'Rozwiń' : 'Zwiń';
     });
-    faqClose.addEventListener('click', () => {
-      faqModal.style.display = 'none';
-    });
-    faqModal.addEventListener('click', (e) => {
-      if (e.target === faqModal) {
-        faqModal.style.display = 'none';
-      }
+
+    historyToggle.addEventListener('click', () => {
+      historyExpanded = !historyExpanded;
+      const display = historyExpanded ? 'grid' : 'none';
+      historyList.style.display = display;
+      historyEmpty.style.display = historyExpanded ? historyEmpty.style.display : 'none';
+      historyCaret.textContent = historyExpanded ? '▼' : '▲';
+      if (historyExpanded) loadHistory();
     });
 
     loadCategories();
     loadSettings();
+    loadHistory();
   </script>
 </body>
 </html>

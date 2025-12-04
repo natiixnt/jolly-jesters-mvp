@@ -336,3 +336,17 @@ def get_run_items(db: Session, run_id: int) -> List[AnalysisRunItem]:
         .order_by(AnalysisRunItem.row_number)
         .all()
     )
+
+
+def list_recent_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
+    runs = (
+        db.query(AnalysisRun)
+        .order_by(AnalysisRun.started_at.desc())
+        .limit(limit)
+        .all()
+    )
+    # preload categories to avoid lazy load in serialization
+    category_map = {c.id: c.name for c in db.query(Category).all()}
+    for run in runs:
+        run.category_name = category_map.get(run.category_id, "")  # type: ignore[attr-defined]
+    return runs

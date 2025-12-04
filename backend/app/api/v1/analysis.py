@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.category import Category
 from app.models.enums import AnalysisStatus
-from app.schemas.analysis import AnalysisStatusResponse, AnalysisUploadResponse
+from app.schemas.analysis import AnalysisStatusResponse, AnalysisUploadResponse, AnalysisRunSummary
 from app.services import analysis_service
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
@@ -60,7 +60,7 @@ async def upload_analysis(
     )
 
     try:
-        run = await handle_upload(db, category, file, strategy)
+        run = await handle_upload(db, category, file, strategy, mode=mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -95,3 +95,8 @@ def download_results(run_id: int, db: Session = Depends(get_db)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers=headers,
     )
+
+
+@router.get("", response_model=list[AnalysisRunSummary])
+def list_runs(db: Session = Depends(get_db), limit: int = 20):
+    return analysis_service.list_recent_runs(db, limit=limit)
