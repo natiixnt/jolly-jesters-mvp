@@ -22,11 +22,13 @@ profitability_label = postgresql.ENUM(
     "nieoplacalny",
     "nieokreslony",
     name="profitabilitylabel",
+    create_type=False,
 )
 market_data_source = postgresql.ENUM(
     "scraping",
     "api",
     name="marketdatasource",
+    create_type=False,
 )
 analysis_status = postgresql.ENUM(
     "pending",
@@ -34,6 +36,7 @@ analysis_status = postgresql.ENUM(
     "completed",
     "failed",
     name="analysisstatus",
+    create_type=False,
 )
 analysis_item_source = postgresql.ENUM(
     "baza",
@@ -41,6 +44,7 @@ analysis_item_source = postgresql.ENUM(
     "not_found",
     "error",
     name="analysisitemsource",
+    create_type=False,
 )
 
 
@@ -102,7 +106,6 @@ def upgrade() -> None:
         sa.UniqueConstraint("category_id", "ean", name="uq_product_category_ean"),
     )
     op.create_index("ix_products_category", "products", ["category_id"])
-    op.create_index("ix_products_ean", "products", ["ean"])
 
     op.create_table(
         "product_market_data",
@@ -116,7 +119,7 @@ def upgrade() -> None:
         ),
         sa.Column("allegro_price", sa.Numeric(12, 4), nullable=True),
         sa.Column("allegro_sold_count", sa.Integer(), nullable=True),
-        sa.Column("source", sa.Enum(name="marketdatasource"), nullable=False),
+        sa.Column("source", market_data_source, nullable=False),
         sa.Column(
             "fetched_at",
             sa.DateTime(timezone=True),
@@ -152,7 +155,7 @@ def upgrade() -> None:
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "status",
-            sa.Enum(name="analysisstatus"),
+            analysis_status,
             nullable=False,
             server_default="pending",
         ),
@@ -177,6 +180,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "last_market_data_id",
+            sa.Integer(),
             sa.ForeignKey("product_market_data.id"),
             nullable=True,
         ),
@@ -184,7 +188,7 @@ def upgrade() -> None:
         sa.Column("is_not_found", sa.Boolean(), server_default="false", nullable=False),
         sa.Column("is_stale", sa.Boolean(), server_default="false", nullable=False),
         sa.Column("profitability_score", sa.Numeric(12, 4), nullable=True),
-        sa.Column("profitability_label", sa.Enum(name="profitabilitylabel"), nullable=True),
+        sa.Column("profitability_label", profitability_label, nullable=True),
         sa.Column("last_analysis_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "updated_at",
@@ -216,11 +220,11 @@ def upgrade() -> None:
         sa.Column("ean", sa.String(length=64), nullable=False),
         sa.Column("input_name", sa.Text(), nullable=True),
         sa.Column("input_purchase_price", sa.Numeric(12, 4), nullable=True),
-        sa.Column("source", sa.Enum(name="analysisitemsource"), nullable=False),
+        sa.Column("source", analysis_item_source, nullable=False),
         sa.Column("allegro_price", sa.Numeric(12, 4), nullable=True),
         sa.Column("allegro_sold_count", sa.Integer(), nullable=True),
         sa.Column("profitability_score", sa.Numeric(12, 4), nullable=True),
-        sa.Column("profitability_label", sa.Enum(name="profitabilitylabel"), nullable=True),
+        sa.Column("profitability_label", profitability_label, nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
     )
     op.create_index("ix_analysis_run_items_run", "analysis_run_items", ["analysis_run_id"])

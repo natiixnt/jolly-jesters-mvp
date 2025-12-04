@@ -47,8 +47,8 @@ async def upload_analysis(
     if not category or not category.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
-    if mode not in {"mixed", "offline"}:
-        raise HTTPException(status_code=400, detail="Mode must be 'mixed' or 'offline'")
+    if mode not in {"mixed", "offline", "online"}:
+        raise HTTPException(status_code=400, detail="Mode must be 'mixed', 'offline' or 'online'")
 
     if not file.filename.lower().endswith((".xls", ".xlsx")):
         raise HTTPException(status_code=400, detail="Plik musi być w formacie Excel (.xls/.xlsx)")

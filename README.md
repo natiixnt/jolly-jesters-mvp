@@ -1,6 +1,6 @@
-# Jolly Jesters MVP
+ï»¿# Jolly Jesters MVP
 
-Offline-first analiza op³acalnoœci Allegro z FastAPI, PostgreSQL, Redis i Celery.
+Offline-first analiza oplacalnosci Allegro z FastAPI, PostgreSQL, Redis i Celery.
 
 ## Uruchomienie (dev)
 
@@ -8,9 +8,9 @@ Offline-first analiza op³acalnoœci Allegro z FastAPI, PostgreSQL, Redis i Celery
 docker-compose up --build
 ```
 
-Backend startuje z automatycznym `alembic upgrade head`. UI (Jinja) jest pod `http://localhost:8000/`.
+Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/`. Stary widok Streamlit (port 8501) moze zostac do celow dev, ale podstawowa sciezka uzytkownika to HTML z backendu.
 
-## Wymagane zmienne œrodowiskowe
+## Wymagane zmienne srodowiskowe
 
 | Klucz | Opis |
 | --- | --- |
@@ -18,20 +18,20 @@ Backend startuje z automatycznym `alembic upgrade head`. UI (Jinja) jest pod `ht
 | `REDIS_URL` | URL do Redisa (np. `redis://redis:6379/0`) |
 | `ALLEGRO_API_TOKEN` | Token Bearer do Allegro API (opcjonalnie) |
 | `PROXY_LIST` | Lista proxy rozdzielona przecinkiem dla cloud HTTP (opcjonalnie) |
-| `LOCAL_SCRAPER_ENABLED` | `true/false` – w³¹cza lokalny scraper Selenium |
+| `LOCAL_SCRAPER_ENABLED` | `true/false` - wlacza lokalny scraper Selenium |
 | `LOCAL_SCRAPER_URL` | Endpoint lokalnego scrapera, np. `http://host.docker.internal:5050/scrape` |
-| `WORKSPACE` | Katalog roboczy na upload/export (domyœlnie `/workspace`) |
+| `WORKSPACE` | Katalog roboczy na upload/export (domyslnie `/workspace`) |
 
 ## Minimalny flow (cURL)
 
-1) Utwórz kategoriê:
+1) Utworz kategorie:
 ```bash
 curl -X POST http://localhost:8000/api/v1/categories/ \
   -H "Content-Type: application/json" \
   -d '{"name":"Perfumy","profitability_multiplier":1.5,"commission_rate":0.1}'
 ```
 
-2) Wyœlij plik Excel (kolumny: EAN, Name, PurchasePrice):
+2) Wyslij plik Excel (kolumny: EAN, Name, PurchasePrice):
 ```bash
 curl -X POST http://localhost:8000/api/v1/analysis/upload \
   -F "category_id=<ID_Z_KROKU_1>" \
@@ -41,7 +41,7 @@ curl -X POST http://localhost:8000/api/v1/analysis/upload \
   -F "use_cloud_http=true" \
   -F "use_local_scraper=true"
 ```
-Zwróci `analysis_run_id`.
+Zwraca `analysis_run_id`.
 
 3) Sprawdzaj status:
 ```bash

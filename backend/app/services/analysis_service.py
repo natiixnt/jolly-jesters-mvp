@@ -8,7 +8,6 @@ from typing import List, Tuple
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.models.analysis_run import AnalysisRun
 from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
@@ -19,10 +18,11 @@ from app.models.product_market_data import ProductMarketData
 from app.services.profitability_service import calculate_profitability
 from app.services.schemas import ScrapingStrategyConfig
 from app.services.scraping_service import fetch_allegro_data
+from app.services import settings_service
 
 
-def _stale_cutoff() -> datetime:
-    return datetime.now(timezone.utc) - timedelta(days=settings.stale_days)
+def _stale_cutoff(cache_ttl_days: int) -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=cache_ttl_days)
 
 
 def _ensure_product_state(db: Session, product: Product) -> ProductEffectiveState:
@@ -129,7 +129,8 @@ def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
     run.started_at = datetime.now(timezone.utc)
     db.commit()
 
-    cutoff = _stale_cutoff()
+    settings_record = settings_service.get_settings(db)
+    cutoff = _stale_cutoff(settings_record.cache_ttl_days)
     strategy = ScrapingStrategyConfig(
         use_api=run.use_api,
         use_cloud_http=run.use_cloud_http,
@@ -158,6 +159,8 @@ def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
         try:
             if mode == "offline":
                 _process_offline_item(db, run, category, product, state, item)
+            elif mode == "online":
+                _process_online_item(db, run, category, product, state, item, strategy)
             else:
                 _process_mixed_item(db, run, category, product, state, item, cutoff, strategy)
         except Exception as exc:
@@ -233,6 +236,55 @@ def _process_mixed_item(
         item.profitability_label = label
         return
 
+    result = _fetch_with_strategy(item.ean, strategy)
+    if result.is_temporary_error:
+        item.source = AnalysisItemSource.error
+        try:
+            item.error_message = json.dumps(result.raw_payload, ensure_ascii=False)
+        except TypeError:
+            item.error_message = str(result.raw_payload)
+        return
+
+    price = result.price
+    sold_count = result.sold_count
+
+    market_data = _persist_market_data(
+        db=db,
+        product=product,
+        source=result.source,
+        price=price,
+        sold_count=sold_count,
+        is_not_found=result.is_not_found,
+        raw_payload=result.raw_payload,
+    )
+
+    if result.is_not_found:
+        score = None
+        label = ProfitabilityLabel.nieokreslony
+        source_val = AnalysisItemSource.not_found
+    else:
+        score, label = calculate_profitability(item.input_purchase_price, price, sold_count, category)
+        source_val = AnalysisItemSource.scraping
+
+    _update_effective_state(state, market_data, score, label)
+
+    item.source = source_val
+    item.allegro_price = price
+    item.allegro_sold_count = sold_count
+    item.profitability_score = score
+    item.profitability_label = label
+    item.error_message = None
+
+
+def _process_online_item(
+    db: Session,
+    run: AnalysisRun,
+    category: Category,
+    product: Product,
+    state: ProductEffectiveState,
+    item: AnalysisRunItem,
+    strategy: ScrapingStrategyConfig,
+) -> None:
     result = _fetch_with_strategy(item.ean, strategy)
     if result.is_temporary_error:
         item.source = AnalysisItemSource.error

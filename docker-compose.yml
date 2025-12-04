@@ -91,17 +91,13 @@ services:
       - PROXY_LIST=${PROXY_LIST}
       - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED}
       - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL}
+      - WORKSPACE=/workspace
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1"
     volumes:
       - ./backend:/app
       - workspace_data:/workspace
     shm_size: 2gb # potrzebne dla selenium/chrome
-    environment:
-      - WORKSPACE=/workspace
-      # reszta (CELERY_BROKER_URL, DATABASE_URL) jest juz w .env
-      
-
     dns:
       - 8.8.8.8
     depends_on:

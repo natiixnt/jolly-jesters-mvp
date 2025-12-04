@@ -3,65 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Analiza opłacalności | Jolly Jesters</title>
+  <title>MVP: import i analiza produktów | Jolly Jesters</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f172a;
-      --panel: #111827;
-      --accent: #8b5cf6;
-      --accent-2: #22d3ee;
+      --bg: #0d1224;
+      --panel: #0f172a;
+      --panel-2: #0b1327;
+      --accent: #22d3ee;
+      --accent-2: #f59e0b;
       --text: #e5e7eb;
-      --muted: #94a3b8;
+      --muted: #93a4c1;
       --border: #1f2937;
+      --danger: #f87171;
+      --success: #34d399;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.12), transparent 30%),
-                  radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.12), transparent 25%),
-                  var(--bg);
+      font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.12), transparent 32%),
+        radial-gradient(circle at 80% 0%, rgba(245, 158, 11, 0.12), transparent 28%),
+        var(--bg);
       color: var(--text);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 32px 16px;
+      padding: 32px 16px 48px;
     }
     .shell {
-      width: min(1100px, 100%);
+      width: min(1200px, 100%);
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 16px;
       padding: 28px;
-      box-shadow: 0 20px 80px rgba(0,0,0,0.45);
-      backdrop-filter: blur(4px);
+      box-shadow: 0 20px 80px rgba(0,0,0,0.4);
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
     }
     h1 {
       margin: 0;
-      font-size: 28px;
+      font-size: 30px;
       letter-spacing: -0.02em;
     }
-    p.lead { color: var(--muted); margin-top: 6px; }
-    form { margin-top: 20px; display: grid; gap: 16px; }
-    label { font-weight: 700; font-size: 13px; letter-spacing: 0.01em; color: var(--muted); text-transform: uppercase; }
-    select, input[type="file"], .modes {
-      width: 100%;
-      background: #0b1220;
+    p.lead { color: var(--muted); margin: 6px 0 0; }
+    .ghost-btn {
+      background: transparent;
       border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
       border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, transform 0.2s;
+    }
+    .ghost-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .grid {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    form { display: grid; gap: 16px; }
+    label { font-weight: 700; font-size: 13px; letter-spacing: 0.01em; color: var(--muted); text-transform: uppercase; }
+    select, input[type="file"], .modes, .checkboxes, input[type="number"], input[type="text"] {
+      width: 100%;
+      background: #0b152b;
+      border: 1px solid var(--border);
+      border-radius: 12px;
       padding: 12px 14px;
       color: var(--text);
     }
-    .modes { display: flex; gap: 10px; }
+    .helper { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .modes { display: flex; gap: 10px; padding: 0; border: none; background: transparent; }
     .mode {
       flex: 1;
       border: 1px solid var(--border);
-      background: #0b1220;
-      border-radius: 10px;
+      background: #0b152b;
+      border-radius: 12px;
       padding: 12px;
       display: flex;
       align-items: center;
@@ -71,8 +107,10 @@
     }
     .mode input { accent-color: var(--accent); }
     .mode:hover { border-color: var(--accent); transform: translateY(-1px); }
-    button {
-      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    .checkboxes { display: grid; gap: 10px; padding: 12px; }
+    .checkboxes label { text-transform: none; color: var(--text); font-size: 15px; letter-spacing: 0; }
+    .primary-btn {
+      background: linear-gradient(120deg, #10b981, #22d3ee);
       color: #0b0f1a;
       border: none;
       padding: 14px 18px;
@@ -80,24 +118,26 @@
       font-weight: 800;
       letter-spacing: 0.01em;
       cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+      box-shadow: 0 14px 40px rgba(16, 185, 129, 0.35);
     }
-    button:hover { transform: translateY(-1px); }
+    .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .primary-btn:hover:not(:disabled) { transform: translateY(-1px); }
     .status-panel {
       margin-top: 18px;
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 16px;
-      background: #0d1424;
+      background: #0b1327;
+      display: none;
     }
-    .status-row { display: flex; gap: 10px; margin-top: 6px; color: var(--muted); font-size: 14px; }
+    .status-row { display: flex; gap: 8px; margin-top: 6px; color: var(--muted); font-size: 14px; align-items: center; }
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: rgba(139, 92, 246, 0.12);
-      border: 1px solid rgba(139, 92, 246, 0.4);
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.4);
       padding: 8px 12px;
       border-radius: 999px;
       color: var(--text);
@@ -114,146 +154,448 @@
       text-decoration: none;
       font-weight: 700;
     }
-    .error { color: #f87171; margin-top: 8px; font-weight: 700; }
+    .error { color: var(--danger); margin-top: 8px; font-weight: 700; }
+    .success { color: var(--success); margin-top: 6px; }
+    .progress {
+      width: 100%;
+      background: #0b0f1f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      height: 12px;
+      margin-top: 8px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(120deg, #10b981, #22d3ee);
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+    .section-title { margin: 0 0 8px; font-size: 18px; }
+    .faq-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.55);
+      padding: 20px;
+      z-index: 1000;
+    }
+    .faq-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 720px;
+      width: 100%;
+      padding: 20px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .faq-content h2 { margin-top: 0; }
+    .faq-item { margin-top: 12px; }
+    .faq-item strong { display: block; margin-bottom: 4px; }
+    .close-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div class="shell">
-    <h1>Analiza opłacalności Allegro</h1>
-    <p class="lead">Wgraj plik, wybierz kategorię i tryb. Analiza ruszy w tle, a wynik pobierzesz jako Excel.</p>
+    <div class="top">
+      <div>
+        <h1>MVP: import i analiza produktów</h1>
+        <p class="lead">MVP analizy opłacalności Allegro. Wgraj plik, wybierz kategorię i strategię scrapera.</p>
+      </div>
+      <button class="ghost-btn" id="faq-btn">FAQ / pomoc</button>
+    </div>
 
-    <form id="upload-form">
-      <div>
-        <label for="category">Kategoria</label>
-        <select id="category" name="category_id" required></select>
-      </div>
-      <div>
-        <label for="file">Plik (xlsx / csv)</label>
-        <input id="file" type="file" name="file" accept=".xlsx,.xls,.csv" required />
-      </div>
-      <div>
-        <label>Tryb</label>
-        <div class="modes">
-          <label class="mode">
-            <input type="radio" name="mode" value="mixed" checked />
-            <div>
-              <div><strong>Mixed</strong></div>
-              <div class="muted">Offline + odświeżenie jeśli dane są stare</div>
+    <div class="grid">
+      <div class="card">
+        <form id="upload-form">
+          <div>
+            <label for="category-select">Kategoria</label>
+            <select id="category-select" name="category_id" required></select>
+            <div class="helper" id="category-info"></div>
+          </div>
+          <div>
+            <label for="file-input">Plik (CSV/XLSX)</label>
+            <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" required />
+            <div class="helper">Obsługiwane formaty: .xlsx, .xls, .csv</div>
+          </div>
+          <div>
+            <label>Tryb analizy</label>
+            <div class="modes">
+              <label class="mode">
+                <input type="radio" name="mode" value="mixed" checked />
+                <div>
+                  <div><strong>MIXED</strong></div>
+                  <div class="muted">OFFLINE + odświeżenie, gdy dane są stare</div>
+                </div>
+              </label>
+              <label class="mode">
+                <input type="radio" name="mode" value="offline" />
+                <div>
+                  <div><strong>OFFLINE</strong></div>
+                  <div class="muted">Bez scrapingu, tylko dane z bazy</div>
+                </div>
+              </label>
+              <label class="mode">
+                <input type="radio" name="mode" value="online" />
+                <div>
+                  <div><strong>ONLINE</strong></div>
+                  <div class="muted">Pomijaj cache, zawsze scrapuj na nowo</div>
+                </div>
+              </label>
             </div>
-          </label>
-          <label class="mode">
-            <input type="radio" name="mode" value="offline" />
-            <div>
-              <div><strong>Offline</strong></div>
-              <div class="muted">Bez scrapingu, tylko dane z bazy</div>
+          </div>
+          <div>
+            <label>Strategie scrapera</label>
+            <div class="checkboxes" id="strategy-boxes">
+              <label><input type="checkbox" name="use_api" value="true" checked /> Użyj Allegro API</label>
+              <label><input type="checkbox" name="use_cloud_http" value="true" checked /> Użyj cloud HTTP (proxy)</label>
+              <label><input type="checkbox" name="use_local_scraper" value="true" checked /> Użyj lokalnego Selenium</label>
             </div>
-          </label>
+            <div class="error" id="strategy-error"></div>
+          </div>
+          <div>
+            <button type="submit" id="submit-btn" class="primary-btn">Start analizy</button>
+          </div>
+          <div class="error" id="error"></div>
+        </form>
+
+        <div class="status-panel" id="status-panel">
+          <div class="pill">Run ID: <span id="run-id"></span></div>
+          <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
+          <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
+          <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+          <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
+          <a class="download" id="download-link" href="#" style="display:none;">⬇ Pobierz raport</a>
         </div>
       </div>
-      <div>
-        <label>Strategie scrapera</label>
-        <div class="modes" style="flex-direction: column">
-          <label class="mode">
-            <input type="checkbox" name="use_api" value="true" checked />
-            <div><strong>Użyj Allegro API</strong></div>
-          </label>
-          <label class="mode">
-            <input type="checkbox" name="use_cloud_http" value="true" checked />
-            <div><strong>Użyj cloud HTTP (proxy)</strong></div>
-          </label>
-          <label class="mode">
-            <input type="checkbox" name="use_local_scraper" value="true" checked />
-            <div><strong>Użyj lokalnego Selenium</strong></div>
-          </label>
+
+      <div class="card" style="display:grid; gap:18px;">
+        <div>
+          <h3 class="section-title">Ustawienia</h3>
+          <div style="display:grid; gap:12px;">
+            <div>
+              <label for="local-windows">Liczba jednocześnie otwieranych okien lokalnego scrapera</label>
+              <input type="number" id="local-windows" min="1" max="10" />
+              <button class="ghost-btn" id="save-windows-btn" style="margin-top:8px;">Zapisz ustawienia scrapera</button>
+            </div>
+            <div>
+              <label for="cache-ttl">TTL cache (dni)</label>
+              <input type="number" id="cache-ttl" min="1" max="365" />
+              <div class="helper">Po ilu dniach dane z Allegro uznajemy za przestarzałe</div>
+              <button class="ghost-btn" id="save-ttl-btn" style="margin-top:8px;">Zapisz TTL cache</button>
+            </div>
+            <div class="success" id="settings-success"></div>
+            <div class="error" id="settings-error"></div>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="section-title">Kategorie</h3>
+          <form id="category-form">
+            <div>
+              <label for="cat-name">Nazwa kategorii</label>
+              <input type="text" id="cat-name" name="name" required />
+            </div>
+            <div>
+              <label for="cat-multiplier">Mnożnik opłacalności</label>
+              <input type="number" id="cat-multiplier" name="profitability_multiplier" step="0.01" min="0" value="1.5" required />
+            </div>
+            <div>
+              <label for="cat-commission">Prowizja Allegro (%)</label>
+              <input type="number" id="cat-commission" name="commission_rate" step="0.01" min="0" value="0" />
+            </div>
+            <button type="submit" class="ghost-btn">Dodaj kategorię</button>
+            <div class="success" id="category-success"></div>
+            <div class="error" id="category-error"></div>
+          </form>
+          <div class="helper" id="categories-list"></div>
         </div>
       </div>
-      <div>
-        <button type="submit">Uruchom analizę</button>
-      </div>
-      <div class="error" id="error"></div>
-    </form>
+    </div>
+  </div>
 
-    <div class="status-panel" id="status-panel" style="display:none;">
-      <div class="pill">Run ID: <span id="run-id"></span></div>
-      <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
-      <div class="status-row"><strong>Przetworzono:</strong> <span id="run-progress"></span></div>
-      <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
-      <a class="download" id="download-link" href="#" style="display:none;">⬇ Pobierz raport</a>
+  <div class="faq-modal" id="faq-modal">
+    <div class="faq-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <h2>FAQ - jak korzystać z systemu</h2>
+        <button class="close-btn" id="faq-close">Zamknij</button>
+      </div>
+      <div class="faq-item">
+        <strong>Różnice między trybami MIXED, OFFLINE, ONLINE</strong>
+        <div>MIXED – używa cache, ale odświeża gdy dane są starsze niż TTL. OFFLINE – korzysta wyłącznie z danych z bazy. ONLINE – ignoruje cache i zawsze scrapuje na nowo.</div>
+      </div>
+      <div class="faq-item">
+        <strong>Strategie scrapera (API / cloud HTTP / lokalne Selenium)</strong>
+        <div>Zaznacz co najmniej jedną. API – szybkie jeśli masz token. Cloud HTTP – scraping przez proxy. Lokalny Selenium – fallback z przeglądarką.</div>
+      </div>
+      <div class="faq-item">
+        <strong>Jak dodać nową kategorię</strong>
+        <div>Użyj formularza „Kategorie” po prawej stronie. Wpisz nazwę, mnożnik opłacalności i prowizję Allegro.</div>
+      </div>
+      <div class="faq-item">
+        <strong>Jakie pliki są obsługiwane</strong>
+        <div>CSV, XLS, XLSX. Wymagane kolumny: EAN, Name, PurchasePrice.</div>
+      </div>
+      <div class="faq-item">
+        <strong>Co zrobić, gdy analiza kończy się błędem</strong>
+        <div>Sprawdź komunikat w sekcji statusu. Upewnij się, że co najmniej jedna strategia scrapera jest włączona i że kategoria jest aktywna.</div>
+      </div>
     </div>
   </div>
 
   <script>
-    const categorySelect = document.getElementById('category');
+    const categorySelect = document.getElementById('category-select');
+    const categoryInfo = document.getElementById('category-info');
+    const categoriesList = document.getElementById('categories-list');
     const form = document.getElementById('upload-form');
     const errorBox = document.getElementById('error');
+    const strategyError = document.getElementById('strategy-error');
+    const submitBtn = document.getElementById('submit-btn');
     const panel = document.getElementById('status-panel');
     const runIdEl = document.getElementById('run-id');
     const runStatusEl = document.getElementById('run-status');
     const runProgressEl = document.getElementById('run-progress');
     const runErrorEl = document.getElementById('run-error');
+    const progressBar = document.getElementById('progress-bar');
     const downloadLink = document.getElementById('download-link');
+    const localWindowsInput = document.getElementById('local-windows');
+    const cacheTtlInput = document.getElementById('cache-ttl');
+    const settingsSuccess = document.getElementById('settings-success');
+    const settingsError = document.getElementById('settings-error');
+    const categoryForm = document.getElementById('category-form');
+    const categorySuccess = document.getElementById('category-success');
+    const categoryError = document.getElementById('category-error');
+    const faqModal = document.getElementById('faq-modal');
+    const faqBtn = document.getElementById('faq-btn');
+    const faqClose = document.getElementById('faq-close');
     let pollTimer = null;
 
+    function setMessage(msg, target) {
+      target.textContent = msg || '';
+    }
+
     async function loadCategories() {
-      const res = await fetch('/api/v1/categories/');
-      if (!res.ok) throw new Error('Nie udało się pobrać kategorii');
-      const data = await res.json();
-      categorySelect.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      try {
+        const res = await fetch('/api/v1/categories/');
+        if (!res.ok) throw new Error('Nie udało się pobrać kategorii.');
+        const data = await res.json();
+        if (!data.length) {
+          categorySelect.innerHTML = '';
+          categorySelect.disabled = true;
+          submitBtn.disabled = true;
+          categoryInfo.textContent = 'Brak aktywnych kategorii. Dodaj kategorię w sekcji „Kategorie” poniżej.';
+          categoriesList.textContent = '';
+          return;
+        }
+        categorySelect.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        categorySelect.disabled = false;
+        submitBtn.disabled = false;
+        categoryInfo.textContent = '';
+        categoriesList.textContent = 'Dostępne kategorie: ' + data.map(c => c.name).join(', ');
+      } catch (err) {
+        categoryInfo.textContent = err.message;
+        submitBtn.disabled = true;
+      }
+    }
+
+    function validateStrategies() {
+      const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
+      const checked = boxes.filter(b => b.checked);
+      if (!checked.length) {
+        setMessage('Włącz przynajmniej jedną strategię.', strategyError);
+        return false;
+      }
+      setMessage('', strategyError);
+      return true;
+    }
+
+    function setStatus(data) {
+      runStatusEl.textContent = data.status;
+      const processed = data.processed_products ?? 0;
+      const total = data.total_products ?? 0;
+      runProgressEl.textContent = `${processed}/${total}`;
+      const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : (data.status === 'completed' ? 100 : 0);
+      progressBar.style.width = `${pct}%`;
+      runErrorEl.textContent = data.error_message || '';
+    }
+
+    function stopPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
     }
 
     async function pollStatus(runId) {
-      clearInterval(pollTimer);
+      stopPolling();
       const fetchStatus = async () => {
-        const res = await fetch(`/api/v1/analysis/${runId}`);
-        if (!res.ok) {
-          runStatusEl.textContent = 'błąd';
-          return;
-        }
-        const data = await res.json();
-        runStatusEl.textContent = data.status;
-        runProgressEl.textContent = `${data.processed_products}/${data.total_products}`;
-        runErrorEl.textContent = data.error_message || '';
+        try {
+          const res = await fetch(`/api/v1/analysis/${runId}`);
+          if (!res.ok) throw new Error('Nie udało się pobrać statusu.');
+          const data = await res.json();
+          setStatus(data);
 
-        if (data.status === 'completed') {
-          downloadLink.href = `/api/v1/analysis/${runId}/download`;
-          downloadLink.style.display = 'inline-flex';
-          clearInterval(pollTimer);
-        } else if (data.status === 'failed') {
-          runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się';
-          clearInterval(pollTimer);
+          if (data.status === 'completed') {
+            downloadLink.href = `/api/v1/analysis/${runId}/download`;
+            downloadLink.style.display = 'inline-flex';
+            stopPolling();
+          } else if (data.status === 'failed') {
+            runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
+            stopPolling();
+          }
+        } catch (err) {
+          setMessage(err.message, errorBox);
         }
       };
       await fetchStatus();
       pollTimer = setInterval(fetchStatus, 3000);
     }
 
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/v1/settings/');
+        if (!res.ok) throw new Error('Nie udało się pobrać ustawień.');
+        const data = await res.json();
+        cacheTtlInput.value = data.cache_ttl_days ?? 30;
+        localWindowsInput.value = data.local_scraper_windows ?? 1;
+      } catch (err) {
+        setMessage(err.message, settingsError);
+      }
+    }
+
+    async function saveSettings() {
+      setMessage('', settingsSuccess);
+      setMessage('', settingsError);
+      const payload = {
+        cache_ttl_days: Number(cacheTtlInput.value) || 30,
+        local_scraper_windows: Number(localWindowsInput.value) || 1,
+      };
+      try {
+        const res = await fetch('/api/v1/settings/', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setMessage(data.detail || 'Nie udało się zapisać ustawień.', settingsError);
+          return;
+        }
+        cacheTtlInput.value = data.cache_ttl_days;
+        localWindowsInput.value = data.local_scraper_windows;
+        setMessage('Zapisano ustawienia.', settingsSuccess);
+      } catch (err) {
+        setMessage(err.message, settingsError);
+      }
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      errorBox.textContent = '';
+      setMessage('', errorBox);
+      setMessage('', strategyError);
       downloadLink.style.display = 'none';
-      const fd = new FormData(form);
-      // unchecked checkboxes are not sent; ensure false is sent explicitly
-      ['use_api','use_cloud_http','use_local_scraper'].forEach(name => {
-        if (!form.querySelector(`input[name="${name}"]`).checked) {
-          fd.append(name, 'false');
-        }
-      });
-      const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        errorBox.textContent = data.detail || 'Nie udało się uruchomić analizy';
+
+      if (!validateStrategies()) return;
+
+      const fileInput = document.getElementById('file-input');
+      if (!fileInput.files || !fileInput.files.length) {
+        setMessage('Wybierz plik do analizy.', errorBox);
         return;
       }
-      const data = await res.json();
-      panel.style.display = 'block';
-      runIdEl.textContent = data.analysis_run_id;
-      runStatusEl.textContent = data.status;
-      runProgressEl.textContent = '0/0';
-      runErrorEl.textContent = '';
-      await pollStatus(data.analysis_run_id);
+
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      fd.append('category_id', categorySelect.value);
+      fd.append('mode', form.querySelector('input[name="mode"]:checked')?.value || 'mixed');
+
+      ['use_api', 'use_cloud_http', 'use_local_scraper'].forEach(name => {
+        const input = form.querySelector(`input[name="${name}"]`);
+        fd.append(name, input.checked ? 'true' : 'false');
+      });
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Wysyłanie...';
+
+      try {
+        const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setMessage(data.detail || 'Nie udało się uruchomić analizy.', errorBox);
+          return;
+        }
+        panel.style.display = 'block';
+        runIdEl.textContent = data.analysis_run_id;
+        setStatus({ status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+        await pollStatus(data.analysis_run_id);
+      } catch (err) {
+        setMessage(err.message || 'Wystąpił błąd.', errorBox);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Start analizy';
+      }
     });
 
-    loadCategories().catch(err => { errorBox.textContent = err.message; });
+    document.getElementById('strategy-boxes').addEventListener('change', validateStrategies);
+
+    document.getElementById('save-windows-btn').addEventListener('click', async () => {
+      if (!localWindowsInput.value) localWindowsInput.value = 1;
+      await saveSettings();
+    });
+    document.getElementById('save-ttl-btn').addEventListener('click', async () => {
+      if (!cacheTtlInput.value) cacheTtlInput.value = 30;
+      await saveSettings();
+    });
+
+    categoryForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setMessage('', categorySuccess);
+      setMessage('', categoryError);
+      const payload = {
+        name: document.getElementById('cat-name').value,
+        profitability_multiplier: Number(document.getElementById('cat-multiplier').value || 0),
+        commission_rate: (Number(document.getElementById('cat-commission').value || 0) / 100),
+      };
+      try {
+        const res = await fetch('/api/v1/categories/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setMessage(data.detail || 'Nie udało się dodać kategorii.', categoryError);
+          return;
+        }
+        setMessage('Kategoria dodana.', categorySuccess);
+        categoryForm.reset();
+        await loadCategories();
+      } catch (err) {
+        setMessage(err.message || 'Błąd podczas dodawania kategorii.', categoryError);
+      }
+    });
+
+    faqBtn.addEventListener('click', () => {
+      faqModal.style.display = 'flex';
+    });
+    faqClose.addEventListener('click', () => {
+      faqModal.style.display = 'none';
+    });
+    faqModal.addEventListener('click', (e) => {
+      if (e.target === faqModal) {
+        faqModal.style.display = 'none';
+      }
+    });
+
+    loadCategories();
+    loadSettings();
   </script>
 </body>
 </html>

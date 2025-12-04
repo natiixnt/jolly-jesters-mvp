@@ -40,6 +40,19 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
+    @validator("local_scraper_enabled", pre=True, always=True)
+    def _coerce_local_scraper_enabled(cls, value: object) -> bool:
+        """
+        Allow missing/blank LOCAL_SCRAPER_ENABLED values to default to False.
+        """
+        if value is None:
+            return False
+        if isinstance(value, str):
+            if not value.strip():
+                return False
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(value)
+
     @property
     def proxy_list(self) -> List[str]:
         if not self.proxy_list_raw:
