@@ -5,6 +5,9 @@ class SettingsRead(BaseModel):
     cache_ttl_days: int
     local_scraper_windows: int
 
+    class Config:
+        orm_mode = True
+
 
 class SettingsUpdate(BaseModel):
     cache_ttl_days: int = Field(..., ge=1, le=365)

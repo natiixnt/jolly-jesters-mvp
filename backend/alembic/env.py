@@ -6,6 +6,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.exc import OperationalError
+import sqlalchemy as sa
 
 from app.core.config import settings
 from app.db.base import Base  # noqa: F401
@@ -54,7 +55,43 @@ def run_migrations_online() -> None:
 
         try:
             with connectable.connect() as connection:
-                context.configure(connection=connection, target_metadata=target_metadata)
+                # Ensure alembic_version can store long revision ids (ours exceed 32 chars)
+                try:
+                    with connection.begin():
+                        # Create alembic_version upfront if missing, using VARCHAR(64)
+                        exists = connection.execute(
+                            sa.text("SELECT to_regclass('alembic_version')")
+                        ).scalar()
+                        if not exists:
+                            connection.execute(
+                                sa.text("CREATE TABLE alembic_version (version_num VARCHAR(64) NOT NULL)")
+                            )
+                            logger.info("Created alembic_version with VARCHAR(64)")
+
+                        current_len = connection.execute(
+                            sa.text(
+                                """
+                                SELECT character_maximum_length
+                                FROM information_schema.columns
+                                WHERE table_name = 'alembic_version'
+                                  AND column_name = 'version_num'
+                                  AND table_schema = current_schema()
+                                """
+                            )
+                        ).scalar()
+                        if current_len is not None and current_len < 64:
+                            connection.execute(
+                                sa.text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
+                            )
+                            logger.info("Expanded alembic_version.version_num to VARCHAR(64)")
+                except Exception as exc:  # pragma: no cover - defensive fallback
+                    logger.warning("Could not adjust alembic_version.version_num length: %s", exc)
+
+                context.configure(
+                    connection=connection,
+                    target_metadata=target_metadata,
+                    version_table_column_type=sa.String(length=64),
+                )
 
                 with context.begin_transaction():
                     context.run_migrations()

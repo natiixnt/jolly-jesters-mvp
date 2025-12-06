@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import uuid
 from decimal import Decimal
 from typing import Optional
 
@@ -28,7 +29,7 @@ class CategoryUpdate(BaseModel):
 
 
 class CategoryRead(CategoryBase):
-    id: str
+    id: uuid.UUID
     created_at: datetime
     updated_at: datetime
 
