@@ -21,6 +21,16 @@ from app.services.scraping_service import fetch_allegro_data
 from app.services import settings_service
 
 
+def _mark_run_failed(db: Session, run_id: int, message: str) -> None:
+    run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
+    if not run:
+        return
+    run.status = AnalysisStatus.failed
+    run.error_message = message
+    run.finished_at = datetime.now(timezone.utc)
+    db.commit()
+
+
 def _stale_cutoff(cache_ttl_days: int) -> datetime:
     return datetime.now(timezone.utc) - timedelta(days=cache_ttl_days)
 
@@ -103,76 +113,80 @@ def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
     if not run:
         return
 
-    category = db.query(Category).filter(Category.id == run.category_id).first()
-    if not category:
-        run.status = AnalysisStatus.failed
-        run.error_message = "Category not found"
-        run.finished_at = datetime.now(timezone.utc)
-        db.commit()
-        return
+    try:
+        category = db.query(Category).filter(Category.id == run.category_id).first()
+        if not category:
+            run.status = AnalysisStatus.failed
+            run.error_message = "Kategoria nie została znaleziona"
+            run.finished_at = datetime.now(timezone.utc)
+            db.commit()
+            return
 
-    items: List[AnalysisRunItem] = (
-        db.query(AnalysisRunItem)
-        .filter(AnalysisRunItem.analysis_run_id == run.id)
-        .order_by(AnalysisRunItem.row_number)
-        .all()
-    )
-    if not items:
-        run.status = AnalysisStatus.failed
-        run.error_message = "Brak pozycji do analizy"
-        run.finished_at = datetime.now(timezone.utc)
-        db.commit()
-        return
-
-    run.status = AnalysisStatus.running
-    run.error_message = None
-    run.started_at = datetime.now(timezone.utc)
-    db.commit()
-
-    settings_record = settings_service.get_settings(db)
-    cutoff = _stale_cutoff(settings_record.cache_ttl_days)
-    strategy = ScrapingStrategyConfig(
-        use_api=run.use_api,
-        use_cloud_http=run.use_cloud_http,
-        use_local_scraper=run.use_local_scraper,
-    )
-
-    for item in items:
-        if item.source == AnalysisItemSource.error:
-            continue
-
-        product = (
-            db.query(Product)
-            .filter(Product.id == item.product_id)
-            .first()
+        items: List[AnalysisRunItem] = (
+            db.query(AnalysisRunItem)
+            .filter(AnalysisRunItem.analysis_run_id == run.id)
+            .order_by(AnalysisRunItem.row_number)
+            .all()
         )
-        if not product:
-            item.source = AnalysisItemSource.error
-            item.error_message = "Brak produktu dla wiersza"
+        if not items:
+            run.status = AnalysisStatus.failed
+            run.error_message = "Brak pozycji do analizy"
+            run.finished_at = datetime.now(timezone.utc)
+            db.commit()
+            return
+
+        run.status = AnalysisStatus.running
+        run.error_message = None
+        run.started_at = datetime.now(timezone.utc)
+        db.commit()
+
+        settings_record = settings_service.get_settings(db)
+        cutoff = _stale_cutoff(settings_record.cache_ttl_days)
+        strategy = ScrapingStrategyConfig(
+            use_api=run.use_api,
+            use_cloud_http=run.use_cloud_http,
+            use_local_scraper=run.use_local_scraper,
+        )
+
+        for item in items:
+            if item.source == AnalysisItemSource.error:
+                continue
+
+            product = (
+                db.query(Product)
+                .filter(Product.id == item.product_id)
+                .first()
+            )
+            if not product:
+                item.source = AnalysisItemSource.error
+                item.error_message = "Brak produktu dla wiersza"
+                run.processed_products += 1
+                db.commit()
+                continue
+
+            state = _ensure_product_state(db, product)
+            state.is_stale = not state.last_fetched_at or state.last_fetched_at < cutoff
+
+            try:
+                if mode == "offline":
+                    _process_offline_item(db, run, category, product, state, item)
+                elif mode == "online":
+                    _process_online_item(db, run, category, product, state, item, strategy)
+                else:
+                    _process_mixed_item(db, run, category, product, state, item, cutoff, strategy)
+            except Exception as exc:
+                item.source = AnalysisItemSource.error
+                item.error_message = str(exc)
+
             run.processed_products += 1
             db.commit()
-            continue
 
-        state = _ensure_product_state(db, product)
-        state.is_stale = not state.last_fetched_at or state.last_fetched_at < cutoff
-
-        try:
-            if mode == "offline":
-                _process_offline_item(db, run, category, product, state, item)
-            elif mode == "online":
-                _process_online_item(db, run, category, product, state, item, strategy)
-            else:
-                _process_mixed_item(db, run, category, product, state, item, cutoff, strategy)
-        except Exception as exc:
-            item.source = AnalysisItemSource.error
-            item.error_message = str(exc)
-
-        run.processed_products += 1
+        run.status = AnalysisStatus.completed
+        run.finished_at = datetime.now(timezone.utc)
         db.commit()
-
-    run.status = AnalysisStatus.completed
-    run.finished_at = datetime.now(timezone.utc)
-    db.commit()
+    except Exception as exc:
+        db.rollback()
+        _mark_run_failed(db, run_id, f"Analiza przerwana: {exc}")
 
 
 def _process_offline_item(
@@ -339,14 +353,15 @@ def get_run_items(db: Session, run_id: int) -> List[AnalysisRunItem]:
 
 
 def list_recent_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
-    runs = (
-        db.query(AnalysisRun)
-        .order_by(AnalysisRun.started_at.desc())
+    rows = (
+        db.query(AnalysisRun, Category.name.label("category_name"))
+        .outerjoin(Category, AnalysisRun.category_id == Category.id)
+        .order_by(AnalysisRun.created_at.desc())
         .limit(limit)
         .all()
     )
-    # preload categories to avoid lazy load in serialization
-    category_map = {c.id: c.name for c in db.query(Category).all()}
-    for run in runs:
-        run.category_name = category_map.get(run.category_id, "")  # type: ignore[attr-defined]
+    runs: List[AnalysisRun] = []
+    for run, category_name in rows:
+        run.category_name = category_name or "Kategoria usunięta"  # type: ignore[attr-defined]
+        runs.append(run)
     return runs

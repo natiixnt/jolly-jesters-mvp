@@ -45,7 +45,7 @@ services:
       - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED}
       - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL}
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./backend:/app
       - workspace_data:/workspace

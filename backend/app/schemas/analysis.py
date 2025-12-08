@@ -19,6 +19,7 @@ class AnalysisStatusResponse(BaseModel):
     id: int
     category_id: str
     status: AnalysisStatus
+    created_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     total_products: int
@@ -54,6 +55,7 @@ class AnalysisRunSummary(BaseModel):
     id: int
     category_id: str
     category_name: str
+    created_at: Optional[datetime] = None
     status: AnalysisStatus
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
@@ -63,6 +65,7 @@ class AnalysisRunSummary(BaseModel):
     use_api: bool
     use_cloud_http: bool
     use_local_scraper: bool
+    error_message: Optional[str] = None
 
     class Config:
         orm_mode = True

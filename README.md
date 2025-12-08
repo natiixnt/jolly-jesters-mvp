@@ -10,6 +10,18 @@ docker-compose up --build
 
 Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/`. Stary widok Streamlit (port 8501) moze zostac do celow dev, ale podstawowa sciezka uzytkownika to HTML z backendu.
 
+## Migracje bazy (Alebmic)
+
+- Zalecany sposob uruchamiania migracji: **tylko z poziomu kontenera backendu**, aby `app` by'o na PYTHONPATH:
+  ```
+  docker compose exec pilot_backend alembic upgrade head
+  ```
+- Alternatywnie mo'na u'y' skryptu pomocniczego (tak'e **wewn'trz** kontenera):
+  ```
+  docker compose exec pilot_backend bash backend/scripts/migrate.sh
+  ```
+- Nie uruchamiaj `alembic upgrade head` bezpo'rednio z hosta (czeste b''dy `ModuleNotFoundError: app` / Pydantic). U'ywaj polecenia z `docker compose exec`.
+
 ## Wymagane zmienne srodowiskowe
 
 | Klucz | Opis |

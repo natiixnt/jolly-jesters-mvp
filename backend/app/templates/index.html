@@ -84,12 +84,18 @@
     form { display: grid; gap: 16px; }
     label { font-weight: 700; font-size: 13px; letter-spacing: 0.01em; color: var(--muted); text-transform: uppercase; }
     .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       border: none;
       background: transparent;
       color: var(--muted);
       font-weight: 800;
       font-size: 16px;
       padding: 2px 6px;
+      line-height: 1;
+      position: relative;
+      top: -1px;
       border-radius: 999px;
       cursor: pointer;
       transition: background-color 0.15s ease, color 0.15s ease;
@@ -245,20 +251,43 @@
       display: grid;
       gap: 10px;
     }
-    .history-row {
+    .history-entry {
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px;
       background: #0b152b;
+      overflow: hidden;
+    }
+    .history-row {
+      padding: 12px;
       display: grid;
-      grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+      grid-template-columns: 1.6fr 1.1fr 1fr 1fr 1fr;
       gap: 10px;
       align-items: center;
+      cursor: pointer;
     }
+    .history-row:hover { background: rgba(255,255,255,0.02); }
+    .history-row .history-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
     @media (max-width: 900px) {
       .history-row { grid-template-columns: 1fr 1fr; }
     }
     .history-row small { color: var(--muted); display: block; }
+    .history-detail {
+      display: none;
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .history-detail strong { color: var(--text); }
+    .history-error-line { color: var(--danger); margin-top: 6px; }
+    .history-error-chip {
+      background: rgba(239,68,68,0.15);
+      color: var(--danger);
+      padding: 4px 8px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 12px;
+    }
     .badge {
       padding: 4px 8px;
       border-radius: 999px;
@@ -449,6 +478,7 @@
       </div>
       <div class="history-list" id="history-list"></div>
       <div class="helper" id="history-empty" style="display:none;">Brak wcześniejszych analiz.</div>
+      <div class="helper" id="history-error" style="display:none;">Nie udało się pobrać historii.</div>
     </div>
   </div>
 
@@ -552,6 +582,7 @@
     const layout = document.getElementById('layout');
     const historyList = document.getElementById('history-list');
     const historyEmpty = document.getElementById('history-empty');
+    const historyError = document.getElementById('history-error');
     const historyToggle = document.getElementById('history-toggle');
     const historyCaret = document.getElementById('history-caret');
     let historyExpanded = true;
@@ -564,6 +595,23 @@
     function briefSuccess(target) {
       target.textContent = 'Zapisano';
       setTimeout(() => { target.textContent = ''; }, 2000);
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '-';
+      try {
+        return new Date(value).toLocaleString();
+      } catch (err) {
+        return String(value);
+      }
+    }
+
+    function renderStrategies(run) {
+      const strategies = [];
+      if (run.use_api) strategies.push('API');
+      if (run.use_cloud_http) strategies.push('HTTP');
+      if (run.use_local_scraper) strategies.push('Selenium');
+      return strategies.length ? strategies.join(' · ') : 'Brak danych';
     }
 
     async function loadCategories() {
@@ -684,37 +732,103 @@
       }
     }
 
+    function createHistoryEntry(run) {
+      const entry = document.createElement('div');
+      entry.className = 'history-entry';
+      const row = document.createElement('div');
+      row.className = 'history-row';
+
+      const created = formatDateTime(run.created_at || run.started_at);
+      const finished = formatDateTime(run.finished_at);
+      const modeLabel = (run.mode || '').toUpperCase() || '—';
+      const finishedLabel = finished !== '-' ? finished : 'W toku / oczekuje';
+      const statusBadge = `<span class="badge ${run.status}">${run.status}</span>`;
+      const downloadLink = run.status === 'completed'
+        ? `<a class="download" href="/api/v1/analysis/${run.id}/download">Pobierz raport</a>`
+        : '';
+      const errorChip = run.status === 'failed' ? '<span class="history-error-chip">Błąd</span>' : '';
+
+      row.innerHTML = `
+        <div><strong>${created}</strong><small>${finishedLabel}</small></div>
+        <div><strong>${run.category_name || 'Kategoria usunięta'}</strong><small>Tryb: ${modeLabel}</small></div>
+        <div><small>Strategie:</small> ${renderStrategies(run)}</div>
+        <div><small>Postęp:</small> ${run.processed_products}/${run.total_products}</div>
+        <div class="history-actions">
+          ${statusBadge}
+          ${errorChip}
+          ${downloadLink ? `<div>${downloadLink}</div>` : ''}
+        </div>
+      `;
+
+      const detail = document.createElement('div');
+      detail.className = 'history-detail';
+      const detailItems = [
+        ['ID:', String(run.id)],
+        ['Utworzono:', created],
+        ['Zakończono:', finished !== '-' ? finished : '—'],
+        ['Postęp:', `${run.processed_products}/${run.total_products}`],
+      ];
+      detailItems.forEach(([label, value]) => {
+        const rowEl = document.createElement('div');
+        const strong = document.createElement('strong');
+        strong.textContent = label;
+        rowEl.appendChild(strong);
+        rowEl.append(` ${value}`);
+        detail.appendChild(rowEl);
+      });
+      if (run.status === 'failed') {
+        const errorLine = document.createElement('div');
+        errorLine.className = 'history-error-line';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Powód błędu:';
+        errorLine.appendChild(strong);
+        errorLine.append(` ${run.error_message || 'Brak szczegółów.'}`);
+        detail.appendChild(errorLine);
+      }
+
+      row.addEventListener('click', (e) => {
+        if (e.target.closest && e.target.closest('a')) {
+          return;
+        }
+        const expanded = detail.style.display === 'block';
+        detail.style.display = expanded ? 'none' : 'block';
+      });
+
+      entry.appendChild(row);
+      entry.appendChild(detail);
+      return entry;
+    }
+
     async function loadHistory() {
       historyList.innerHTML = '';
+      historyEmpty.style.display = 'none';
+      historyError.style.display = 'none';
+
       try {
         const res = await fetch('/api/v1/analysis');
         if (!res.ok) throw new Error('Nie udało się pobrać historii.');
         const data = await res.json();
-        if (!data.length) {
-          historyEmpty.style.display = 'block';
+        if (!Array.isArray(data) || !data.length) {
+          historyList.style.display = 'none';
+          if (historyExpanded) {
+            historyEmpty.textContent = 'Brak wcześniejszych analiz.';
+            historyEmpty.style.display = 'block';
+          }
           return;
         }
-        historyEmpty.style.display = 'none';
+
         data.forEach(run => {
-          const row = document.createElement('div');
-          row.className = 'history-row';
-          const started = run.started_at ? new Date(run.started_at).toLocaleString() : '-';
-          const finished = run.finished_at ? new Date(run.finished_at).toLocaleString() : '';
-          row.innerHTML = `
-            <div><strong>ID ${run.id}</strong><small>${started}${finished ? ' → ' + finished : ''}</small></div>
-            <div><strong>${run.category_name || ''}</strong><small>Tryb: ${run.mode?.toUpperCase()}</small></div>
-            <div><small>Strategie:</small> ${run.use_api ? 'API ' : ''}${run.use_cloud_http ? 'HTTP ' : ''}${run.use_local_scraper ? 'Selenium' : ''}</div>
-            <div><small>Postęp:</small> ${run.processed_products}/${run.total_products}</div>
-            <div>
-              <span class="badge ${run.status}">${run.status}</span>
-              ${run.status === 'completed' ? `<div><a class="download" href="/api/v1/analysis/${run.id}/download">⬇</a></div>` : ''}
-            </div>
-          `;
-          historyList.appendChild(row);
+          historyList.appendChild(createHistoryEntry(run));
         });
+
+        historyList.style.display = historyExpanded ? 'grid' : 'none';
       } catch (err) {
-        historyEmpty.style.display = 'block';
-        historyEmpty.textContent = err.message;
+        historyList.innerHTML = '';
+        historyList.style.display = 'none';
+        if (historyExpanded) {
+          historyError.textContent = 'Nie udało się pobrać historii.';
+          historyError.style.display = 'block';
+        }
       }
     }
 
@@ -846,11 +960,16 @@
 
     historyToggle.addEventListener('click', () => {
       historyExpanded = !historyExpanded;
-      const display = historyExpanded ? 'grid' : 'none';
-      historyList.style.display = display;
-      historyEmpty.style.display = historyExpanded ? historyEmpty.style.display : 'none';
-      historyCaret.textContent = historyExpanded ? '▼' : '▲';
-      if (historyExpanded) loadHistory();
+      if (historyExpanded) {
+        historyCaret.textContent = '▼';
+        historyList.style.display = 'grid';
+        loadHistory();
+      } else {
+        historyCaret.textContent = '▲';
+        historyList.style.display = 'none';
+        historyEmpty.style.display = 'none';
+        historyError.style.display = 'none';
+      }
     });
 
     loadCategories();

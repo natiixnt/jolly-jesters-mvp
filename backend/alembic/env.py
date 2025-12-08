@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import time
 from logging.config import fileConfig
 
@@ -7,6 +8,11 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.exc import OperationalError
 import sqlalchemy as sa
+
+# ensure project root (backend/) is on PYTHONPATH for both docker and host executions
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
 from app.core.config import settings
 from app.db.base import Base  # noqa: F401
