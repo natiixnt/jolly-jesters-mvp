@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.models.category import Category
 from app.models.enums import AnalysisStatus
 from app.schemas.analysis import AnalysisStatusResponse, AnalysisUploadResponse, AnalysisRunSummary
 from app.services import analysis_service
+from app.core.config import settings
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
 from app.services.schemas import ScrapingStrategyConfig
@@ -25,6 +26,38 @@ def _validate_strategy(use_api: bool, use_cloud_http: bool, use_local_scraper: b
         )
 
 
+def _validate_scraper_config(use_api: bool, use_cloud_http: bool, use_local_scraper: bool):
+    # API
+    if use_api and not settings.ALLEGRO_API_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Brak konfiguracji Allegro API (ALLEGRO_API_TOKEN). Odznacz 'Uzyj Allegro API' lub dodaj token.",
+        )
+
+    # cloud HTTP
+    if use_cloud_http:
+        proxies = settings.PROXY_LIST
+        if isinstance(proxies, str):
+            proxies = [p for p in proxies.split(",") if p.strip()]
+        if not proxies:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Brak skonfigurowanych proxy dla cloud HTTP (PROXY_LIST). Odznacz 'Uzyj cloud HTTP (proxy)' lub ustaw liste proxy.",
+            )
+
+    # local Selenium
+    if use_local_scraper and not settings.LOCAL_SCRAPER_URL:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Brak adresu uslugi lokalnego scrapera (LOCAL_SCRAPER_URL). "
+                "Odznacz 'Uzyj lokalnego Selenium' albo skonfiguruj URL. "
+                "W Dockerze: LOCAL_SCRAPER_URL=http://local_scraper:5050, "
+                "w Kubernetes: np. http://local-scraper.default.svc.cluster.local:5050."
+            ),
+        )
+
+
 @router.post("/upload", response_model=AnalysisUploadResponse)
 async def upload_analysis(
     file: UploadFile = File(...),
@@ -37,6 +70,7 @@ async def upload_analysis(
 ):
     mode = (mode or "mixed").lower()
     _validate_strategy(use_api, use_cloud_http, use_local_scraper)
+    _validate_scraper_config(use_api, use_cloud_http, use_local_scraper)
 
     try:
         category_uuid = uuid.UUID(category_id)
@@ -78,7 +112,7 @@ def get_analysis_status(run_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{run_id}/download")
-def download_results(run_id: int, db: Session = Depends(get_db)):
+def download_results(run_id: int, inline: bool = False, db: Session = Depends(get_db)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -89,7 +123,8 @@ def download_results(run_id: int, db: Session = Depends(get_db)):
     if content is None:
         raise HTTPException(status_code=404, detail="Analysis not found")
     filename = f"analysis_{run_id}.xlsx"
-    headers = {"Content-Disposition": f'attachment; filename=\"{filename}\"'}
+    disposition = "inline" if inline else f'attachment; filename=\"{filename}\"'
+    headers = {"Content-Disposition": disposition}
     return StreamingResponse(
         iter([content]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

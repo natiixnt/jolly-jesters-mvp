@@ -33,6 +33,7 @@ Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Ji
 | `LOCAL_SCRAPER_ENABLED` | `true/false` – w³¹cza lokalny scraper Selenium |
 | `LOCAL_SCRAPER_URL` | Endpoint lokalnego scrapera, np. `http://host.docker.internal:5050/scrape` |
 | `WORKSPACE` | Katalog roboczy na upload/export (domyœlnie `/workspace`) |
+| `EUR_TO_PLN_RATE` | Sta?y kurs przeliczenia EUR?PLN dla importu cennik?w (domy?lnie `4.5`) |
 
 ## Minimalny flow (cURL)
 

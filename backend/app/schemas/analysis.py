@@ -17,7 +17,7 @@ class AnalysisUploadResponse(BaseModel):
 
 class AnalysisStatusResponse(BaseModel):
     id: int
-    category_id: str
+    category_id: int
     status: AnalysisStatus
     created_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
@@ -53,7 +53,7 @@ class AnalysisRunDetail(AnalysisStatusResponse):
 
 class AnalysisRunSummary(BaseModel):
     id: int
-    category_id: str
+    category_id: int
     category_name: str
     created_at: Optional[datetime] = None
     status: AnalysisStatus

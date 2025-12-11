@@ -430,7 +430,10 @@
           <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
           <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
           <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
-          <a class="download" id="download-link" href="#" style="display:none;">⬇ Pobierz raport</a>
+          <div id="report-links" style="display:none; margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <a class="download" id="download-link" href="#">⬇ Pobierz raport</a>
+            <a class="download" id="open-link" href="#" target="_blank" rel="noopener noreferrer" style="font-size:14px;">Otwórz raport w nowej karcie</a>
+          </div>
         </div>
       </div>
 
@@ -560,6 +563,8 @@
     const runErrorEl = document.getElementById('run-error');
     const progressBar = document.getElementById('progress-bar');
     const downloadLink = document.getElementById('download-link');
+    const openLink = document.getElementById('open-link');
+    const reportLinks = document.getElementById('report-links');
     const localWindowsInput = document.getElementById('local-windows');
     const cacheTtlInput = document.getElementById('cache-ttl');
     const settingsInfo = document.getElementById('settings-info');
@@ -657,6 +662,14 @@
       const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : (data.status === 'completed' ? 100 : 0);
       progressBar.style.width = `${pct}%`;
       runErrorEl.textContent = data.error_message || '';
+      if (data.status === 'completed') {
+        const href = `/api/v1/analysis/${data.id}/download`;
+        downloadLink.href = href;
+        openLink.href = `${href}?inline=true`;
+        reportLinks.style.display = 'flex';
+      } else {
+        reportLinks.style.display = 'none';
+      }
     }
 
     function stopPolling() {
@@ -673,21 +686,26 @@
           const data = await res.json();
           setStatus(data);
 
-          if (data.status === 'completed') {
-            downloadLink.href = `/api/v1/analysis/${runId}/download`;
-            downloadLink.style.display = 'inline-flex';
-            stopPolling();
-            await loadHistory();
-          } else if (data.status === 'failed') {
-            runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
-            stopPolling();
-            await loadHistory();
+            if (data.status === 'completed') {
+              const href = `/api/v1/analysis/${runId}/download`;
+              downloadLink.href = href;
+              openLink.href = `${href}?inline=true`;
+              reportLinks.style.display = 'flex';
+              stopPolling();
+              await loadHistory();
+            } else if (data.status === 'failed') {
+              runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
+              reportLinks.style.display = 'none';
+              stopPolling();
+              await loadHistory();
+            } else {
+              reportLinks.style.display = 'none';
+            }
+          } catch (err) {
+            setMessage(err.message, errorBox);
           }
-        } catch (err) {
-          setMessage(err.message, errorBox);
-        }
-      };
-      await fetchStatus();
+        };
+        await fetchStatus();
       pollTimer = setInterval(fetchStatus, 3000);
     }
 

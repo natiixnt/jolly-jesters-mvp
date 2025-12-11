@@ -1,0 +1,28 @@
+FROM python:3.11-slim
+
+# Minimal system dependencies; let SeleniumBase manage browser/driver downloads
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      wget curl unzip ca-certificates \
+      fonts-liberation \
+      libnss3 \
+      libxss1 \
+      libasound2 \
+      libgbm1 \
+      xvfb && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies (reuse backend requirements)
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy scraper service code
+COPY local_scraper_service.py ./local_scraper_service.py
+COPY main.py ./main.py
+
+EXPOSE 5050
+
+CMD ["uvicorn", "local_scraper_service:app", "--host", "0.0.0.0", "--port", "5050"]

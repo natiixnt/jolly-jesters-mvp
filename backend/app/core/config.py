@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     stale_days: int = Field(default=30)
     profitability_default_multiplier: Decimal = Field(default=Decimal("1.5"))
     commission_default: Optional[Decimal] = Field(default=None)
+    eur_to_pln_rate: float = Field(default=4.5, env="EUR_TO_PLN_RATE")
 
     data_root: Path = Field(default=Path("/workspace"), env="WORKSPACE")
     upload_dir_name: str = Field(default="uploads")

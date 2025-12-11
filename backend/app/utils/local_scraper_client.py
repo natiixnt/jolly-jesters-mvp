@@ -21,8 +21,10 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
         )
 
     try:
+        base_url = settings.LOCAL_SCRAPER_URL.rstrip("/")
+        url = f"{base_url}/scrape"
         async with httpx.AsyncClient(timeout=settings.proxy_timeout) as client:
-            resp = await client.post(settings.LOCAL_SCRAPER_URL, json={"ean": ean})
+            resp = await client.post(url, json={"ean": ean})
     except Exception as exc:
         return AllegroResult(
             price=None,

@@ -40,6 +40,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      - LOCAL_SCRAPER_URL=http://local_scraper:5050
       - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN}
       - PROXY_LIST=${PROXY_LIST}
       - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED}
@@ -56,6 +57,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  local_scraper:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.local_scraper
+    container_name: local_scraper
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - LOCAL_SCRAPER_URL=http://local_scraper:5050
+    ports:
+      - "5050:5050"
       
   worker:
     build:
