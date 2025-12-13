@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.category import Category
 from app.models.enums import AnalysisStatus
-from app.schemas.analysis import AnalysisStatusResponse, AnalysisUploadResponse, AnalysisRunSummary
+from app.schemas.analysis import (
+    AnalysisResultsResponse,
+    AnalysisStatusResponse,
+    AnalysisUploadResponse,
+    AnalysisRunSummary,
+)
 from app.services import analysis_service
 from app.core.config import settings
 from app.services.export_service import export_run_bytes
@@ -135,3 +140,16 @@ def download_results(run_id: int, inline: bool = False, db: Session = Depends(ge
 @router.get("", response_model=list[AnalysisRunSummary])
 def list_runs(db: Session = Depends(get_db), limit: int = 20):
     return analysis_service.list_recent_runs(db, limit=limit)
+
+
+@router.get("/{run_id}/results", response_model=AnalysisResultsResponse)
+def get_analysis_results(
+    run_id: int,
+    offset: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    results = analysis_service.get_run_results(db, run_id=run_id, offset=offset, limit=limit)
+    if not results:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return results

@@ -12,6 +12,7 @@ class ProductEffectiveState(Base):
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), primary_key=True)
     last_market_data_id = Column(ForeignKey("product_market_data.id"), nullable=True)
     last_fetched_at = Column(DateTime(timezone=True), nullable=True)
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
     is_not_found = Column(Boolean, nullable=False, default=False, server_default="false")
     is_stale = Column(Boolean, nullable=False, default=False, server_default="false")
     profitability_score = Column(Numeric(12, 4), nullable=True)

@@ -30,6 +30,10 @@ def create_category(db: Session, payload: CategoryCreate) -> Category:
     return category
 
 
+def get_category(db: Session, category_id: str) -> Category | None:
+    return db.query(Category).filter(Category.id == category_id).first()
+
+
 def update_category(db: Session, category_id: str, payload: CategoryUpdate) -> Category:
     category = db.query(Category).filter(Category.id == category_id).first()
     if not category:

@@ -14,6 +14,7 @@ from app.models.category import Category
 from app.models.enums import AnalysisItemSource, AnalysisStatus
 from app.models.product import Product
 from app.services.schemas import ScrapingStrategyConfig
+from app.services import settings_service
 from app.utils.excel_reader import InputRow, read_excel_file
 
 
@@ -37,14 +38,14 @@ def _ensure_product(db: Session, category: Category, row: InputRow) -> Product:
             category_id=category.id,
             ean=row.ean,
             name=row.name or row.ean,
-            purchase_price=row.purchase_price or 0,
+            purchase_price=row.purchase_price_pln or 0,
         )
         db.add(product)
         db.flush()
     else:
         product.name = row.name or product.name
-        if row.purchase_price:
-            product.purchase_price = row.purchase_price
+        if row.purchase_price_pln:
+            product.purchase_price = row.purchase_price_pln
     return product
 
 
@@ -81,7 +82,10 @@ def prepare_analysis_run(
                     row_number=row.row_number,
                     ean=row.ean,
                     input_name=row.name,
-                    input_purchase_price=row.purchase_price,
+                    original_purchase_price=row.original_purchase_price,
+                    original_currency=row.purchase_currency,
+                    input_purchase_price=row.purchase_price_pln,
+                    purchase_price_pln=row.purchase_price_pln,
                     source=AnalysisItemSource.error,
                     error_message=row.error,
                 )
@@ -97,7 +101,10 @@ def prepare_analysis_run(
                 row_number=row.row_number,
                 ean=row.ean,
                 input_name=row.name,
-                input_purchase_price=row.purchase_price,
+                original_purchase_price=row.original_purchase_price,
+                original_currency=row.purchase_currency,
+                input_purchase_price=row.purchase_price_pln,
+                purchase_price_pln=row.purchase_price_pln,
                 source=AnalysisItemSource.baza,
             )
         )
@@ -116,7 +123,8 @@ async def handle_upload(
     mode: str = "mixed",
 ) -> AnalysisRun:
     data = await upload_file.read()
-    rows = read_excel_file(data)
+    rates, default_currency = settings_service.get_currency_rate_map(db)
+    rows = read_excel_file(data, currency_rates=rates, default_currency=default_currency)
     saved_path = store_uploaded_file_bytes(data, upload_file.filename)
     run = prepare_analysis_run(db, category, rows, saved_path.name, strategy, mode=mode)
     return run

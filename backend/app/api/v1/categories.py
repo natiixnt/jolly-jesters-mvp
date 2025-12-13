@@ -39,3 +39,16 @@ def update_category(category_id: str, payload: CategoryUpdate, db: Session = Dep
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     return category
+
+
+@router.get("/{category_id}", response_model=CategoryRead)
+def get_category(category_id: str, db: Session = Depends(get_db)):
+    try:
+        category_uuid = uuid.UUID(category_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid category id")
+
+    category = categories_service.get_category(db, str(category_uuid))
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return category

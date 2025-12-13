@@ -16,8 +16,8 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
             sold_count=None,
             is_not_found=False,
             is_temporary_error=True,
-            raw_payload={"error": "local_scraper_disabled", "source": "local_scraper"},
-            source="local_scraper",
+            raw_payload={"error": "local_scraper_disabled", "source": "local"},
+            source="local",
         )
 
     try:
@@ -31,8 +31,8 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
             sold_count=None,
             is_not_found=False,
             is_temporary_error=True,
-            raw_payload={"error": str(exc), "source": "local_scraper"},
-            source="local_scraper",
+            raw_payload={"error": str(exc), "source": "local"},
+            source="local",
         )
 
     try:
@@ -69,8 +69,8 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
             sold_count=None,
             is_not_found=False,
             is_temporary_error=True,
-            raw_payload=payload | {"status_code": resp.status_code, "source": "local_scraper"},
-            source="local_scraper",
+            raw_payload=payload | {"status_code": resp.status_code, "source": "local"},
+            source="local",
         )
 
     return AllegroResult(
@@ -79,5 +79,5 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
         is_not_found=False,
         is_temporary_error=False,
         raw_payload=payload,
-        source="local_scraper",
+        source="local",
     )

@@ -41,13 +41,12 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - LOCAL_SCRAPER_URL=http://localhost:5050/
-      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN}
-      - PROXY_LIST=${PROXY_LIST}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED}
-      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL}
+      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
+      - PROXY_LIST=${PROXY_LIST:-}
+      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-false}
+      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
     command: >
-      bash -c "alembic -c alembic.ini upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - ./backend:/app
       - workspace_data:/workspace
@@ -79,10 +78,10 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN}
-      - PROXY_LIST=${PROXY_LIST}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED}
-      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL}
+      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
+      - PROXY_LIST=${PROXY_LIST:-}
+      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-false}
+      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis"
     volumes:
@@ -102,10 +101,10 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN}
-      - PROXY_LIST=${PROXY_LIST}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED}
-      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL}
+      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
+      - PROXY_LIST=${PROXY_LIST:-}
+      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-false}
+      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
       - WORKSPACE=/workspace
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1"

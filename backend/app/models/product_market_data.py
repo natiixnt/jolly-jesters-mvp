@@ -17,6 +17,7 @@ class ProductMarketData(Base):
     allegro_price = Column(Numeric(12, 4), nullable=True)
     allegro_sold_count = Column(Integer, nullable=True)
     source = Column(Enum(MarketDataSource), nullable=False)
+    last_checked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
     fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     is_not_found = Column(Boolean, nullable=False, default=False, server_default="false")
     raw_payload = Column(JSON, nullable=True)

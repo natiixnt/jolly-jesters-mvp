@@ -61,6 +61,34 @@
       transition: border-color 0.2s, color 0.2s, transform 0.2s;
     }
     .ghost-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: linear-gradient(120deg, var(--accent-2), var(--accent));
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .action-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(34,211,238,0.25); }
+    .action-btn.secondary {
+      background: #0b152b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      box-shadow: none;
+    }
+    .action-btn.secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .button-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .layout {
       margin-top: 20px;
       display: grid;
@@ -109,14 +137,22 @@
       padding: 12px 14px;
       color: var(--text);
     }
+    input[type="datetime-local"] {
+      width: 100%;
+      background: #0b152b;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: var(--text);
+    }
     select {
       appearance: none;
       background-image:
         linear-gradient(45deg, transparent 50%, var(--muted) 50%),
         linear-gradient(135deg, var(--muted) 50%, transparent 50%);
       background-position:
-        calc(100% - 22px) center,
-        calc(100% - 16px) center;
+        calc(100% - 28px) center,
+        calc(100% - 20px) center;
       background-size: 6px 6px,
                       6px 6px;
       background-repeat: no-repeat;
@@ -299,6 +335,49 @@
     .badge.running { background: #22d3ee; }
     .badge.completed { background: #10b981; }
     .badge.failed { background: #ef4444; }
+    .ghost-btn--small { padding: 8px 10px; font-size: 13px; }
+    .results-table {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .results-table table { width: 100%; border-collapse: collapse; }
+    .results-table th, .results-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    .results-table tbody tr:hover { background: rgba(255,255,255,0.02); cursor: pointer; }
+    .results-detail { background: #0b152b; color: var(--muted); }
+    .results-pagination {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .results-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+    .status-chip {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      display: inline-block;
+    }
+    .status-chip.ok { background: rgba(16,185,129,0.2); color: #a7f3d0; }
+    .status-chip.error { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .status-chip.not_found { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .source-chip {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(34,211,238,0.12);
+      color: var(--text);
+      font-size: 12px;
+      border: 1px solid var(--border);
+    }
+    .detail-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .results-empty { color: var(--muted); margin-top: 12px; }
+    .currency-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+    .currency-row input { flex: 1; }
+    .currency-row input.currency-code { max-width: 90px; }
+    .currency-row input.currency-rate { max-width: 160px; }
     .modal {
       position: fixed;
       inset: 0;
@@ -308,6 +387,12 @@
       background: rgba(0,0,0,0.55);
       padding: 20px;
       z-index: 1100;
+    }
+    .results-modal .modal-content {
+      max-width: 1100px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: hidden;
     }
     .modal-content {
       background: var(--panel);
@@ -430,9 +515,9 @@
           <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
           <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
           <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
-          <div id="report-links" style="display:none; margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-            <a class="download" id="download-link" href="#">⬇ Pobierz raport</a>
-            <a class="download" id="open-link" href="#" target="_blank" rel="noopener noreferrer" style="font-size:14px;">Otwórz raport w nowej karcie</a>
+          <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
+            <button class="action-btn" id="preview-link" type="button">Podgląd wyników</button>
+            <a class="action-btn secondary" id="download-link" href="#">⬇ Pobierz raport</a>
           </div>
         </div>
       </div>
@@ -460,6 +545,17 @@
                 <button class="ghost-btn" id="save-ttl-btn" style="margin-top:8px;">Zapisz TTL cache</button>
                 <div class="success" id="settings-ttl-success"></div>
               </div>
+              <div>
+                <label>Kursy walut (do PLN)</label>
+                <div id="currency-list"></div>
+                <div class="button-row" style="margin-top:8px;">
+                  <button class="ghost-btn ghost-btn--small" type="button" id="add-currency-btn">Dodaj walutę</button>
+                  <button class="action-btn" type="button" id="save-currencies-btn">Zapisz kursy</button>
+                </div>
+                <div class="helper" id="currency-helper"></div>
+                <div class="success" id="currency-success"></div>
+                <div class="error" id="currency-error"></div>
+              </div>
               <div class="error" id="settings-error"></div>
             </div>
           </div>
@@ -483,6 +579,73 @@
       <div class="helper" id="history-empty" style="display:none;">Brak wcześniejszych analiz.</div>
       <div class="helper" id="history-error" style="display:none;">Nie udało się pobrać historii.</div>
     </div>
+
+    <div class="card history-card">
+      <div class="history-header">
+        <h3 class="section-title" style="margin:0;">Baza Allegro (ostatnie dane rynkowe)</h3>
+      </div>
+      <div style="display:grid; gap:10px; margin-top:8px;">
+        <div style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+          <div>
+            <label for="market-category">Kategoria</label>
+            <select id="market-category">
+              <option value="">Dowolna</option>
+            </select>
+          </div>
+          <div>
+            <label for="market-ean">EAN</label>
+            <input id="market-ean" type="text" placeholder="fragment EAN" />
+          </div>
+          <div>
+            <label for="market-source">Źródło danych</label>
+            <select id="market-source">
+              <option value="">Dowolne</option>
+              <option value="api">API</option>
+              <option value="cloud_http">cloud_http</option>
+              <option value="local">local</option>
+              <option value="scraping">scraping</option>
+            </select>
+          </div>
+          <div>
+            <label for="market-date">Od kiedy</label>
+            <input id="market-date" type="datetime-local" />
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="action-btn" id="market-search">Szukaj</button>
+          <button class="ghost-btn ghost-btn--small" id="market-reset">Reset</button>
+        </div>
+        <div id="market-error" class="error"></div>
+        <div class="results-table" id="market-table"></div>
+        <div class="results-pagination">
+          <button class="ghost-btn ghost-btn--small" id="market-prev" type="button">◀ Wstecz</button>
+          <span class="muted" id="market-page-info"></span>
+          <button class="ghost-btn ghost-btn--small" id="market-next" type="button">Dalej ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal results-modal" id="results-modal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div>
+          <h3 style="margin:0;">Podgląd wyników analizy</h3>
+          <div class="results-meta" id="results-meta"></div>
+        </div>
+        <div class="modal-actions" style="margin-top:0;">
+          <button class="close-btn" id="results-close">Zamknij</button>
+        </div>
+      </div>
+      <div class="error" id="results-error"></div>
+      <div class="results-empty" id="results-empty" style="display:none;"></div>
+      <div class="results-table" id="results-table"></div>
+      <div class="results-pagination">
+        <button class="ghost-btn ghost-btn--small" id="results-prev" type="button">◀ Wstecz</button>
+        <span class="muted" id="results-page-info"></span>
+        <button class="ghost-btn ghost-btn--small" id="results-next" type="button">Dalej ▶</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal" id="category-modal">
@@ -505,6 +668,32 @@
         <div class="modal-actions">
           <button type="button" class="close-btn" id="category-cancel">Anuluj</button>
           <button type="submit" class="primary-btn">Dodaj kategorię</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="category-detail-modal">
+    <div class="modal-content">
+      <h3 style="margin-top:0;">Szczegóły kategorii</h3>
+      <form id="category-detail-form">
+        <div>
+          <label for="detail-cat-name">Nazwa kategorii</label>
+          <input type="text" id="detail-cat-name" name="name" required />
+        </div>
+        <div>
+          <label for="detail-cat-multiplier">Mnożnik opłacalności</label>
+          <input type="number" id="detail-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" required />
+        </div>
+        <div>
+          <label for="detail-cat-commission">Prowizja Allegro (%)</label>
+          <input type="number" id="detail-cat-commission" name="commission_rate" step="0.01" min="0" />
+        </div>
+        <div class="error" id="category-detail-error"></div>
+        <div class="success" id="category-detail-success"></div>
+        <div class="modal-actions">
+          <button type="button" class="close-btn" id="category-detail-cancel">Anuluj</button>
+          <button type="submit" class="action-btn">Zapisz</button>
         </div>
       </form>
     </div>
@@ -563,7 +752,6 @@
     const runErrorEl = document.getElementById('run-error');
     const progressBar = document.getElementById('progress-bar');
     const downloadLink = document.getElementById('download-link');
-    const openLink = document.getElementById('open-link');
     const reportLinks = document.getElementById('report-links');
     const localWindowsInput = document.getElementById('local-windows');
     const cacheTtlInput = document.getElementById('cache-ttl');
@@ -578,6 +766,17 @@
     const categorySuccess = document.getElementById('category-success');
     const categoryError = document.getElementById('category-error');
     const categoryCancel = document.getElementById('category-cancel');
+    const categoryDetailModal = document.getElementById('category-detail-modal');
+    const categoryDetailForm = document.getElementById('category-detail-form');
+    const categoryDetailError = document.getElementById('category-detail-error');
+    const categoryDetailSuccess = document.getElementById('category-detail-success');
+    const categoryDetailCancel = document.getElementById('category-detail-cancel');
+    const currencyList = document.getElementById('currency-list');
+    const addCurrencyBtn = document.getElementById('add-currency-btn');
+    const saveCurrenciesBtn = document.getElementById('save-currencies-btn');
+    const currencyHelper = document.getElementById('currency-helper');
+    const currencyError = document.getElementById('currency-error');
+    const currencySuccess = document.getElementById('currency-success');
     const faqModal = document.getElementById('faq-modal');
     const faqBtn = document.getElementById('faq-btn');
     const faqClose = document.getElementById('faq-close');
@@ -590,8 +789,33 @@
     const historyError = document.getElementById('history-error');
     const historyToggle = document.getElementById('history-toggle');
     const historyCaret = document.getElementById('history-caret');
+    const previewBtn = document.getElementById('preview-link');
+    const resultsModal = document.getElementById('results-modal');
+    const resultsClose = document.getElementById('results-close');
+    const resultsTable = document.getElementById('results-table');
+    const resultsMeta = document.getElementById('results-meta');
+    const resultsError = document.getElementById('results-error');
+    const resultsEmpty = document.getElementById('results-empty');
+    const resultsPageInfo = document.getElementById('results-page-info');
+    const resultsPrev = document.getElementById('results-prev');
+    const resultsNext = document.getElementById('results-next');
+    const marketCategory = document.getElementById('market-category');
+    const marketEan = document.getElementById('market-ean');
+    const marketSource = document.getElementById('market-source');
+    const marketDate = document.getElementById('market-date');
+    const marketTable = document.getElementById('market-table');
+    const marketError = document.getElementById('market-error');
+    const marketPageInfo = document.getElementById('market-page-info');
+    const marketPrev = document.getElementById('market-prev');
+    const marketNext = document.getElementById('market-next');
+    const marketSearch = document.getElementById('market-search');
+    const marketReset = document.getElementById('market-reset');
     let historyExpanded = true;
     let pollTimer = null;
+    let previewState = { runId: null, offset: 0, limit: 50, total: 0 };
+    let categoriesCache = [];
+    let categoryDetailId = null;
+    let marketState = { offset: 0, limit: 50, total: 0 };
 
     function setMessage(msg, target) {
       target.textContent = msg || '';
@@ -611,6 +835,90 @@
       }
     }
 
+    function formatMoney(value) {
+      if (value === null || value === undefined) return '—';
+      const num = Number(value);
+      if (Number.isNaN(num)) return '—';
+      return `${num.toFixed(2)} zł`;
+    }
+
+    function formatPercent(value) {
+      if (value === null || value === undefined) return '—';
+      const num = Number(value);
+      if (Number.isNaN(num)) return '—';
+      return `${num.toFixed(1)}%`;
+    }
+
+    function renderCurrencyRows(rates) {
+      currencyList.innerHTML = '';
+      rates.forEach((r, idx) => {
+        const row = document.createElement('div');
+        row.className = 'currency-row';
+        row.innerHTML = `
+          <button type="button" class="ghost-btn ghost-btn--small" data-default="${idx}" title="Ustaw jako domyślną">
+            ${r.is_default ? '★' : '☆'}
+          </button>
+          <input class="currency-code" data-idx="${idx}" value="${r.currency}" />
+          <input class="currency-rate" data-idx="${idx}" type="number" step="0.0001" min="0" value="${r.rate_to_pln}" />
+          <button type="button" class="ghost-btn ghost-btn--small" data-remove="${idx}">Usuń</button>
+        `;
+        currencyList.appendChild(row);
+      });
+    }
+
+    function readCurrencyPayload() {
+      const codes = Array.from(currencyList.querySelectorAll('input.currency-code')).map(el => el.value.trim().toUpperCase());
+      const rates = Array.from(currencyList.querySelectorAll('input.currency-rate')).map(el => parseFloat(el.value));
+      const defaults = Array.from(currencyList.querySelectorAll('[data-default]')).map((btn) => btn.textContent === '★');
+      const payload = [];
+      codes.forEach((code, idx) => {
+        if (!code) return;
+        payload.push({ currency: code, rate_to_pln: rates[idx], is_default: defaults[idx] || false });
+      });
+      return payload;
+    }
+
+    async function loadCurrencyRates() {
+      currencyError.textContent = '';
+      currencySuccess.textContent = '';
+      try {
+        const res = await fetch('/api/v1/settings/currencies');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Nie udało się pobrać kursów.');
+        renderCurrencyRows(data.rates || []);
+        currencyHelper.textContent = 'PLN musi mieć kurs 1.0. Dodaj inne waluty, aby były przeliczane na PLN.';
+      } catch (err) {
+        currencyError.textContent = err.message || 'Błąd pobierania kursów.';
+      }
+    }
+
+    async function saveCurrencyRates() {
+      currencyError.textContent = '';
+      currencySuccess.textContent = '';
+      const payload = { rates: readCurrencyPayload() };
+      try {
+        const res = await fetch('/api/v1/settings/currencies', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        let data = {};
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          data = await res.json().catch(() => ({}));
+        }
+        if (!res.ok) {
+          const detail = (data && data.detail) || 'Nie udało się zapisać kursów.';
+          throw new Error(detail);
+        }
+        renderCurrencyRows(data.rates || []);
+        currencySuccess.textContent = 'Zapisano kursy walut.';
+        setTimeout(() => { currencySuccess.textContent = ''; }, 2000);
+      } catch (err) {
+        currencyError.textContent = err.message || 'Błąd zapisu kursów.';
+      }
+    }
+
     function renderStrategies(run) {
       const strategies = [];
       if (run.use_api) strategies.push('API');
@@ -619,11 +927,242 @@
       return strategies.length ? strategies.join(' · ') : 'Brak danych';
     }
 
+    function renderMarketTable(data) {
+      if (!data.items || !data.items.length) {
+        marketTable.innerHTML = '<div class="helper">Brak danych do wyświetlenia.</div>';
+      } else {
+        const rows = data.items.map((item) => `
+          <tr>
+            <td>${item.ean || '—'}</td>
+            <td>${item.name || '—'}</td>
+            <td>${item.category_name || '—'}</td>
+            <td>${formatMoney(item.purchase_price_pln)}</td>
+            <td>${formatMoney(item.allegro_price_pln)}</td>
+            <td>${item.sold_count ?? '—'}</td>
+            <td>${item.source || '—'}</td>
+            <td>${formatDateTime(item.last_checked_at)}</td>
+            <td>${item.last_run_id ?? '—'}</td>
+          </tr>
+        `).join('');
+        marketTable.innerHTML = `
+          <div style="overflow:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>EAN</th>
+                  <th>Nazwa</th>
+                  <th>Kategoria</th>
+                  <th>Cena zakupu (PLN)</th>
+                  <th>Cena Allegro</th>
+                  <th>Sprzedanych</th>
+                  <th>Źródło</th>
+                  <th>Ostatnio sprawdzono</th>
+                  <th>Ostatni run</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      const start = data.total ? Math.min(data.total, marketState.offset + 1) : 0;
+      const end = data.total ? Math.min(data.total, marketState.offset + marketState.limit) : (data.items?.length || 0);
+      marketPageInfo.textContent = data.total ? `${start}-${end} z ${data.total}` : `${end} wierszy`;
+      marketPrev.disabled = marketState.offset <= 0;
+      marketNext.disabled = marketState.offset + marketState.limit >= (data.total || 0);
+    }
+
+    function scrapeStatusLabel(status) {
+      if (status === 'error') return 'błąd';
+      if (status === 'not_found') return 'brak';
+      return 'ok';
+    }
+
+    function renderResultsTable(data) {
+      resultsError.textContent = data.error_message || '';
+      const metaParts = [`Run #${data.run_id}`, `Status: ${data.status}`];
+      if (typeof data.total === 'number') metaParts.push(`Wiersze: ${data.total}`);
+      resultsMeta.textContent = metaParts.join(' · ');
+
+      if (!data.items || !data.items.length) {
+        resultsTable.innerHTML = '';
+        resultsEmpty.style.display = 'block';
+        if (data.status === 'failed') {
+          resultsEmpty.textContent = data.error_message || 'Analiza przerwana, brak danych do wyświetlenia.';
+        } else {
+          resultsEmpty.textContent = data.error_message || 'Brak danych do wyświetlenia.';
+        }
+      } else {
+        resultsEmpty.style.display = 'none';
+        const rows = data.items.map((item, idx) => {
+          const profitableLabel = item.is_profitable === true ? 'tak' : item.is_profitable === false ? 'nie' : '—';
+          const scrapeStatus = item.scrape_status || 'ok';
+          const statusLabel = scrapeStatusLabel(scrapeStatus);
+          return `
+            <tr data-row="${idx}">
+              <td>${item.ean || '—'}</td>
+              <td>${item.name || '—'}</td>
+              <td>${item.original_currency || 'PLN'}</td>
+              <td>${formatMoney(item.purchase_price_pln)}</td>
+              <td>${formatMoney(item.allegro_price_pln)}</td>
+              <td>${formatMoney(item.margin_pln)}</td>
+              <td>${formatPercent(item.margin_percent)}</td>
+              <td>${profitableLabel}</td>
+              <td>${item.source ? `<span class="source-chip">${item.source}</span>` : '—'}</td>
+              <td>${formatDateTime(item.last_checked_at)}</td>
+              <td><span class="status-chip ${scrapeStatus}">${statusLabel}</span></td>
+            </tr>
+            <tr class="results-detail" data-detail="${idx}" style="display:none;">
+              <td colspan="11">
+                <div class="detail-grid">
+                  <div><strong>Źródło:</strong> ${item.source || '—'}</div>
+                  <div><strong>Status scrapingu:</strong> ${statusLabel}</div>
+                  <div><strong>Ostatnio sprawdzono:</strong> ${formatDateTime(item.last_checked_at)}</div>
+                  <div><strong>Błąd scrapingu:</strong> ${item.scrape_error_message || '—'}</div>
+                  <div><strong>Oryginalna waluta:</strong> ${item.original_currency || 'PLN'}</div>
+                  <div><strong>Oryginalna cena:</strong> ${item.original_purchase_price !== null && item.original_purchase_price !== undefined ? item.original_purchase_price + ' ' + (item.original_currency || '') : '—'}</div>
+                  <div><strong>Liczba sprzedanych:</strong> ${item.sold_count ?? '—'}</div>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+        resultsTable.innerHTML = `
+          <div style="overflow:auto; max-height:60vh;">
+            <table>
+              <thead>
+                <tr>
+                  <th>EAN</th>
+                  <th>Nazwa</th>
+                  <th>Waluta</th>
+                  <th>Cena zakupu</th>
+                  <th>Cena Allegro</th>
+                  <th>Marża</th>
+                  <th>Marża %</th>
+                  <th>Opłacalny</th>
+                  <th>Źródło</th>
+                  <th>Ostatnio sprawdzono</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `;
+        resultsTable.querySelectorAll('tr[data-row]').forEach((row) => {
+          row.addEventListener('click', () => {
+            const idx = row.getAttribute('data-row');
+            const detail = resultsTable.querySelector(`tr[data-detail="${idx}"]`);
+            if (detail) {
+              const isVisible = detail.style.display === 'table-row';
+              detail.style.display = isVisible ? 'none' : 'table-row';
+            }
+          });
+        });
+      }
+
+      const start = previewState.total ? Math.min(previewState.total, previewState.offset + 1) : 0;
+      const end = previewState.total ? Math.min(previewState.total, previewState.offset + previewState.limit) : (data.items?.length || 0);
+      resultsPageInfo.textContent = previewState.total ? `${start}-${end} z ${previewState.total}` : `${end} wierszy`;
+      resultsPrev.disabled = previewState.offset <= 0;
+      resultsNext.disabled = previewState.offset + previewState.limit >= (previewState.total || 0);
+    }
+
+    async function loadResults(runId, offset = 0) {
+      if (!runId) return;
+      resultsError.textContent = '';
+      resultsEmpty.style.display = 'none';
+      resultsTable.innerHTML = '<div class="helper">Ładowanie wyników...</div>';
+      try {
+        const res = await fetch(`/api/v1/analysis/${runId}/results?offset=${offset}&limit=${previewState.limit}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          resultsError.textContent = data.detail || 'Nie udało się pobrać wyników.';
+          resultsTable.innerHTML = '';
+          resultsPageInfo.textContent = '';
+          resultsPrev.disabled = true;
+          resultsNext.disabled = true;
+          return;
+        }
+        previewState.runId = runId;
+        previewState.offset = offset;
+        previewState.total = data.total || 0;
+        renderResultsTable(data);
+      } catch (err) {
+        resultsError.textContent = err.message || 'Błąd podczas pobierania wyników.';
+        resultsTable.innerHTML = '';
+      }
+    }
+
+    function openResultsModal(runId) {
+      if (!runId) return;
+      resultsModal.style.display = 'flex';
+      loadResults(runId, 0);
+    }
+
+    function closeResultsModal() {
+      resultsModal.style.display = 'none';
+    }
+
+    function populateMarketCategories() {
+      const current = marketCategory.value;
+      marketCategory.innerHTML = '<option value=\"\">Dowolna</option>';
+      categoriesCache.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = cat.name;
+        if (cat.id === current) opt.selected = true;
+        marketCategory.appendChild(opt);
+      });
+    }
+
+    async function loadMarketData(offset = 0) {
+      marketError.textContent = '';
+      marketTable.innerHTML = '<div class="helper">Ładowanie...</div>';
+      const params = new URLSearchParams();
+      if (marketCategory.value) params.append('category_id', marketCategory.value);
+      if (marketEan.value) params.append('ean', marketEan.value);
+      if (marketSource.value) params.append('source', marketSource.value);
+      if (marketDate.value) params.append('updated_since', marketDate.value);
+      params.append('offset', String(offset));
+      params.append('limit', String(marketState.limit));
+      try {
+        const res = await fetch(`/api/v1/market-data?${params.toString()}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Nie udało się pobrać danych.');
+        marketState.offset = offset;
+        marketState.total = data.total || 0;
+        renderMarketTable(data);
+      } catch (err) {
+        marketError.textContent = err.message || 'Błąd pobierania danych.';
+        marketTable.innerHTML = '';
+      }
+    }
+
+    function renderCategoriesList() {
+      if (!categoriesCache.length) {
+        categoriesList.textContent = '';
+        return;
+      }
+      categoriesList.innerHTML = '';
+      categoriesCache.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ghost-btn ghost-btn--small';
+        btn.textContent = cat.name;
+        btn.style.marginRight = '8px';
+        btn.addEventListener('click', () => openCategoryDetail(cat.id));
+        categoriesList.appendChild(btn);
+      });
+    }
+
     async function loadCategories() {
       try {
         const res = await fetch('/api/v1/categories/');
         if (!res.ok) throw new Error('Nie udało się pobrać kategorii.');
         const data = await res.json();
+        categoriesCache = data;
         if (!data.length) {
           categorySelect.innerHTML = '';
           categorySelect.disabled = true;
@@ -636,7 +1175,8 @@
         categorySelect.disabled = false;
         submitBtn.disabled = false;
         categoryInfo.textContent = '';
-        categoriesList.textContent = 'Dostępne kategorie: ' + data.map(c => `${c.name}`).join(', ');
+        renderCategoriesList();
+        populateMarketCategories();
       } catch (err) {
         categoryInfo.textContent = err.message;
         submitBtn.disabled = true;
@@ -662,14 +1202,18 @@
       const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : (data.status === 'completed' ? 100 : 0);
       progressBar.style.width = `${pct}%`;
       runErrorEl.textContent = data.error_message || '';
-      if (data.status === 'completed') {
+      const showDownload = data.status === 'completed';
+      const showPreview = Boolean(data.id) && (data.status === 'completed' || data.status === 'failed' || processed > 0);
+      if (showDownload) {
         const href = `/api/v1/analysis/${data.id}/download`;
         downloadLink.href = href;
-        openLink.href = `${href}?inline=true`;
-        reportLinks.style.display = 'flex';
-      } else {
-        reportLinks.style.display = 'none';
       }
+      downloadLink.style.display = showDownload ? 'inline-flex' : 'none';
+      if (previewBtn) {
+        previewBtn.dataset.runId = data.id || '';
+        previewBtn.style.display = showPreview ? 'inline-flex' : 'none';
+      }
+      reportLinks.style.display = showDownload || showPreview ? 'flex' : 'none';
     }
 
     function stopPolling() {
@@ -686,20 +1230,12 @@
           const data = await res.json();
           setStatus(data);
 
-            if (data.status === 'completed') {
-              const href = `/api/v1/analysis/${runId}/download`;
-              downloadLink.href = href;
-              openLink.href = `${href}?inline=true`;
-              reportLinks.style.display = 'flex';
+            if (data.status === 'completed' || data.status === 'failed') {
+              if (data.status === 'failed') {
+                runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
+              }
               stopPolling();
               await loadHistory();
-            } else if (data.status === 'failed') {
-              runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
-              reportLinks.style.display = 'none';
-              stopPolling();
-              await loadHistory();
-            } else {
-              reportLinks.style.display = 'none';
             }
           } catch (err) {
             setMessage(err.message, errorBox);
@@ -762,7 +1298,7 @@
       const finishedLabel = finished !== '-' ? finished : 'W toku / oczekuje';
       const statusBadge = `<span class="badge ${run.status}">${run.status}</span>`;
       const downloadLink = run.status === 'completed'
-        ? `<a class="download" href="/api/v1/analysis/${run.id}/download">Pobierz raport</a>`
+        ? `<a class="action-btn secondary" href="/api/v1/analysis/${run.id}/download">⬇ Pobierz raport</a>`
         : '';
       const errorChip = run.status === 'failed' ? '<span class="history-error-chip">Błąd</span>' : '';
 
@@ -777,6 +1313,19 @@
           ${downloadLink ? `<div>${downloadLink}</div>` : ''}
         </div>
       `;
+
+      const actionsEl = row.querySelector('.history-actions');
+      if (actionsEl) {
+        const previewButton = document.createElement('button');
+        previewButton.type = 'button';
+        previewButton.className = 'action-btn';
+        previewButton.textContent = 'Podgląd';
+        previewButton.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openResultsModal(run.id);
+        });
+        actionsEl.prepend(previewButton);
+      }
 
       const detail = document.createElement('div');
       detail.className = 'history-detail';
@@ -805,7 +1354,7 @@
       }
 
       row.addEventListener('click', (e) => {
-        if (e.target.closest && e.target.closest('a')) {
+        if (e.target.closest && e.target.closest('a, button')) {
           return;
         }
         const expanded = detail.style.display === 'block';
@@ -899,6 +1448,50 @@
 
     document.getElementById('strategy-boxes').addEventListener('change', validateStrategies);
 
+    previewBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const runId = previewBtn.dataset.runId || runIdEl.textContent;
+      if (runId) openResultsModal(runId);
+    });
+    resultsClose.addEventListener('click', closeResultsModal);
+    resultsModal.addEventListener('click', (e) => { if (e.target === resultsModal) closeResultsModal(); });
+    resultsPrev.addEventListener('click', () => {
+      if (!previewState.runId) return;
+      const nextOffset = Math.max(0, previewState.offset - previewState.limit);
+      loadResults(previewState.runId, nextOffset);
+    });
+    resultsNext.addEventListener('click', () => {
+      if (!previewState.runId) return;
+      const nextOffset = previewState.offset + previewState.limit;
+      if (nextOffset < (previewState.total || 0)) {
+        loadResults(previewState.runId, nextOffset);
+      }
+    });
+    marketSearch.addEventListener('click', () => {
+      marketState.offset = 0;
+      loadMarketData(0);
+    });
+    marketReset.addEventListener('click', () => {
+      marketCategory.value = '';
+      marketEan.value = '';
+      marketSource.value = '';
+      marketDate.value = '';
+      marketState.offset = 0;
+      loadMarketData(0);
+    });
+    marketPrev.addEventListener('click', () => {
+      const nextOffset = Math.max(0, marketState.offset - marketState.limit);
+      marketState.offset = nextOffset;
+      loadMarketData(nextOffset);
+    });
+    marketNext.addEventListener('click', () => {
+      const nextOffset = marketState.offset + marketState.limit;
+      if (nextOffset < (marketState.total || 0)) {
+        marketState.offset = nextOffset;
+        loadMarketData(nextOffset);
+      }
+    });
+
     document.getElementById('save-windows-btn').addEventListener('click', async () => {
       if (!localWindowsInput.value) localWindowsInput.value = 1;
       await saveSettings('windows');
@@ -907,6 +1500,24 @@
       if (!cacheTtlInput.value) cacheTtlInput.value = 30;
       await saveSettings('ttl');
     });
+    addCurrencyBtn.addEventListener('click', () => {
+      const payload = readCurrencyPayload();
+      payload.push({ currency: '', rate_to_pln: 0, is_default: false });
+      renderCurrencyRows(payload);
+    });
+    currencyList.addEventListener('click', (e) => {
+      if (e.target.dataset.remove !== undefined) {
+        const idx = Number(e.target.dataset.remove);
+        const payload = readCurrencyPayload().filter((_, i) => i !== idx);
+        renderCurrencyRows(payload);
+      }
+      if (e.target.dataset.default !== undefined) {
+        const idx = Number(e.target.dataset.default);
+        const payload = readCurrencyPayload().map((p, i) => ({ ...p, is_default: i === idx }));
+        renderCurrencyRows(payload);
+      }
+    });
+    saveCurrenciesBtn.addEventListener('click', saveCurrencyRates);
 
     function openCategoryModal() {
       categoryModal.style.display = 'flex';
@@ -946,6 +1557,54 @@
         await loadCategories();
       } catch (err) {
         setMessage(err.message || 'Błąd podczas dodawania kategorii.', categoryModalError);
+      }
+    });
+
+    async function openCategoryDetail(id) {
+      categoryDetailError.textContent = '';
+      categoryDetailSuccess.textContent = '';
+      categoryDetailId = id;
+      try {
+        const res = await fetch(`/api/v1/categories/${id}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Nie udało się pobrać kategorii.');
+        document.getElementById('detail-cat-name').value = data.name || '';
+        document.getElementById('detail-cat-multiplier').value = data.profitability_multiplier ?? '';
+        document.getElementById('detail-cat-commission').value = data.commission_rate ? Number(data.commission_rate) * 100 : '';
+        categoryDetailModal.style.display = 'flex';
+      } catch (err) {
+        categoryError.textContent = err.message || 'Błąd pobierania kategorii.';
+      }
+    }
+
+    categoryDetailCancel.addEventListener('click', () => {
+      categoryDetailModal.style.display = 'none';
+    });
+    categoryDetailModal.addEventListener('click', (e) => {
+      if (e.target === categoryDetailModal) categoryDetailModal.style.display = 'none';
+    });
+    categoryDetailForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      categoryDetailError.textContent = '';
+      categoryDetailSuccess.textContent = '';
+      if (!categoryDetailId) return;
+      const payload = {
+        name: document.getElementById('detail-cat-name').value,
+        profitability_multiplier: Number(document.getElementById('detail-cat-multiplier').value || 0),
+        commission_rate: (Number(document.getElementById('detail-cat-commission').value || 0) / 100),
+      };
+      try {
+        const res = await fetch(`/api/v1/categories/${categoryDetailId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Nie udało się zapisać kategorii.');
+        categoryDetailSuccess.textContent = 'Zapisano zmiany.';
+        await loadCategories();
+      } catch (err) {
+        categoryDetailError.textContent = err.message || 'Błąd zapisu kategorii.';
       }
     });
 
@@ -992,7 +1651,9 @@
 
     loadCategories();
     loadSettings();
+    loadCurrencyRates();
     loadHistory();
+    loadMarketData();
   </script>
 </body>
 </html>

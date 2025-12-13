@@ -69,3 +69,32 @@ class AnalysisRunSummary(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class AnalysisResultItem(BaseModel):
+    id: int
+    ean: str
+    name: Optional[str]
+    original_currency: Optional[str]
+    original_purchase_price: Optional[float]
+    purchase_price_pln: Optional[float]
+    allegro_price_pln: Optional[float]
+    sold_count: Optional[int]
+    margin_pln: Optional[float]
+    margin_percent: Optional[float]
+    is_profitable: Optional[bool]
+    source: Optional[str]
+    scrape_status: Optional[str]
+    scrape_error_message: Optional[str]
+    last_checked_at: Optional[datetime]
+
+    class Config:
+        orm_mode = True
+
+
+class AnalysisResultsResponse(BaseModel):
+    run_id: int
+    status: AnalysisStatus
+    total: int
+    error_message: Optional[str]
+    items: List[AnalysisResultItem]

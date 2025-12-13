@@ -3,11 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from io import BytesIO
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pandas as pd
-
-from app.core.config import settings
 
 
 def _norm(s: str) -> str:
@@ -35,6 +33,11 @@ PRICE_HEADERS = {
     "€price",
 }
 CURRENCY_HEADERS = {"currency", "waluta"}
+SUPPORTED_SYMBOLS = {
+    "€": "EUR",
+    "$": "USD",
+    "£": "GBP",
+}
 
 
 @dataclass
@@ -42,7 +45,8 @@ class InputRow:
     row_number: int
     ean: str
     name: str
-    purchase_price: Optional[Decimal]
+    original_purchase_price: Optional[Decimal]
+    purchase_price_pln: Optional[Decimal]
     purchase_currency: str
     is_valid: bool
     error: Optional[str]
@@ -79,7 +83,61 @@ def _detect_header_row(df_raw: pd.DataFrame, max_scan: int = 20) -> int:
     return 0
 
 
-def read_excel_file(file_bytes: bytes) -> List[InputRow]:
+def _detect_currency_from_header(header: str) -> Optional[str]:
+    header_norm = _norm(str(header))
+    if "eur" in header_norm or "€" in header_norm:
+        return "EUR"
+    if "usd" in header_norm:
+        return "USD"
+    if "cad" in header_norm:
+        return "CAD"
+    if "pln" in header_norm or "zl" in header_norm:
+        return "PLN"
+    return None
+
+
+def _detect_currency_from_value(value: object) -> tuple[Optional[str], Optional[str]]:
+    raw = "" if value is None else str(value)
+    lowered = raw.lower()
+    if "pln" in lowered or "zł" in lowered or "zl" in lowered:
+        return "PLN", raw
+    if "cad" in lowered:
+        return "CAD", raw
+    if "eur" in lowered or "€" in raw:
+        return "EUR", raw
+    if "$" in raw:
+        return "USD", raw
+    return None, raw
+
+
+def _parse_price(raw: object) -> Optional[Decimal]:
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return None
+    text = str(raw)
+    for sym in SUPPORTED_SYMBOLS:
+        text = text.replace(sym, "")
+    text = (
+        text.replace("PLN", "")
+        .replace("pln", "")
+        .replace("zł", "")
+        .replace("zl", "")
+        .replace("CAD", "")
+        .replace("USD", "")
+        .replace("EUR", "")
+        .replace(" ", "")
+    )
+    text = text.replace(",", ".")
+    try:
+        return Decimal(text)
+    except Exception:
+        return None
+
+
+def read_excel_file(
+    file_bytes: bytes,
+    currency_rates: Dict[str, float],
+    default_currency: Optional[str] = None,
+) -> List[InputRow]:
     df_raw = pd.read_excel(BytesIO(file_bytes), header=None)
 
     header_idx = _detect_header_row(df_raw)
@@ -162,6 +220,20 @@ def read_excel_file(file_bytes: bytes) -> List[InputRow]:
             f"lub uklad pliku. Wykryte naglowki: {detected}"
         )
 
+    normalized_rates: Dict[str, Decimal] = {}
+    for code, rate in currency_rates.items():
+        code_up = str(code).upper()
+        try:
+            rate_val = Decimal(str(rate))
+        except Exception:
+            continue
+        if rate_val <= 0:
+            continue
+        normalized_rates[code_up] = rate_val
+
+    if "PLN" not in normalized_rates or normalized_rates["PLN"] != Decimal("1"):
+        normalized_rates["PLN"] = Decimal("1")
+
     rows: List[InputRow] = []
     for idx, row in df.iterrows():
         raw_ean = row.iloc[ean_idx]
@@ -174,17 +246,19 @@ def read_excel_file(file_bytes: bytes) -> List[InputRow]:
         ean_digits = "".join(ch for ch in str(raw_ean) if ch.isdigit())
         name = "" if pd.isna(raw_name) else str(raw_name).strip()
 
-        price_str = str(raw_price).replace(" ", "").replace("€", "").replace(",", ".")
-        try:
-            price_value = float(price_str)
-        except ValueError:
-            price_value = None
-
-        currency = "PLN"
-        price_header = df.columns[price_idx]
-        header_norm = _norm(str(price_header))
-        if "eur" in header_norm or "€price" in header_norm:
-            currency = "EUR"
+        header_currency = _detect_currency_from_header(df.columns[price_idx])
+        value_currency, _ = _detect_currency_from_value(raw_price)
+        currency = (value_currency or header_currency)
+        if not currency:
+            if default_currency:
+                currency = default_currency
+            else:
+                raise ValueError(
+                    "Nie udalo sie wykryc waluty w pliku, a brak waluty domyslnej. "
+                    "Ustaw walute domyslna w panelu kursow."
+                )
+        currency = currency.upper()
+        price_value = _parse_price(raw_price)
 
         is_valid = True
         error = None
@@ -198,16 +272,20 @@ def read_excel_file(file_bytes: bytes) -> List[InputRow]:
 
         price_pln: Optional[Decimal] = None
         if price_value is not None and price_value > 0:
-            if currency == "EUR":
-                price_value *= settings.eur_to_pln_rate
-            price_pln = Decimal(str(price_value))
+            if currency not in normalized_rates:
+                raise ValueError(
+                    f"Nieznana waluta '{currency}'. Dodaj kurs w ustawieniach i spróbuj ponownie."
+                )
+            rate = normalized_rates[currency]
+            price_pln = price_value * rate
 
         rows.append(
             InputRow(
                 row_number=header_idx + idx + 2,
                 ean=ean_digits,
                 name=name,
-                purchase_price=price_pln,
+                original_purchase_price=price_value,
+                purchase_price_pln=price_pln,
                 purchase_currency=currency,
                 is_valid=is_valid,
                 error=error,
