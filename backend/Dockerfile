@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     curl \
     git \
+    postgresql-client \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -49,7 +50,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # usunieto: linie zwiazane z antibot.exe (juz niepotrzebne)
   
-# kopiowanie kodu
+# kopiowanie kodu i migracji
+COPY alembic.ini .
+COPY alembic ./alembic
 COPY ./app ./app
 
 # expose fastapi port
@@ -60,6 +63,7 @@ ENV PYTHONPATH=/app
 
 # ta komenda cmd jest dla backendu, worker nadpisze ja w docker-compose
 CMD ["sh", "-c", "\
+cd /app && \
 until pg_isready -h postgres -p 5432; do echo 'Waiting for Postgres...'; sleep 2; done; \
-alembic upgrade head; \
+alembic -c alembic.ini upgrade head; \
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]

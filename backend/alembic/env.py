@@ -15,7 +15,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from app.core.config import settings
-from app.db.base import Base  # noqa: F401
+from app.db.session import Base  # noqa: F401
 import app.models  # noqa: F401  # ensure models are imported for metadata
 
 # target metadata used for autogenerate
