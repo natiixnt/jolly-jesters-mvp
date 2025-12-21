@@ -109,7 +109,7 @@ def update_currency_rates(db: Session, rates: List[dict]) -> List[CurrencyRate]:
             raise ValueError("Kurs PLN musi wynosić 1.0.")
 
     if default_count > 1:
-        raise ValueError("Wybierz maksymalnie jedną walutę domyślną.")
+        raise ValueError("Wybierz dokładnie jedną walutę domyślną.")
 
     if default_count == 0:
         pln_idx = next((i for i, (cur, _, _) in enumerate(normalized) if cur == "PLN"), None)

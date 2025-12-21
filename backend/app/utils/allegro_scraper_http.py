@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict
 
@@ -11,6 +12,7 @@ from app.services.schemas import AllegroResult
 
 
 async def fetch_via_http_scraper(ean: str) -> AllegroResult:
+    now = datetime.now(timezone.utc)
     url = "https://allegro.pl/listing"
     params = {"string": ean}
 
@@ -33,6 +35,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             is_temporary_error=True,
             raw_payload={"error": str(exc), "source": "cloud_http"},
             source="cloud_http",
+            last_checked_at=now,
         )
 
     payload: Dict[str, object] = {"status_code": resp.status_code}
@@ -49,6 +52,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             is_temporary_error=False,
             raw_payload=payload,
             source="cloud_http",
+            last_checked_at=now,
         )
 
     if resp.status_code in (403, 429) or resp.status_code >= 500:
@@ -59,6 +63,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             is_temporary_error=True,
             raw_payload=payload,
             source="cloud_http",
+            last_checked_at=now,
         )
 
     # No HTML parsing yet - treat as temporary to allow local scraper fallback
@@ -69,4 +74,5 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
         is_temporary_error=True,
         raw_payload=payload | {"note": "unparsed_html", "source": "cloud_http"},
         source="cloud_http",
+        last_checked_at=now,
     )

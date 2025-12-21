@@ -124,7 +124,12 @@ async def handle_upload(
 ) -> AnalysisRun:
     data = await upload_file.read()
     rates, default_currency = settings_service.get_currency_rate_map(db)
-    rows = read_excel_file(data, currency_rates=rates, default_currency=default_currency)
+    rows = read_excel_file(
+        data,
+        currency_rates=rates,
+        default_currency=default_currency,
+        file_name=upload_file.filename,
+    )
     saved_path = store_uploaded_file_bytes(data, upload_file.filename)
     run = prepare_analysis_run(db, category, rows, saved_path.name, strategy, mode=mode)
     return run

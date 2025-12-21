@@ -59,11 +59,13 @@ COPY ./app ./app
 EXPOSE 8000
 
 # ustawienie pythonpath
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 # ta komenda cmd jest dla backendu, worker nadpisze ja w docker-compose
 CMD ["sh", "-c", "\
 cd /app && \
 until pg_isready -h postgres -p 5432; do echo 'Waiting for Postgres...'; sleep 2; done; \
 alembic -c alembic.ini upgrade head; \
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+uvicorn app.main:app --host 0.0.0.0 --port 8000"]

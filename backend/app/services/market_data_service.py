@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
+from app.models.analysis_run import AnalysisRun
 from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
 from app.models.enums import MarketDataSource
@@ -11,6 +12,24 @@ from app.models.product import Product
 from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
 from app.schemas.market_data import MarketDataItem, MarketDataResponse
+
+
+def _resolve_source(market_data: ProductMarketData | None) -> Optional[str]:
+    if not market_data:
+        return None
+    raw_source = None
+    raw_payload = getattr(market_data, "raw_payload", None) or {}
+    try:
+        raw_source = raw_payload.get("source")
+        if raw_payload.get("error"):
+            return "error"
+    except Exception:
+        raw_source = None
+    if raw_source:
+        return raw_source
+    if market_data.source:
+        return getattr(market_data.source, "value", market_data.source)
+    return None
 
 
 def list_market_data(
@@ -26,10 +45,23 @@ def list_market_data(
         db.query(
             AnalysisRunItem.product_id.label("product_id"),
             func.max(AnalysisRunItem.analysis_run_id).label("last_run_id"),
+            func.max(AnalysisRun.created_at).label("last_run_at"),
+        )
+        .join(AnalysisRun, AnalysisRun.id == AnalysisRunItem.analysis_run_id)
+        .group_by(AnalysisRunItem.product_id)
+        .subquery()
+    )
+
+    latest_item_subq = (
+        db.query(
+            AnalysisRunItem.product_id.label("product_id"),
+            func.max(AnalysisRunItem.id).label("item_id"),
         )
         .group_by(AnalysisRunItem.product_id)
         .subquery()
     )
+
+    latest_item = aliased(AnalysisRunItem)
 
     base = (
         db.query(
@@ -38,11 +70,15 @@ def list_market_data(
             ProductEffectiveState,
             ProductMarketData,
             last_run_subq.c.last_run_id,
+            last_run_subq.c.last_run_at,
+            latest_item.input_name.label("latest_input_name"),
         )
         .join(Category, Product.category_id == Category.id)
         .outerjoin(ProductEffectiveState, ProductEffectiveState.product_id == Product.id)
         .outerjoin(ProductMarketData, ProductMarketData.id == ProductEffectiveState.last_market_data_id)
         .outerjoin(last_run_subq, last_run_subq.c.product_id == Product.id)
+        .outerjoin(latest_item_subq, latest_item_subq.c.product_id == Product.id)
+        .outerjoin(latest_item, latest_item.id == latest_item_subq.c.item_id)
     )
 
     if category_id:
@@ -71,18 +107,33 @@ def list_market_data(
     )
 
     items: List[MarketDataItem] = []
-    for product, category_name, state, market_data, last_run_id in rows:
+    for product, category_name, state, market_data, last_run_id, last_run_at, latest_input_name in rows:
+        raw_title = None
+        try:
+            raw_title = (market_data.raw_payload or {}).get("product_title") if market_data else None
+        except Exception:
+            raw_title = None
+
+        name = product.name
+        if not name or name == product.ean:
+            name = latest_input_name or raw_title or name or product.ean
+
+        last_checked_at = None
+        if market_data:
+            last_checked_at = market_data.last_checked_at or market_data.fetched_at
+
         items.append(
             MarketDataItem(
                 ean=product.ean,
-                name=product.name,
+                name=name or product.ean,
                 category_name=category_name or "",
                 purchase_price_pln=float(product.purchase_price) if product.purchase_price is not None else None,
                 allegro_price_pln=float(market_data.allegro_price) if market_data and market_data.allegro_price is not None else None,
                 sold_count=market_data.allegro_sold_count if market_data else None,
-                source=getattr(market_data.source, "value", market_data.source) if market_data and market_data.source else None,
-                last_checked_at=market_data.last_checked_at if market_data else None,
+                source=_resolve_source(market_data),
+                last_checked_at=last_checked_at,
                 last_run_id=last_run_id,
+                last_run_at=last_run_at,
             )
         )
 

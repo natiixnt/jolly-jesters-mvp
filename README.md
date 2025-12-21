@@ -8,6 +8,18 @@ Offline-first analiza oplacalnoœci Allegro z FastAPI, PostgreSQL, Redis i Celer
 docker-compose up --build
 ```
 
+Backend i workery uruchamiaja sie z kodu w obrazie (bez bind mount), wiec po zmianach w `backend/` wykonaj:
+```
+docker compose build backend worker scraper_worker
+```
+
+## Troubleshooting (macOS / Docker Desktop Errno 35)
+
+- Jeśli widzisz `OSError: [Errno 35] Resource deadlock avoided` przy imporcie, nie używaj bind mount na `/app` i przebuduj obrazy.
+- W Docker Desktop ustaw File Sharing na VirtioFS i wyłącz gRPC FUSE, potem zrestartuj Docker Desktop.
+- Unikaj `--reload` w Uvicorn/Celery na macOS; używaj ręcznych restartów kontenerów.
+- Jeśli koniecznie potrzebujesz bind mount (live edit), dodaj override z `./backend:/app` tylko lokalnie i licz się z niestabilnością.
+
 Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/`. Stary widok Streamlit (port 8501) moze zostac do celow dev, ale podstawowa sciezka uzytkownika to HTML z backendu.
 
 ## Migracje bazy (Alebmic)

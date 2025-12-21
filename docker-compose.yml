@@ -56,12 +56,12 @@ services:
     environment:
       - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-false}
+      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-true}
       - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
+      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
-      - ./backend:/app
       - workspace_data:/workspace
     ports:
       - "8000:8000"
@@ -77,12 +77,14 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.local_scraper
+    platform: linux/amd64
     container_name: local_scraper
     restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
       - LOCAL_SCRAPER_URL=http://localhost:5050/
+      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
     ports:
       - "5050:5050"
       
@@ -95,12 +97,12 @@ services:
     environment:
       - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-false}
+      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-true}
       - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
+      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis"
     volumes:
-      - ./backend:/app
       - workspace_data:/workspace
     depends_on:
       migrations:
@@ -120,13 +122,13 @@ services:
     environment:
       - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-false}
+      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-true}
       - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
+      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
       - WORKSPACE=/workspace
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1"
     volumes:
-      - ./backend:/app
       - workspace_data:/workspace
     shm_size: 2gb # potrzebne dla selenium/chrome
     dns:

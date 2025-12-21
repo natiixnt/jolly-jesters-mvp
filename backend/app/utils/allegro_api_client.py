@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict
 
@@ -12,6 +13,7 @@ API_URL = "https://api.allegro.pl/public/allegro-offers"  # placeholder endpoint
 
 
 async def fetch_from_allegro_api(ean: str) -> AllegroResult:
+    now = datetime.now(timezone.utc)
     token = settings.ALLEGRO_API_TOKEN
     if not token:
         return AllegroResult(
@@ -21,6 +23,7 @@ async def fetch_from_allegro_api(ean: str) -> AllegroResult:
             is_temporary_error=True,
             raw_payload={"error": "missing_token", "source": "api"},
             source="api",
+            last_checked_at=now,
         )
 
     headers = {
@@ -39,6 +42,7 @@ async def fetch_from_allegro_api(ean: str) -> AllegroResult:
             is_temporary_error=True,
             raw_payload={"error": str(exc), "source": "api"},
             source="api",
+            last_checked_at=now,
         )
 
     payload: Dict[str, Any] = {"status_code": resp.status_code}
@@ -56,6 +60,7 @@ async def fetch_from_allegro_api(ean: str) -> AllegroResult:
             is_temporary_error=False,
             raw_payload=payload,
             source="api",
+            last_checked_at=now,
         )
 
     if resp.status_code == 200:
@@ -79,6 +84,7 @@ async def fetch_from_allegro_api(ean: str) -> AllegroResult:
             is_temporary_error=False,
             raw_payload=payload,
             source="api",
+            last_checked_at=now,
         )
 
     if resp.status_code in (429, 500, 502, 503, 504):
@@ -89,6 +95,7 @@ async def fetch_from_allegro_api(ean: str) -> AllegroResult:
             is_temporary_error=True,
             raw_payload=payload,
             source="api",
+            last_checked_at=now,
         )
 
     return AllegroResult(
@@ -98,4 +105,5 @@ async def fetch_from_allegro_api(ean: str) -> AllegroResult:
         is_temporary_error=True,
         raw_payload=payload,
         source="api",
+        last_checked_at=now,
     )

@@ -1,62 +1,86 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from io import BytesIO
-from typing import Iterable
+from typing import Iterable, Optional
 
 import pandas as pd
 
+from app.models.category import Category
 from app.models.analysis_run_item import AnalysisRunItem
+from app.services.analysis_service import serialize_analysis_item
 
 
-def build_analysis_excel(items: Iterable[AnalysisRunItem], category_name: str) -> bytes:
-    def resolve_source(item: AnalysisRunItem) -> str | None:
-        base = getattr(item.source, "value", item.source)
-        product = getattr(item, "product", None)
-        if product and getattr(product, "effective_state", None) and product.effective_state.last_market_data:
-            md = product.effective_state.last_market_data
-            raw_source = None
-            try:
-                raw_source = (md.raw_payload or {}).get("source")
-            except Exception:
-                raw_source = None
-            if raw_source:
-                return raw_source
-            if md.source:
-                return getattr(md.source, "value", md.source)
-        return base
+def _status_label(status: Optional[str]) -> str:
+    if status == "error":
+        return "błąd"
+    if status == "not_found":
+        return "brak"
+    return "ok"
 
-    data = []
+
+def _profitability_label(is_profitable: Optional[bool]) -> str:
+    if is_profitable is True:
+        return "tak"
+    if is_profitable is False:
+        return "nie"
+    return "—"
+
+
+def _format_original_price(value: Optional[float], currency: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    if currency:
+        return f"{value} {currency}"
+    return str(value)
+
+
+def _format_datetime(value: Optional[datetime]) -> Optional[str]:
+    if not value:
+        return None
+    try:
+        dt = value
+        if isinstance(value, str):
+            return value
+        if dt.tzinfo:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
+
+def build_analysis_excel(items: Iterable[AnalysisRunItem], category: Optional[Category]) -> bytes:
+    category_name = category.name if category else ""
+    rows = []
     for item in items:
-        label = getattr(item.profitability_label, "value", item.profitability_label)
-        source = getattr(item.source, "value", item.source)
-        source_label = resolve_source(item) or source
-        last_checked_at = None
-        try:
-            last_checked_at = (
-                item.product.effective_state.last_checked_at  # type: ignore[attr-defined]
-                if item.product and getattr(item.product, "effective_state", None)
-                else None
-            )
-        except Exception:
-            last_checked_at = None
-        data.append(
+        result = serialize_analysis_item(item, category)
+        rows.append(
             {
-                "row_number": item.row_number,
-                "category_name": category_name,
-                "ean": item.ean,
-                "input_name": item.input_name,
-                "input_purchase_price": float(item.input_purchase_price) if item.input_purchase_price else None,
-                "source": source_label or source,
-                "allegro_price": float(item.allegro_price) if item.allegro_price else None,
-                "allegro_sold_count": item.allegro_sold_count,
-                "profitability_score": float(item.profitability_score) if item.profitability_score else None,
-                "profitability_label": label,
-                "error_message": item.error_message,
-                "last_checked_at": last_checked_at,
+                "EAN": result.ean,
+                "Nazwa": result.name,
+                "Waluta": result.original_currency or "PLN",
+                "Cena zakupu (oryg.)": _format_original_price(result.original_purchase_price, result.original_currency),
+                "Cena zakupu (PLN)": result.purchase_price_pln,
+                "Cena Allegro": result.allegro_price_pln,
+                "Marża": result.margin_pln,
+                "Marża %": result.margin_percent,
+                "Sprzedanych": result.sold_count,
+                "Opłacalny": _profitability_label(result.is_profitable),
+                "Źródło": result.source or "—",
+                "Ostatnio sprawdzono": _format_datetime(result.last_checked_at),
+                "Status": _status_label(result.scrape_status),
+                "Błąd scrapingu": result.scrape_error_message,
+                "Kategoria": category_name,
             }
         )
 
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(rows)
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            if pd.api.types.is_datetime64tz_dtype(df[col]):
+                df[col] = df[col].dt.tz_convert(None)
+            df[col] = df[col].dt.strftime("%Y-%m-%d %H:%M:%S")
+
     buffer = BytesIO()
     df.to_excel(buffer, index=False)
     buffer.seek(0)

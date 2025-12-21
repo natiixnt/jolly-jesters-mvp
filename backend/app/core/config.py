@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     scraping_retries: int = Field(default=2)
     local_scraper_enabled: bool = Field(default=False, env="LOCAL_SCRAPER_ENABLED")
     local_scraper_url: Optional[str] = Field(default=None, env="LOCAL_SCRAPER_URL")
+    local_scraper_windows: int = Field(default=1, env="LOCAL_SCRAPER_WINDOWS")
 
     sqlalchemy_echo: bool = Field(default=False)
 
@@ -98,6 +99,13 @@ class Settings(BaseSettings):
     @property
     def LOCAL_SCRAPER_URL(self) -> Optional[str]:
         return self.local_scraper_url
+
+    @property
+    def LOCAL_SCRAPER_WINDOWS(self) -> int:
+        try:
+            return max(1, int(self.local_scraper_windows))
+        except Exception:
+            return 1
 
 
 settings = Settings()

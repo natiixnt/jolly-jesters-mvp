@@ -14,6 +14,7 @@ class MarketDataItem(BaseModel):
     source: Optional[str]
     last_checked_at: Optional[datetime]
     last_run_id: Optional[int]
+    last_run_at: Optional[datetime]
 
 
 class MarketDataResponse(BaseModel):

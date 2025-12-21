@@ -842,6 +842,15 @@
       return `${num.toFixed(2)} zł`;
     }
 
+    function formatMoneyWithCurrency(value, currency) {
+      if (value === null || value === undefined) return '—';
+      const num = Number(value);
+      if (Number.isNaN(num)) return '—';
+      const code = (currency || 'PLN').toUpperCase();
+      const suffix = code === 'PLN' ? 'zł' : code;
+      return `${num.toFixed(2)} ${suffix}`;
+    }
+
     function formatPercent(value) {
       if (value === null || value === undefined) return '—';
       const num = Number(value);
@@ -941,7 +950,7 @@
             <td>${item.sold_count ?? '—'}</td>
             <td>${item.source || '—'}</td>
             <td>${formatDateTime(item.last_checked_at)}</td>
-            <td>${item.last_run_id ?? '—'}</td>
+            <td title="${item.last_run_id ? `run #${item.last_run_id}` : ''}">${formatDateTime(item.last_run_at)}</td>
           </tr>
         `).join('');
         marketTable.innerHTML = `
@@ -1004,7 +1013,7 @@
               <td>${item.ean || '—'}</td>
               <td>${item.name || '—'}</td>
               <td>${item.original_currency || 'PLN'}</td>
-              <td>${formatMoney(item.purchase_price_pln)}</td>
+              <td>${formatMoneyWithCurrency(item.original_purchase_price, item.original_currency)}</td>
               <td>${formatMoney(item.allegro_price_pln)}</td>
               <td>${formatMoney(item.margin_pln)}</td>
               <td>${formatPercent(item.margin_percent)}</td>

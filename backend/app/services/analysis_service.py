@@ -54,6 +54,7 @@ def _persist_market_data(
     sold_count: int | None,
     is_not_found: bool,
     raw_payload: dict | None,
+    last_checked_at: datetime | None = None,
 ) -> ProductMarketData:
     if source == "local_scraper":
         source_value = "local"
@@ -67,6 +68,10 @@ def _persist_market_data(
         safe_payload = {"raw": str(raw_payload)}
 
     now = datetime.now(timezone.utc)
+    effective_checked = last_checked_at or now
+    if effective_checked and effective_checked.tzinfo is None:
+        effective_checked = effective_checked.replace(tzinfo=timezone.utc)
+
     md = ProductMarketData(
         product_id=product.id,
         allegro_price=price,
@@ -75,7 +80,7 @@ def _persist_market_data(
         is_not_found=is_not_found,
         raw_payload=safe_payload,
         fetched_at=now,
-        last_checked_at=now,
+        last_checked_at=effective_checked,
     )
     db.add(md)
     db.flush()
@@ -280,6 +285,7 @@ def _process_mixed_item(
         sold_count=sold_count,
         is_not_found=result.is_not_found,
         raw_payload=result.raw_payload,
+        last_checked_at=result.last_checked_at,
     )
 
     if result.is_not_found:
@@ -330,6 +336,7 @@ def _process_online_item(
         sold_count=sold_count,
         is_not_found=result.is_not_found,
         raw_payload=result.raw_payload,
+        last_checked_at=result.last_checked_at,
     )
 
     if result.is_not_found:
@@ -421,9 +428,6 @@ def _resolve_source_label(item: AnalysisRunItem, product: Product | None) -> str
             candidate_source = None
         if not candidate_source and md.source:
             candidate_source = getattr(md.source, "value", md.source)
-
-    if candidate_source == "local_scraper":
-        return "local"
     if candidate_source:
         return str(candidate_source)
 
@@ -438,6 +442,62 @@ def _resolve_scrape_status(item: AnalysisRunItem) -> str:
     if item.source == AnalysisItemSource.not_found:
         return "not_found"
     return "ok"
+
+
+def serialize_analysis_item(
+    item: AnalysisRunItem,
+    category: Category | None,
+    commission_rate: Decimal | None = None,
+) -> AnalysisResultItem:
+    product = item.product
+    if commission_rate is None:
+        commission_rate = Decimal(category.commission_rate or 0) if category else Decimal(0)
+
+    purchase_price_pln = (
+        item.purchase_price_pln
+        if item.purchase_price_pln is not None
+        else (
+            item.input_purchase_price
+            if item.input_purchase_price is not None
+            else (product.purchase_price if product else None)
+        )
+    )
+    original_purchase_price = item.original_purchase_price
+    name = item.input_name or (product.name if product else None)
+    margin_pln, margin_percent = _compute_margins(purchase_price_pln, item.allegro_price, commission_rate)
+    profitability_label = getattr(item.profitability_label, "value", item.profitability_label)
+    is_profitable = None
+    if profitability_label == ProfitabilityLabel.oplacalny.value:
+        is_profitable = True
+    elif profitability_label == ProfitabilityLabel.nieoplacalny.value:
+        is_profitable = False
+
+    state = product.effective_state if product else None
+    last_checked_at = None
+    if state:
+        last_checked_at = (
+            state.last_analysis_at
+            or state.last_checked_at
+            or (state.last_market_data.last_checked_at if state.last_market_data else None)
+        )
+
+    return AnalysisResultItem(
+        id=item.id,
+        ean=item.ean,
+        name=name,
+        original_currency=item.original_currency,
+        original_purchase_price=float(original_purchase_price) if original_purchase_price is not None else None,
+        purchase_price_pln=float(purchase_price_pln) if purchase_price_pln is not None else None,
+        allegro_price_pln=float(item.allegro_price) if item.allegro_price is not None else None,
+        sold_count=item.allegro_sold_count,
+        margin_pln=float(margin_pln) if margin_pln is not None else None,
+        margin_percent=float(margin_percent) if margin_percent is not None else None,
+        is_profitable=is_profitable,
+        source=_resolve_source_label(item, product),
+        scrape_status=_resolve_scrape_status(item),
+        scrape_error_message=item.error_message,
+        last_checked_at=last_checked_at,
+    )
 
 
 def get_run_results(db: Session, run_id: int, offset: int = 0, limit: int = 100) -> AnalysisResultsResponse | None:
@@ -474,54 +534,7 @@ def get_run_results(db: Session, run_id: int, offset: int = 0, limit: int = 100)
     commission_rate = Decimal(run.category.commission_rate or 0) if run.category else Decimal(0)
     results: list[AnalysisResultItem] = []
     for item in items:
-        product = item.product
-        purchase_price_pln = (
-            item.purchase_price_pln
-            if item.purchase_price_pln is not None
-            else (
-                item.input_purchase_price
-                if item.input_purchase_price is not None
-                else (product.purchase_price if product else None)
-            )
-        )
-        original_purchase_price = item.original_purchase_price
-        name = item.input_name or (product.name if product else None)
-        margin_pln, margin_percent = _compute_margins(purchase_price_pln, item.allegro_price, commission_rate)
-        profitability_label = getattr(item.profitability_label, "value", item.profitability_label)
-        is_profitable = None
-        if profitability_label == ProfitabilityLabel.oplacalny.value:
-            is_profitable = True
-        elif profitability_label == ProfitabilityLabel.nieoplacalny.value:
-            is_profitable = False
-
-        state = product.effective_state if product else None
-        last_checked_at = None
-        if state:
-            last_checked_at = (
-                state.last_analysis_at
-                or state.last_checked_at
-                or (state.last_market_data.last_checked_at if state.last_market_data else None)
-            )
-
-        results.append(
-            AnalysisResultItem(
-                id=item.id,
-                ean=item.ean,
-                name=name,
-                original_currency=item.original_currency,
-                original_purchase_price=float(original_purchase_price) if original_purchase_price is not None else None,
-                purchase_price_pln=float(purchase_price_pln) if purchase_price_pln is not None else None,
-                allegro_price_pln=float(item.allegro_price) if item.allegro_price is not None else None,
-                sold_count=item.allegro_sold_count,
-                margin_pln=float(margin_pln) if margin_pln is not None else None,
-                margin_percent=float(margin_percent) if margin_percent is not None else None,
-                is_profitable=is_profitable,
-                source=_resolve_source_label(item, product),
-                scrape_status=_resolve_scrape_status(item),
-                scrape_error_message=item.error_message,
-                last_checked_at=last_checked_at,
-            )
-        )
+        results.append(serialize_analysis_item(item, run.category, commission_rate))
 
     return AnalysisResultsResponse(
         run_id=run.id,

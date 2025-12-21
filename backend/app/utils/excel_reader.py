@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import pandas as pd
 
@@ -38,6 +38,14 @@ SUPPORTED_SYMBOLS = {
     "$": "USD",
     "£": "GBP",
 }
+CONTEXT_HINTS = [
+    ("EUR", ["eur", "euro", "€", "eu", " eu"]),
+    ("USD", ["usd", "dolar", "usd$", "$"]),
+    ("CAD", ["cad", "canada"]),
+    ("GBP", ["gbp", "£", "pound"]),
+    ("AED", ["aed", "dirham"]),
+    ("PLN", ["pln", "zl", "zł", "poland", "polska", "pl_"]),
+]
 
 
 @dataclass
@@ -96,18 +104,32 @@ def _detect_currency_from_header(header: str) -> Optional[str]:
     return None
 
 
+def _normalize_currency_token(raw: object) -> Optional[str]:
+    if raw is None:
+        return None
+    text = str(raw).strip().upper()
+    if not text:
+        return None
+    compact = text.replace(" ", "").replace(".", "").replace(",", "")
+    if any(token in compact for token in ["PLN", "ZL", "ZŁ"]):
+        return "PLN"
+    if any(token in compact for token in ["EUR", "EURO", "€"]):
+        return "EUR"
+    if "USD" in compact or "$" in text:
+        return "USD"
+    if "CAD" in compact:
+        return "CAD"
+    if "GBP" in compact or "£" in text:
+        return "GBP"
+    if "AED" in compact:
+        return "AED"
+    return None
+
+
 def _detect_currency_from_value(value: object) -> tuple[Optional[str], Optional[str]]:
     raw = "" if value is None else str(value)
-    lowered = raw.lower()
-    if "pln" in lowered or "zł" in lowered or "zl" in lowered:
-        return "PLN", raw
-    if "cad" in lowered:
-        return "CAD", raw
-    if "eur" in lowered or "€" in raw:
-        return "EUR", raw
-    if "$" in raw:
-        return "USD", raw
-    return None, raw
+    detected = _normalize_currency_token(raw)
+    return detected, raw
 
 
 def _parse_price(raw: object) -> Optional[Decimal]:
@@ -130,15 +152,34 @@ def _parse_price(raw: object) -> Optional[Decimal]:
     try:
         return Decimal(text)
     except Exception:
-        return None
+    return None
+
+
+def _context_currency_hint(file_name: Optional[str], sheet_names: Sequence[str]) -> Optional[str]:
+    candidates: List[str] = []
+    for source in [file_name] + list(sheet_names):
+        if not source:
+            continue
+        lower = str(source).lower()
+        for code, tokens in CONTEXT_HINTS:
+            for token in tokens:
+                if token in lower:
+                    return code
+        normalized = _normalize_currency_token(source)
+        if normalized:
+            candidates.append(normalized)
+    return candidates[0] if candidates else None
 
 
 def read_excel_file(
     file_bytes: bytes,
     currency_rates: Dict[str, float],
     default_currency: Optional[str] = None,
+    file_name: Optional[str] = None,
 ) -> List[InputRow]:
-    df_raw = pd.read_excel(BytesIO(file_bytes), header=None)
+    excel = pd.ExcelFile(BytesIO(file_bytes))
+    sheet_name = excel.sheet_names[0] if excel.sheet_names else 0
+    df_raw = excel.parse(sheet_name=sheet_name, header=None)
 
     header_idx = _detect_header_row(df_raw)
     headers = df_raw.iloc[header_idx]
@@ -234,11 +275,14 @@ def read_excel_file(
     if "PLN" not in normalized_rates or normalized_rates["PLN"] != Decimal("1"):
         normalized_rates["PLN"] = Decimal("1")
 
+    context_currency = _context_currency_hint(file_name, excel.sheet_names)
+
     rows: List[InputRow] = []
     for idx, row in df.iterrows():
         raw_ean = row.iloc[ean_idx]
         raw_name = row.iloc[name_idx]
         raw_price = row.iloc[price_idx]
+        raw_currency = row.iloc[currency_idx] if currency_idx is not None else None
 
         if pd.isna(raw_ean) and pd.isna(raw_name):
             continue
@@ -248,15 +292,9 @@ def read_excel_file(
 
         header_currency = _detect_currency_from_header(df.columns[price_idx])
         value_currency, _ = _detect_currency_from_value(raw_price)
-        currency = (value_currency or header_currency)
-        if not currency:
-            if default_currency:
-                currency = default_currency
-            else:
-                raise ValueError(
-                    "Nie udalo sie wykryc waluty w pliku, a brak waluty domyslnej. "
-                    "Ustaw walute domyslna w panelu kursow."
-                )
+        column_currency = _normalize_currency_token(raw_currency)
+
+        currency = column_currency or value_currency or header_currency or context_currency or default_currency or "PLN"
         currency = currency.upper()
         price_value = _parse_price(raw_price)
 

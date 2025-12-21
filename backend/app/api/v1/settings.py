@@ -37,16 +37,15 @@ def get_currency_rates(db: Session = Depends(get_db)):
     }
 
 
-@router.put("/currencies")
+@router.put("/currencies", response_model=CurrencyRates)
 def update_currency_rates(payload: CurrencyRates, db: Session = Depends(get_db)):
     try:
         rates = settings_service.update_currency_rates(db, [r.dict() for r in payload.rates])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {
-        "status": "ok",
         "rates": [
             {"currency": r.currency, "rate_to_pln": float(r.rate_to_pln), "is_default": bool(r.is_default)}
             for r in rates
-        ],
+        ]
     }
