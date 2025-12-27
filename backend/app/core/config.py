@@ -25,9 +25,6 @@ class Settings(BaseSettings):
     upload_dir_name: str = Field(default="uploads")
     export_dir_name: str = Field(default="exports")
 
-    allegro_api_client_id: Optional[str] = Field(default=None, env="ALLEGRO_API_CLIENT_ID")
-    allegro_api_client_secret: Optional[str] = Field(default=None, env="ALLEGRO_API_CLIENT_SECRET")
-    allegro_api_token: Optional[str] = Field(default=None, env="ALLEGRO_API_TOKEN")
     proxy_list_raw: Optional[str] = Field(default=None, env="PROXY_LIST")
     proxy_timeout: float = Field(default=15.0)
     local_scraper_timeout: float = Field(default=90.0, env="LOCAL_SCRAPER_TIMEOUT")
@@ -85,10 +82,6 @@ class Settings(BaseSettings):
         return self.celery_result_backend or self.redis_url
 
     # Friendly aliases mirroring env var names (used by some callers/tests)
-    @property
-    def ALLEGRO_API_TOKEN(self) -> Optional[str]:
-        return self.allegro_api_token
-
     @property
     def PROXY_LIST(self) -> List[str]:
         return self.proxy_list

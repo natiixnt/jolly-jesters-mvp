@@ -1,11 +1,12 @@
 import logging
+import os
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from main import get_runtime_info, scrape_single_ean
+from main import get_runtime_info, get_scraper_mode, scrape_single_ean
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -15,6 +16,12 @@ app = FastAPI(title="Local Allegro Selenium Scraper", version="1.0.0")
 @app.on_event("startup")
 def _log_runtime_info() -> None:
     info = get_runtime_info()
+    logger.info(
+        "local_scraper config mode=%s user_data_dir=%s profile_dir=%s",
+        get_scraper_mode(),
+        os.getenv("SELENIUM_USER_DATA_DIR"),
+        os.getenv("SELENIUM_PROFILE_DIR"),
+    )
     logger.info(
         "local_scraper runtime arch=%s chrome=%s chromedriver=%s chrome_path=%s driver_path=%s errors=%s",
         info.get("arch"),

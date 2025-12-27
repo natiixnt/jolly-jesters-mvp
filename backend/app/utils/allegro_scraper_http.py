@@ -27,6 +27,22 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
     try:
         async with httpx.AsyncClient(timeout=settings.proxy_timeout, proxies=proxies) as client:
             resp = await client.get(url, params=params)
+    except httpx.ConnectError as exc:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={
+                "error": "network_error",
+                "error_type": type(exc).__name__,
+                "error_detail": repr(exc),
+                "source": "cloud_http",
+            },
+            error="network_error",
+            source="cloud_http",
+            last_checked_at=now,
+        )
     except Exception as exc:
         return AllegroResult(
             price=None,
@@ -64,6 +80,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             raw_payload=payload,
             source="cloud_http",
             last_checked_at=now,
+            blocked=resp.status_code in (403, 429),
         )
 
     # No HTML parsing yet - treat as temporary to allow local scraper fallback

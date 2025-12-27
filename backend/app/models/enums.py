@@ -26,3 +26,13 @@ class AnalysisItemSource(str, enum.Enum):
     scraping = "scraping"
     not_found = "not_found"
     error = "error"
+
+
+class ScrapeStatus(str, enum.Enum):
+    pending = "pending"
+    in_progress = "in_progress"
+    ok = "ok"
+    not_found = "not_found"
+    blocked = "blocked"
+    network_error = "network_error"
+    error = "error"

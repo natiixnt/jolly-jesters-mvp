@@ -54,7 +54,6 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -65,6 +64,8 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
+      local_scraper:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -76,21 +77,26 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.local_scraper
-    platform: linux/amd64
-    profiles:
-      - container-scraper
+      args:
+        WITH_VNC: ${LOCAL_SCRAPER_WITH_VNC:-0}
     container_name: local_scraper
     restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
-      - LOCAL_SCRAPER_URL=http://localhost:5050/
-      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
-      - SELENIUM_HEADED=false
+      - DISPLAY=:99
+      - SELENIUM_HEADED=true
+      - SELENIUM_USER_DATA_DIR=/data/chrome-profile
+      - LOCAL_SCRAPER_ENABLE_VNC=${LOCAL_SCRAPER_ENABLE_VNC:-0}
       - LOCAL_SCRAPER_LISTING_TIMEOUT=50
       - LOCAL_SCRAPER_PAGELOAD_TIMEOUT=45
     ports:
       - "5050:5050"
+      # Optional: noVNC (use SSH tunnel / firewall on VPS)
+      - "127.0.0.1:6080:6080"
+    volumes:
+      - local_scraper_profile:/data/chrome-profile
+    shm_size: 2gb # needed for Chrome
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5050/health"]
       interval: 10s
@@ -105,10 +111,32 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=2 --prefetch-multiplier=1 --max-tasks-per-child=20"
+    volumes:
+      - workspace_data:/workspace
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  scraper_cloud_worker:
+    build:
+      context: ./backend
+    container_name: pilot_scraper_cloud_worker
+    env_file:
+      - ./backend/.env
+    environment:
+      - PROXY_LIST=${PROXY_LIST:-}
+      - WORKSPACE=/workspace
+    command: >
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_cloud --concurrency=${SCRAPER_CLOUD_CONCURRENCY:-8} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - workspace_data:/workspace
     depends_on:
@@ -129,11 +157,10 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
       - WORKSPACE=/workspace
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=1 --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - workspace_data:/workspace
     shm_size: 2gb # potrzebne dla selenium/chrome
@@ -142,6 +169,8 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
+      local_scraper:
+        condition: service_healthy
       postgres: 
         condition: service_healthy
       redis:
@@ -164,3 +193,4 @@ services:
 volumes:
   pgdata:
   workspace_data: {}
+  local_scraper_profile: {}

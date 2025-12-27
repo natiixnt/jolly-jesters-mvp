@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${LOCAL_SCRAPER_ENV_FILE:-$ROOT/backend/.env}"
-LOCAL_SCRAPER_UPDATE_ENV="${LOCAL_SCRAPER_UPDATE_ENV:-1}"
+LOCAL_SCRAPER_UPDATE_ENV="${LOCAL_SCRAPER_UPDATE_ENV:-}"
 
 log() {
   echo "[dev_up] $*"

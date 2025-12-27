@@ -1,25 +1,24 @@
 from __future__ import annotations
 
-import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import List, Tuple
+from typing import Callable, Iterable, List, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
 from app.models.analysis_run import AnalysisRun
 from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
-from app.models.enums import AnalysisItemSource, AnalysisStatus, MarketDataSource, ProfitabilityLabel
+from app.models.enums import AnalysisItemSource, AnalysisStatus, MarketDataSource, ProfitabilityLabel, ScrapeStatus
 from app.models.product import Product
 from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
 from app.schemas.analysis import AnalysisResultItem, AnalysisResultsResponse
 from app.services.profitability_service import calculate_profitability
 from app.services.schemas import ScrapingStrategyConfig
-from app.services.scraping_service import fetch_allegro_data
 from app.services import settings_service
 
 
@@ -117,11 +116,80 @@ def _prepare_cached_result(state: ProductEffectiveState) -> Tuple[Decimal | None
     )
 
 
-def _fetch_with_strategy(ean: str, strategy: ScrapingStrategyConfig):
-    return asyncio.run(fetch_allegro_data(ean, strategy))
+TERMINAL_STATUSES = {
+    ScrapeStatus.ok,
+    ScrapeStatus.not_found,
+    ScrapeStatus.blocked,
+    ScrapeStatus.network_error,
+    ScrapeStatus.error,
+}
 
 
-def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
+def _normalize_scrape_status(item: AnalysisRunItem) -> ScrapeStatus | None:
+    status = item.scrape_status
+    if status is not None:
+        return status
+    if item.source == AnalysisItemSource.not_found:
+        item.scrape_status = ScrapeStatus.not_found
+    elif item.source == AnalysisItemSource.error:
+        item.scrape_status = ScrapeStatus.error
+    else:
+        item.scrape_status = ScrapeStatus.ok
+    return item.scrape_status
+
+
+def _set_scrape_status(
+    item: AnalysisRunItem,
+    status: ScrapeStatus,
+    error_message: str | None = None,
+) -> None:
+    item.scrape_status = status
+    item.error_message = error_message
+
+
+def _enqueue_scrape(
+    item: AnalysisRunItem,
+    strategy: ScrapingStrategyConfig,
+    enqueue_cloud_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None,
+    enqueue_local_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None,
+) -> bool:
+    if strategy.use_cloud_http and enqueue_cloud_scrape and settings.proxy_list:
+        item.source = AnalysisItemSource.scraping
+        _set_scrape_status(item, ScrapeStatus.in_progress, None)
+        enqueue_cloud_scrape(item, strategy)
+        return False
+
+    if (
+        strategy.use_local_scraper
+        and enqueue_local_scrape
+        and settings.LOCAL_SCRAPER_ENABLED
+        and settings.LOCAL_SCRAPER_URL
+    ):
+        item.source = AnalysisItemSource.scraping
+        _set_scrape_status(item, ScrapeStatus.pending, None)
+        enqueue_local_scrape(item, strategy)
+        return False
+
+    item.source = AnalysisItemSource.error
+    _set_scrape_status(item, ScrapeStatus.error, "no_scraper_strategy")
+    return True
+
+
+def _iter_batches(items: List[AnalysisRunItem], batch_size: int) -> Iterable[List[AnalysisRunItem]]:
+    if batch_size <= 0:
+        yield items
+        return
+    for idx in range(0, len(items), batch_size):
+        yield items[idx : idx + batch_size]
+
+
+def process_analysis_run(
+    db: Session,
+    run_id: int,
+    mode: str = "mixed",
+    enqueue_cloud_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None = None,
+    enqueue_local_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None = None,
+) -> None:
     run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
     if not run:
         return
@@ -156,47 +224,86 @@ def process_analysis_run(db: Session, run_id: int, mode: str = "mixed") -> None:
         settings_record = settings_service.get_settings(db)
         cutoff = _stale_cutoff(settings_record.cache_ttl_days)
         strategy = ScrapingStrategyConfig(
-            use_api=run.use_api,
             use_cloud_http=run.use_cloud_http,
             use_local_scraper=run.use_local_scraper,
         )
 
-        for item in items:
-            if item.source == AnalysisItemSource.error:
-                continue
+        batch_size = 10 if strategy.use_local_scraper else 0
+        pending_items = 0
 
-            product = (
-                db.query(Product)
-                .filter(Product.id == item.product_id)
-                .first()
-            )
-            if not product:
-                item.source = AnalysisItemSource.error
-                item.error_message = "Brak produktu dla wiersza"
-                run.processed_products += 1
+        for batch in _iter_batches(items, batch_size):
+            for item in batch:
+                status = _normalize_scrape_status(item)
+                if status in TERMINAL_STATUSES:
+                    continue
+
+                product = (
+                    db.query(Product)
+                    .filter(Product.id == item.product_id)
+                    .first()
+                )
+                if not product:
+                    item.source = AnalysisItemSource.error
+                    _set_scrape_status(item, ScrapeStatus.error, "Brak produktu dla wiersza")
+                    run.processed_products += 1
+                    db.commit()
+                    continue
+
+                state = _ensure_product_state(db, product)
+                state.is_stale = not state.last_checked_at or state.last_checked_at < cutoff
+
+                try:
+                    if mode == "offline":
+                        _process_offline_item(db, run, category, product, state, item)
+                        status = (
+                            ScrapeStatus.not_found
+                            if item.source == AnalysisItemSource.not_found
+                            else ScrapeStatus.ok
+                        )
+                        _set_scrape_status(item, status, None)
+                        run.processed_products += 1
+                    elif mode == "online":
+                        processed = _process_online_item(
+                            db,
+                            run,
+                            category,
+                            product,
+                            state,
+                            item,
+                            strategy,
+                            enqueue_cloud_scrape=enqueue_cloud_scrape,
+                            enqueue_local_scrape=enqueue_local_scrape,
+                        )
+                        if processed:
+                            run.processed_products += 1
+                    else:
+                        processed = _process_mixed_item(
+                            db,
+                            run,
+                            category,
+                            product,
+                            state,
+                            item,
+                            cutoff,
+                            strategy,
+                            enqueue_cloud_scrape=enqueue_cloud_scrape,
+                            enqueue_local_scrape=enqueue_local_scrape,
+                        )
+                        if processed:
+                            run.processed_products += 1
+                except Exception as exc:
+                    item.source = AnalysisItemSource.error
+                    _set_scrape_status(item, ScrapeStatus.error, str(exc))
+                    run.processed_products += 1
+
+                if item.scrape_status in {ScrapeStatus.pending, ScrapeStatus.in_progress}:
+                    pending_items += 1
                 db.commit()
-                continue
 
-            state = _ensure_product_state(db, product)
-            state.is_stale = not state.last_checked_at or state.last_checked_at < cutoff
-
-            try:
-                if mode == "offline":
-                    _process_offline_item(db, run, category, product, state, item)
-                elif mode == "online":
-                    _process_online_item(db, run, category, product, state, item, strategy)
-                else:
-                    _process_mixed_item(db, run, category, product, state, item, cutoff, strategy)
-            except Exception as exc:
-                item.source = AnalysisItemSource.error
-                item.error_message = str(exc)
-
-            run.processed_products += 1
+        if pending_items == 0 and run.processed_products >= run.total_products:
+            run.status = AnalysisStatus.completed
+            run.finished_at = datetime.now(timezone.utc)
             db.commit()
-
-        run.status = AnalysisStatus.completed
-        run.finished_at = datetime.now(timezone.utc)
-        db.commit()
     except Exception as exc:
         db.rollback()
         _mark_run_failed(db, run_id, f"Analiza przerwana: {exc}")
@@ -238,7 +345,9 @@ def _process_mixed_item(
     item: AnalysisRunItem,
     cutoff: datetime,
     strategy: ScrapingStrategyConfig,
-) -> None:
+    enqueue_cloud_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None = None,
+    enqueue_local_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None = None,
+) -> bool:
     purchase_price = item.purchase_price_pln or item.input_purchase_price
     use_cached = state.last_checked_at and not state.is_not_found and state.last_checked_at >= cutoff
     cached_not_found = state.last_checked_at and state.is_not_found and state.last_checked_at >= cutoff
@@ -252,7 +361,8 @@ def _process_mixed_item(
         item.allegro_sold_count = None
         item.profitability_score = score
         item.profitability_label = label
-        return
+        _set_scrape_status(item, ScrapeStatus.not_found, None)
+        return True
 
     if use_cached:
         price, sold_count, _ = _prepare_cached_result(state)
@@ -263,47 +373,9 @@ def _process_mixed_item(
         item.allegro_sold_count = sold_count
         item.profitability_score = score
         item.profitability_label = label
-        return
-
-    result = _fetch_with_strategy(item.ean, strategy)
-    if result.is_temporary_error:
-        item.source = AnalysisItemSource.error
-        try:
-            item.error_message = json.dumps(result.raw_payload, ensure_ascii=False)
-        except TypeError:
-            item.error_message = str(result.raw_payload)
-        return
-
-    price = result.price
-    sold_count = result.sold_count
-
-    market_data = _persist_market_data(
-        db=db,
-        product=product,
-        source=result.source,
-        price=price,
-        sold_count=sold_count,
-        is_not_found=result.is_not_found,
-        raw_payload=result.raw_payload,
-        last_checked_at=result.last_checked_at,
-    )
-
-    if result.is_not_found:
-        score = None
-        label = ProfitabilityLabel.nieokreslony
-        source_val = AnalysisItemSource.not_found
-    else:
-        score, label = calculate_profitability(purchase_price, price, sold_count, category)
-        source_val = AnalysisItemSource.scraping
-
-    _update_effective_state(state, market_data, score, label)
-
-    item.source = source_val
-    item.allegro_price = price
-    item.allegro_sold_count = sold_count
-    item.profitability_score = score
-    item.profitability_label = label
-    item.error_message = None
+        _set_scrape_status(item, ScrapeStatus.ok, None)
+        return True
+    return _enqueue_scrape(item, strategy, enqueue_cloud_scrape, enqueue_local_scrape)
 
 
 def _process_online_item(
@@ -314,47 +386,10 @@ def _process_online_item(
     state: ProductEffectiveState,
     item: AnalysisRunItem,
     strategy: ScrapingStrategyConfig,
-) -> None:
-    purchase_price = item.purchase_price_pln or item.input_purchase_price
-    result = _fetch_with_strategy(item.ean, strategy)
-    if result.is_temporary_error:
-        item.source = AnalysisItemSource.error
-        try:
-            item.error_message = json.dumps(result.raw_payload, ensure_ascii=False)
-        except TypeError:
-            item.error_message = str(result.raw_payload)
-        return
-
-    price = result.price
-    sold_count = result.sold_count
-
-    market_data = _persist_market_data(
-        db=db,
-        product=product,
-        source=result.source,
-        price=price,
-        sold_count=sold_count,
-        is_not_found=result.is_not_found,
-        raw_payload=result.raw_payload,
-        last_checked_at=result.last_checked_at,
-    )
-
-    if result.is_not_found:
-        score = None
-        label = ProfitabilityLabel.nieokreslony
-        source_val = AnalysisItemSource.not_found
-    else:
-        score, label = calculate_profitability(purchase_price, price, sold_count, category)
-        source_val = AnalysisItemSource.scraping
-
-    _update_effective_state(state, market_data, score, label)
-
-    item.source = source_val
-    item.allegro_price = price
-    item.allegro_sold_count = sold_count
-    item.profitability_score = score
-    item.profitability_label = label
-    item.error_message = None
+    enqueue_cloud_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None = None,
+    enqueue_local_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None = None,
+) -> bool:
+    return _enqueue_scrape(item, strategy, enqueue_cloud_scrape, enqueue_local_scrape)
 
 
 def get_run_status(db: Session, run_id: int) -> AnalysisRun | None:
@@ -436,12 +471,14 @@ def _resolve_source_label(item: AnalysisRunItem, product: Product | None) -> str
     return base_source
 
 
-def _resolve_scrape_status(item: AnalysisRunItem) -> str:
+def _resolve_scrape_status(item: AnalysisRunItem) -> ScrapeStatus:
+    if item.scrape_status is not None:
+        return item.scrape_status
     if item.source == AnalysisItemSource.error:
-        return "error"
+        return ScrapeStatus.error
     if item.source == AnalysisItemSource.not_found:
-        return "not_found"
-    return "ok"
+        return ScrapeStatus.not_found
+    return ScrapeStatus.ok
 
 
 def serialize_analysis_item(

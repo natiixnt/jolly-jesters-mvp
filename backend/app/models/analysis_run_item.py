@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
-from app.models.enums import AnalysisItemSource, ProfitabilityLabel
+from app.models.enums import AnalysisItemSource, ProfitabilityLabel, ScrapeStatus
 
 
 class AnalysisRunItem(Base):
@@ -25,6 +25,12 @@ class AnalysisRunItem(Base):
     profitability_score = Column(Numeric(12, 4), nullable=True)
     profitability_label = Column(Enum(ProfitabilityLabel), nullable=True)
     error_message = Column(Text, nullable=True)
+    scrape_status = Column(
+        Enum(ScrapeStatus),
+        nullable=False,
+        server_default=ScrapeStatus.pending.value,
+        default=ScrapeStatus.pending,
+    )
 
     analysis_run = relationship("AnalysisRun", back_populates="items")
     product = relationship("Product", back_populates="analysis_items")

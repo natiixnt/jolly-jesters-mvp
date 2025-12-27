@@ -11,11 +11,22 @@ from app.models.analysis_run_item import AnalysisRunItem
 from app.services.analysis_service import serialize_analysis_item
 
 
-def _status_label(status: Optional[str]) -> str:
-    if status == "error":
-        return "błąd"
-    if status == "not_found":
+def _status_label(status: Optional[object]) -> str:
+    if status is None:
+        return "—"
+    value = getattr(status, "value", status)
+    if value == "pending":
+        return "pending local"
+    if value == "in_progress":
+        return "w trakcie"
+    if value == "not_found":
         return "brak"
+    if value == "blocked":
+        return "blocked"
+    if value == "network_error":
+        return "błąd sieci"
+    if value == "error":
+        return "błąd"
     return "ok"
 
 

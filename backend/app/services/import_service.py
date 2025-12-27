@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.models.analysis_run import AnalysisRun
 from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
-from app.models.enums import AnalysisItemSource, AnalysisStatus
+from app.models.enums import AnalysisItemSource, AnalysisStatus, ScrapeStatus
 from app.models.product import Product
 from app.services.schemas import ScrapingStrategyConfig
 from app.services import settings_service
@@ -64,7 +64,6 @@ def prepare_analysis_run(
         total_products=len(rows),
         processed_products=0,
         mode=mode,
-        use_api=strategy.use_api,
         use_cloud_http=strategy.use_cloud_http,
         use_local_scraper=strategy.use_local_scraper,
     )
@@ -87,6 +86,7 @@ def prepare_analysis_run(
                     input_purchase_price=row.purchase_price_pln,
                     purchase_price_pln=row.purchase_price_pln,
                     source=AnalysisItemSource.error,
+                    scrape_status=ScrapeStatus.error,
                     error_message=row.error,
                 )
             )

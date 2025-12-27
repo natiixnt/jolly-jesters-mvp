@@ -1,6 +1,7 @@
 ﻿# Jolly Jesters MVP
 
 Offline-first analiza oplacalnoœci Allegro z FastAPI, PostgreSQL, Redis i Celery.
+Nie korzystamy z oficjalnego API; scraping działa przez proxy/cloud HTTP oraz lokalny Selenium.
 
 ## Uruchomienie (dev)
 
@@ -10,7 +11,7 @@ docker-compose up --build
 
 Backend i workery uruchamiaja sie z kodu w obrazie (bez bind mount), wiec po zmianach w `backend/` wykonaj:
 ```
-docker compose build backend worker scraper_worker
+docker compose build backend worker scraper_cloud_worker scraper_worker
 ```
 
 ## Troubleshooting (macOS / Docker Desktop Errno 35)
@@ -18,27 +19,82 @@ docker compose build backend worker scraper_worker
 - Jeśli widzisz `OSError: [Errno 35] Resource deadlock avoided` przy imporcie, nie używaj bind mount na `/app` i przebuduj obrazy.
 - W Docker Desktop ustaw File Sharing na VirtioFS i wyłącz gRPC FUSE, potem zrestartuj Docker Desktop.
 - Unikaj `--reload` w Uvicorn/Celery na macOS; używaj ręcznych restartów kontenerów.
+- Jeśli UI ubija kontenery (kod 137), zmniejsz concurrency workerów lub zwiększ RAM w Docker Desktop.
 - Jeśli koniecznie potrzebujesz bind mount (live edit), dodaj override z `./backend:/app` tylko lokalnie i licz się z niestabilnością.
 
 Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/`. Stary widok Streamlit (port 8501) moze zostac do celow dev, ale podstawowa sciezka uzytkownika to HTML z backendu.
 
-## Local scraper on host (recommended for dev)
+## Kolejki Celery (architektura)
 
-If Allegro blocks headless Chrome in Docker, run the local scraper on the host.
-This is the default setup in `docker-compose.yml`.
+- `analysis`: uruchamia `run_analysis_task` i planuje per-item scraping.
+- `scraper_cloud`: HTTP/proxy scraping (task `scrape_one_cloud`).
+- `scraper_local`: lokalne Selenium (task `scrape_one_local`) w osobnym workerze.
 
-1) Start local scraper outside Docker:
+## Local scraper w Dockerze (VPS/Prod - domyslnie)
+
+`docker compose up --build` uruchamia serwis `local_scraper` razem z backendem i workerami.
+Scraper dziala w trybie headed na wirtualnym display (Xvfb).
+
+Porty:
+- `5050` - API scrapera
+- `6080` - opcjonalny noVNC (rebuild z `LOCAL_SCRAPER_WITH_VNC=1`, potem ustaw `LOCAL_SCRAPER_ENABLE_VNC=1`;
+  tylko localhost + SSH tunnel/firewall)
+
+Checklista (z kontenera backendu):
 ```
-./backend/scripts/run_local_scraper.sh
+docker compose exec backend curl -v http://local_scraper:5050/health
 ```
 
-2) Start Docker services (host scraper is default):
+Profil Chrome jest zapisywany w wolumenie `local_scraper_profile`
+(`SELENIUM_USER_DATA_DIR=/data/chrome-profile`) i przetrwa restart kontenera.
+
+## Host scraper (Windows/macOS/Linux - opcjonalnie dev)
+
+Jesli chcesz uruchomic Chrome na hoscie (np. macOS) zamiast w Dockerze,
+uruchom scraper z repo root i ustaw `LOCAL_SCRAPER_URL` na hosta.
+
+Recommended (cross-platform) command (requires deps from `backend/requirements.txt`):
+```
+python -m uvicorn host_scraper:app --host 0.0.0.0 --port 5050
+```
+
+Scripts (preferred, they install deps automatically; run from repo root):
+- macOS/Linux: `./backend/scripts/run_local_scraper.sh`
+- Windows (PowerShell): `.\backend\scripts\run_local_scraper.ps1`
+  - If ExecutionPolicy blocks scripts, run:
+    `powershell -ExecutionPolicy Bypass -File .\backend\scripts\run_local_scraper.ps1`
+    or `Set-ExecutionPolicy -Scope Process Bypass`.
+
+Then start Docker services (host scraper mode):
 ```
 ./scripts/dev_up.sh
 ```
 
+Smoke tests (repo root):
+```
+python -c "from host_scraper import app; print(app)"
+curl http://127.0.0.1:5050/health
+curl -X POST http://127.0.0.1:5050/scrape -H "Content-Type: application/json" -d '{"ean":"5901234123457"}'
+```
+
+Docker verification (from container, host mode):
+```
+docker compose exec backend curl -v http://host.docker.internal:5050/health
+```
+On Linux, ensure `extra_hosts: host.docker.internal:host-gateway` is present in
+`docker-compose.yml` (already configured here).
+
+Env diagnostics (from container):
+```
+docker compose exec backend sh -lc 'printenv | grep LOCAL_SCRAPER'
+docker compose exec scraper_worker sh -lc 'printenv | grep LOCAL_SCRAPER'
+```
+
 Notes:
-- The script runs Chrome in headed mode so you can solve captcha if needed.
+- Allegro headless często kończy się captcha; rekomendowany jest tryb headed.
+- W Dockerze headed działa przez Xvfb; opcjonalnie ustaw `LOCAL_SCRAPER_ENABLE_VNC=1`
+  i otwórz http://127.0.0.1:6080 (zalecany SSH tunnel / firewall).
+- The host script runs Chrome in headed mode so you can solve captcha if needed.
 - To keep cookies, set `SELENIUM_USER_DATA_DIR=~/.local-scraper-profile`.
 - The script installs required dependencies automatically (brew/apt/dnf/pacman/zypper/apk).
   You may be prompted for sudo on Linux.
@@ -48,28 +104,28 @@ Notes:
   will install `snapd` and try to install Chromium via snap.
 - To persist `~/.local/bin` in PATH, set `LOCAL_SCRAPER_PERSIST_PATH=1`
   before running the script.
-- If port `5050` is in use, run:
-  `LOCAL_SCRAPER_PORT=5051 ./backend/scripts/run_local_scraper.sh`
-  and start compose with:
-  `LOCAL_SCRAPER_PORT=5051 ./scripts/dev_up.sh`
-- The scraper script auto-updates `backend/.env` with the chosen port.
-  The compose wrapper also updates `backend/.env` if you pass
-  `LOCAL_SCRAPER_PORT` or `LOCAL_SCRAPER_URL`.
-  To skip this, set `LOCAL_SCRAPER_UPDATE_ENV=0`.
+- If port `5050` is in use, run the scraper with a different port, e.g.:
+  `./backend/scripts/run_local_scraper.sh 5051` or
+  `.\backend\scripts\run_local_scraper.ps1 5051`
+  and set `LOCAL_SCRAPER_URL=http://host.docker.internal:5051` (or
+  `LOCAL_SCRAPER_PORT=5051 ./scripts/dev_up.sh`).
+- The scraper script updates `backend/.env` only when you set
+  `LOCAL_SCRAPER_UPDATE_ENV=1` explicitly.
+  The compose wrapper does the same if you pass `LOCAL_SCRAPER_PORT` or
+  `LOCAL_SCRAPER_URL` and set `LOCAL_SCRAPER_UPDATE_ENV=1`.
   To update a different env file, set `LOCAL_SCRAPER_ENV_FILE=/path/to/.env`.
-- To run the scraper inside Docker instead, use:
-  `docker compose --profile container-scraper up --build` and set
-  `LOCAL_SCRAPER_URL=http://local_scraper:5050`.
+W trybie hostowym ustaw `LOCAL_SCRAPER_URL=http://host.docker.internal:5050`
+(albo inny port), zeby kontenery widzialy scraper.
 
 ## Migracje bazy (Alebmic)
 
 - Zalecany sposob uruchamiania migracji: **tylko z poziomu kontenera backendu**, aby `app` by'o na PYTHONPATH:
   ```
-  docker compose exec pilot_backend alembic upgrade head
+  docker compose exec backend alembic upgrade head
   ```
 - Alternatywnie mo'na u'y' skryptu pomocniczego (tak'e **wewn'trz** kontenera):
   ```
-  docker compose exec pilot_backend bash backend/scripts/migrate.sh
+  docker compose exec backend bash backend/scripts/migrate.sh
   ```
 - Nie uruchamiaj `alembic upgrade head` bezpo'rednio z hosta (czeste b''dy `ModuleNotFoundError: app` / Pydantic). U'ywaj polecenia z `docker compose exec`.
 
@@ -79,12 +135,44 @@ Notes:
 | --- | --- |
 | `DB_URL` | URL do Postgresa (np. `postgresql+psycopg2://pilot:pilot@pilot_postgres:5432/pilotdb`) |
 | `REDIS_URL` | URL do Redisa (np. `redis://redis:6379/0`) |
-| `ALLEGRO_API_TOKEN` | Token Bearer do Allegro API (opcjonalnie) |
 | `PROXY_LIST` | Lista proxy rozdzielona przecinkiem dla cloud HTTP (opcjonalnie) |
 | `LOCAL_SCRAPER_ENABLED` | `true/false` – w³¹cza lokalny scraper Selenium |
-| `LOCAL_SCRAPER_URL` | Endpoint lokalnego scrapera, np. `http://host.docker.internal:5050/scrape` |
+| `LOCAL_SCRAPER_URL` | Bazowy URL lokalnego scrapera, np. `http://local_scraper:5050` |
 | `WORKSPACE` | Katalog roboczy na upload/export (domyœlnie `/workspace`) |
 | `EUR_TO_PLN_RATE` | Sta?y kurs przeliczenia EUR?PLN dla importu cennik?w (domy?lnie `4.5`) |
+
+## Diagnostyka (checklista)
+
+1) Local scraper (Docker):
+```
+docker compose exec backend curl -v http://local_scraper:5050/health
+```
+2) Host scraper (opcjonalnie dev):
+```
+curl http://127.0.0.1:5050/health
+```
+3) ENV w kontenerach:
+```
+docker compose exec backend sh -lc 'printenv | grep LOCAL_SCRAPER'
+docker compose exec scraper_worker sh -lc 'printenv | grep LOCAL_SCRAPER'
+```
+4) Logi kolejek:
+```
+docker compose logs -f local_scraper scraper_worker backend
+```
+
+5) Fail-fast (gdy local scraper nie dziala):
+```
+docker compose stop local_scraper
+curl -s -X POST http://localhost:8000/api/v1/analysis/upload \
+  -F "category_id=<ID_Z_KROKU_1>" \
+  -F "file=@/path/to/input.xlsx" \
+  -F "mode=mixed" \
+  -F "use_cloud_http=false" \
+  -F "use_local_scraper=true"
+docker compose start local_scraper
+```
+Oczekiwane: HTTP 400 z komunikatem o niedostepnym local scraperze.
 
 ## Minimalny flow (cURL)
 
@@ -101,7 +189,6 @@ curl -X POST http://localhost:8000/api/v1/analysis/upload \
   -F "category_id=<ID_Z_KROKU_1>" \
   -F "file=@/path/to/input.xlsx" \
   -F "mode=mixed" \
-  -F "use_api=true" \
   -F "use_cloud_http=true" \
   -F "use_local_scraper=true"
 ```

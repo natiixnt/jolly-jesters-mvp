@@ -20,6 +20,30 @@ from selenium.webdriver.support.ui import WebDriverWait
 logger = logging.getLogger(__name__)
 
 
+def _env_flag_enabled(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_flag_disabled(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"0", "false", "no", "off"}
+
+
+def is_headless_mode() -> bool:
+    if _env_flag_enabled(os.getenv("SELENIUM_HEADLESS")):
+        return True
+    if _env_flag_disabled(os.getenv("SELENIUM_HEADED")):
+        return True
+    return False
+
+
+def get_scraper_mode() -> str:
+    return "headless" if is_headless_mode() else "headed"
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -113,11 +137,7 @@ def get_runtime_info() -> dict:
 
 
 def _create_driver() -> WebDriver:
-    headed_env = os.getenv("SELENIUM_HEADED")
-    if headed_env is None:
-        headed = bool(os.getenv("DISPLAY"))
-    else:
-        headed = headed_env.strip().lower() not in {"0", "false", "no", "off"}
+    headless = is_headless_mode()
     chrome_path = _resolve_chrome_binary()
     driver_path = _resolve_chromedriver_path()
     if not driver_path:
@@ -126,7 +146,7 @@ def _create_driver() -> WebDriver:
     options = Options()
     if chrome_path:
         options.binary_location = chrome_path
-    if not headed:
+    if headless:
         options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")

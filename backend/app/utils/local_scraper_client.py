@@ -13,6 +13,39 @@ from app.services.schemas import AllegroResult
 logger = logging.getLogger(__name__)
 
 
+def _local_scraper_base_url() -> Optional[str]:
+    url = settings.LOCAL_SCRAPER_URL
+    if not url:
+        return None
+    return url.rstrip("/")
+
+
+def build_local_scraper_url(path: str) -> Optional[str]:
+    base_url = _local_scraper_base_url()
+    if not base_url:
+        return None
+    return f"{base_url}/{path.lstrip('/')}"
+
+
+def check_local_scraper_health(timeout_seconds: float = 2.0) -> Dict[str, Any]:
+    url = build_local_scraper_url("health")
+    if not settings.LOCAL_SCRAPER_ENABLED:
+        return {"enabled": False, "url": url, "status": "disabled"}
+    if not url:
+        return {"enabled": True, "url": None, "status": "missing_url"}
+    try:
+        with httpx.Client(timeout=timeout_seconds) as client:
+            resp = client.get(url)
+    except Exception as exc:
+        return {"enabled": True, "url": url, "status": "error", "error": repr(exc)}
+    return {
+        "enabled": True,
+        "url": url,
+        "status": "ok" if resp.status_code < 400 else "error",
+        "status_code": resp.status_code,
+    }
+
+
 def _parse_datetime(value: Any) -> Optional[datetime]:
     if isinstance(value, datetime):
         return value
@@ -28,7 +61,8 @@ def _parse_datetime(value: Any) -> Optional[datetime]:
 
 
 async def fetch_via_local_scraper(ean: str) -> AllegroResult:
-    if not settings.LOCAL_SCRAPER_URL:
+    url = build_local_scraper_url("scrape")
+    if not url:
         return AllegroResult(
             price=None,
             sold_count=None,
@@ -39,11 +73,31 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
         )
 
     try:
-        base_url = settings.LOCAL_SCRAPER_URL.rstrip("/")
-        url = f"{base_url}/scrape"
         logger.info("Local scraper request ean=%s url=%s", ean, url)
         async with httpx.AsyncClient(timeout=settings.local_scraper_timeout) as client:
             resp = await client.post(url, json={"ean": ean})
+    except httpx.ConnectError as exc:
+        logger.warning(
+            "Local scraper connect error for ean=%s type=%s err=%r",
+            ean,
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={
+                "error": "network_error",
+                "error_type": type(exc).__name__,
+                "error_detail": repr(exc),
+                "source": "local",
+            },
+            error="network_error",
+            source="local",
+        )
     except Exception as exc:
         logger.warning(
             "Local scraper network error for ean=%s type=%s err=%r",

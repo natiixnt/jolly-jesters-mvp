@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BACKEND_DIR="$ROOT/backend"
 cd "$ROOT"
 
 log() {
@@ -315,12 +316,14 @@ ensure_local_bin_in_path() {
 
 install_deps
 
-if [ ! -d ".venv" ]; then
+VENV_DIR="$BACKEND_DIR/.venv"
+VENV_PYTHON="$VENV_DIR/bin/python"
+if [ ! -d "$VENV_DIR" ]; then
   if ! need_cmd python3; then
     echo "python3 not found after install step." >&2
     exit 1
   fi
-  python3 -m venv .venv
+  python3 -m venv "$VENV_DIR"
 fi
 
 ensure_local_bin_in_path
@@ -333,19 +336,25 @@ if ! need_cmd chromedriver; then
   fi
 fi
 
-# shellcheck disable=SC1091
-source .venv/bin/activate
-
-pip install -r requirements.txt
+"$VENV_PYTHON" -m pip install -r "$BACKEND_DIR/requirements.txt"
 
 export SELENIUM_HEADED=true
 export SELENIUM_USER_DATA_DIR="${SELENIUM_USER_DATA_DIR:-$HOME/.local-scraper-profile}"
 export SELENIUM_PROFILE_DIR="${SELENIUM_PROFILE_DIR:-Default}"
 
 LOCAL_SCRAPER_HOST="${LOCAL_SCRAPER_HOST:-0.0.0.0}"
+PORT_ARG="${1:-}"
+if [ -n "$PORT_ARG" ]; then
+  if [[ "$PORT_ARG" =~ ^[0-9]+$ ]]; then
+    LOCAL_SCRAPER_PORT="$PORT_ARG"
+  else
+    log "Invalid port: $PORT_ARG"
+    exit 1
+  fi
+fi
 LOCAL_SCRAPER_PORT="${LOCAL_SCRAPER_PORT:-5050}"
-LOCAL_SCRAPER_UPDATE_ENV="${LOCAL_SCRAPER_UPDATE_ENV:-1}"
-LOCAL_SCRAPER_ENV_FILE="${LOCAL_SCRAPER_ENV_FILE:-$ROOT/.env}"
+LOCAL_SCRAPER_UPDATE_ENV="${LOCAL_SCRAPER_UPDATE_ENV:-}"
+LOCAL_SCRAPER_ENV_FILE="${LOCAL_SCRAPER_ENV_FILE:-$BACKEND_DIR/.env}"
 
 if [ "$LOCAL_SCRAPER_HOST" = "127.0.0.1" ] || [ "$LOCAL_SCRAPER_HOST" = "localhost" ]; then
   log "Warning: binding to $LOCAL_SCRAPER_HOST may block Docker access. Use 0.0.0.0 for containers."
@@ -355,7 +364,7 @@ if need_cmd lsof; then
   if lsof -nP -iTCP:"$LOCAL_SCRAPER_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
     log "Port $LOCAL_SCRAPER_PORT is already in use."
     lsof -nP -iTCP:"$LOCAL_SCRAPER_PORT" -sTCP:LISTEN || true
-    log "Pick another port: LOCAL_SCRAPER_PORT=5051 $0"
+    log "Pick another port: $0 5051"
     exit 1
   fi
 else
@@ -404,4 +413,4 @@ fi
 
 log "Starting local scraper on ${LOCAL_SCRAPER_HOST}:${LOCAL_SCRAPER_PORT}"
 log "Docker URL: http://host.docker.internal:${LOCAL_SCRAPER_PORT}"
-exec uvicorn local_scraper_service:app --host "$LOCAL_SCRAPER_HOST" --port "$LOCAL_SCRAPER_PORT"
+exec "$VENV_PYTHON" -m uvicorn host_scraper:app --host "$LOCAL_SCRAPER_HOST" --port "$LOCAL_SCRAPER_PORT"

@@ -10,6 +10,7 @@ from app.models.analysis_run import AnalysisRun
 from app.models.category import Category
 from app.services.analysis_service import get_run_items, process_analysis_run
 from app.services.import_service import prepare_analysis_run
+from app.models.enums import ScrapeStatus
 from app.services.schemas import ScrapingStrategyConfig
 from app.utils.excel_reader import read_excel_file
 
@@ -52,7 +53,7 @@ def test_offline_analysis_flow(db_session):
     db_session.refresh(category)
 
     rows = read_excel_file(_excel_bytes())
-    strategy = ScrapingStrategyConfig(use_api=False, use_cloud_http=False, use_local_scraper=False)
+    strategy = ScrapingStrategyConfig(use_cloud_http=False, use_local_scraper=False)
     run = prepare_analysis_run(db_session, category, rows, "test.xlsx", strategy)
 
     process_analysis_run(db_session, run.id, mode="offline")
@@ -65,3 +66,4 @@ def test_offline_analysis_flow(db_session):
     assert len(items) == len(rows)
     for item in items:
         assert item.profitability_label is not None
+        assert item.scrape_status in {ScrapeStatus.ok, ScrapeStatus.not_found}

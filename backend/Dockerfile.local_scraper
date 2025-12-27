@@ -1,29 +1,49 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
+
+ARG WITH_VNC=0
+ENV DEBIAN_FRONTEND=noninteractive
 
 # System dependencies + Chromium (works on amd64/arm64)
-RUN apt-get update && \
+RUN set -eux; \
+    vnc_packages=""; \
+    if [ "$WITH_VNC" = "1" ]; then \
+      vnc_packages="x11vnc"; \
+    fi; \
+    apt-get update -o Acquire::Retries=3; \
     apt-get install -y --no-install-recommends \
-      wget curl unzip ca-certificates \
+      ca-certificates curl \
       chromium chromium-driver \
       fonts-liberation \
       libnss3 libxss1 libasound2 libgbm1 xvfb \
       libglib2.0-0 libatk1.0-0 libatk-bridge2.0-0 \
       libdrm2 libx11-6 libxcomposite1 libxdamage1 libxext6 libxrandr2 \
       libxkbcommon0 libpangocairo-1.0-0 libpango-1.0-0 libcairo2 \
-      libgdk-pixbuf-2.0-0 libgtk-3-0 libu2f-udev libvulkan1 && \
+      libgdk-pixbuf-2.0-0 libgtk-3-0 libu2f-udev libvulkan1 \
+      ${vnc_packages}; \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies (reuse backend requirements)
-COPY requirements.txt ./requirements.txt
+# Install Python dependencies (local scraper only)
+COPY requirements.local_scraper.txt ./requirements.local_scraper.txt
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.local_scraper.txt
+
+RUN if [ "$WITH_VNC" = "1" ]; then \
+      pip install --no-cache-dir websockify==0.12.0 && \
+      mkdir -p /opt/novnc && \
+      curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz \
+        | tar -xz --strip-components=1 -C /opt/novnc; \
+    fi
 
 # Copy scraper service code
 COPY local_scraper_service.py ./local_scraper_service.py
 COPY main.py ./main.py
+COPY scripts/local_scraper_entrypoint.sh ./scripts/local_scraper_entrypoint.sh
+
+RUN chmod +x ./scripts/local_scraper_entrypoint.sh
 
 EXPOSE 5050
+EXPOSE 6080
 
-CMD ["uvicorn", "local_scraper_service:app", "--host", "0.0.0.0", "--port", "5050"]
+ENTRYPOINT ["/app/scripts/local_scraper_entrypoint.sh"]

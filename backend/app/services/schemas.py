@@ -11,6 +11,7 @@ class AllegroResult:
     is_not_found: bool
     is_temporary_error: bool
     raw_payload: Dict[str, Any]
+    error: Optional[str] = None
     source: str = "scraping"
     last_checked_at: Optional[datetime] = None
     product_title: Optional[str] = None
@@ -21,6 +22,5 @@ class AllegroResult:
 
 @dataclass
 class ScrapingStrategyConfig:
-    use_api: bool = True
     use_cloud_http: bool = True
     use_local_scraper: bool = True

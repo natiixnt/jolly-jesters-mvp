@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from app.models.enums import AnalysisItemSource, AnalysisStatus, ProfitabilityLabel
+from app.models.enums import AnalysisItemSource, AnalysisStatus, ProfitabilityLabel, ScrapeStatus
 from app.schemas.category import CategoryRead
 
 
@@ -62,7 +62,6 @@ class AnalysisRunSummary(BaseModel):
     total_products: int
     processed_products: int
     mode: Optional[str] = None
-    use_api: bool
     use_cloud_http: bool
     use_local_scraper: bool
     error_message: Optional[str] = None
@@ -84,7 +83,7 @@ class AnalysisResultItem(BaseModel):
     margin_percent: Optional[float]
     is_profitable: Optional[bool]
     source: Optional[str]
-    scrape_status: Optional[str]
+    scrape_status: Optional[ScrapeStatus]
     scrape_error_message: Optional[str]
     last_checked_at: Optional[datetime]
 

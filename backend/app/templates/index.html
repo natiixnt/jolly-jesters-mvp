@@ -361,8 +361,12 @@
       font-size: 12px;
       display: inline-block;
     }
+    .status-chip.pending { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .status-chip.in_progress { background: rgba(34,211,238,0.2); color: #67e8f9; }
     .status-chip.ok { background: rgba(16,185,129,0.2); color: #a7f3d0; }
     .status-chip.error { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .status-chip.blocked { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .status-chip.network_error { background: rgba(148,163,184,0.2); color: #e2e8f0; }
     .status-chip.not_found { background: rgba(245,158,11,0.15); color: #fbbf24; }
     .source-chip {
       padding: 4px 8px;
@@ -497,9 +501,8 @@
           <div>
             <label>Strategie scrapera</label>
             <div class="checkboxes" id="strategy-boxes">
-              <label><input type="checkbox" name="use_api" value="true" checked /> Użyj Allegro API</label>
-              <label><input type="checkbox" name="use_cloud_http" value="true" checked /> Użyj cloud HTTP (proxy)</label>
-              <label><input type="checkbox" name="use_local_scraper" value="true" checked /> Użyj lokalnego Selenium</label>
+              <label><input type="checkbox" name="use_cloud_http" value="true" checked /> Proxy / Cloud scraper</label>
+              <label><input type="checkbox" name="use_local_scraper" value="true" checked /> Local scraper (Selenium)</label>
             </div>
             <div class="error" id="strategy-error"></div>
           </div>
@@ -600,7 +603,6 @@
             <label for="market-source">Źródło danych</label>
             <select id="market-source">
               <option value="">Dowolne</option>
-              <option value="api">API</option>
               <option value="cloud_http">cloud_http</option>
               <option value="local">local</option>
               <option value="scraping">scraping</option>
@@ -710,8 +712,8 @@
         <div>MIXED – używa cache, ale odświeża gdy dane są starsze niż TTL. OFFLINE – korzysta wyłącznie z danych z bazy. ONLINE – ignoruje cache i zawsze scrapuje na nowo.</div>
       </div>
       <div class="faq-item">
-        <strong>Strategie scrapera (API / cloud HTTP / lokalne Selenium)</strong>
-        <div>Zaznacz co najmniej jedną. API – szybkie jeśli masz token. Cloud HTTP – scraping przez proxy. Lokalny Selenium – fallback z przeglądarką.</div>
+        <strong>Strategie scrapera (Proxy / Cloud scraper / Local scraper (Selenium))</strong>
+        <div>Zaznacz co najmniej jedną. Proxy / Cloud scraper – scraping przez proxy. Local scraper (Selenium) – fallback z przeglądarką.</div>
       </div>
       <div class="faq-item">
         <strong>Jak dodać nową kategorię</strong>
@@ -930,9 +932,8 @@
 
     function renderStrategies(run) {
       const strategies = [];
-      if (run.use_api) strategies.push('API');
-      if (run.use_cloud_http) strategies.push('HTTP');
-      if (run.use_local_scraper) strategies.push('Selenium');
+      if (run.use_cloud_http) strategies.push('Proxy / Cloud scraper');
+      if (run.use_local_scraper) strategies.push('Local scraper (Selenium)');
       return strategies.length ? strategies.join(' · ') : 'Brak danych';
     }
 
@@ -983,6 +984,10 @@
     }
 
     function scrapeStatusLabel(status) {
+      if (status === 'pending') return 'Pending local scrape';
+      if (status === 'in_progress') return 'scraping';
+      if (status === 'blocked') return 'blocked';
+      if (status === 'network_error') return 'błąd sieci';
       if (status === 'error') return 'błąd';
       if (status === 'not_found') return 'brak';
       return 'ok';
@@ -1427,7 +1432,7 @@
       fd.append('category_id', categorySelect.value);
       fd.append('mode', form.querySelector('input[name="mode"]:checked')?.value || 'mixed');
 
-      ['use_api', 'use_cloud_http', 'use_local_scraper'].forEach(name => {
+      ['use_cloud_http', 'use_local_scraper'].forEach(name => {
         const input = form.querySelector(`input[name="${name}"]`);
         fd.append(name, input.checked ? 'true' : 'false');
       });

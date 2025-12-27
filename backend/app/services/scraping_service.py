@@ -4,7 +4,6 @@ import logging
 
 from app.core.config import settings
 from app.services.schemas import AllegroResult, ScrapingStrategyConfig
-from app.utils.allegro_api_client import fetch_from_allegro_api
 from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import fetch_via_local_scraper
 
@@ -14,22 +13,13 @@ logger = logging.getLogger(__name__)
 async def fetch_allegro_data(ean: str, strategy: ScrapingStrategyConfig) -> AllegroResult:
     """Fetch Allegro data using configured strategy order."""
     logger.info(
-        "SCRAPER_STRATEGY ean=%s use_api=%s use_cloud_http=%s use_local_scraper=%s",
+        "SCRAPER_STRATEGY ean=%s use_cloud_http=%s use_local_scraper=%s",
         ean,
-        strategy.use_api,
         strategy.use_cloud_http,
         strategy.use_local_scraper,
     )
 
-    # 1. Allegro API
-    if strategy.use_api and settings.ALLEGRO_API_TOKEN:
-        logger.info("SCRAPER_STEP api start ean=%s", ean)
-        result = await fetch_from_allegro_api(ean)
-        if not result.is_temporary_error:
-            logger.info("SCRAPER_STEP api finish ean=%s source=%s", ean, result.source)
-            return result
-
-    # 2. Cloud HTTP scraping
+    # 1. Cloud HTTP scraping
     if strategy.use_cloud_http:
         logger.info("SCRAPER_STEP cloud_http start ean=%s", ean)
         result = await fetch_via_http_scraper(ean)
@@ -37,7 +27,7 @@ async def fetch_allegro_data(ean: str, strategy: ScrapingStrategyConfig) -> Alle
             logger.info("SCRAPER_STEP cloud_http finish ean=%s source=%s", ean, result.source)
             return result
 
-    # 3. Local Selenium scraper
+    # 2. Local Selenium scraper
     if (
         strategy.use_local_scraper
         and settings.LOCAL_SCRAPER_ENABLED

@@ -18,27 +18,21 @@ from app.core.config import settings
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
 from app.services.schemas import ScrapingStrategyConfig
+from app.utils.local_scraper_client import check_local_scraper_health
 from app.workers.tasks import run_analysis_task
 
 router = APIRouter(tags=["analysis"])
 
 
-def _validate_strategy(use_api: bool, use_cloud_http: bool, use_local_scraper: bool):
-    if not any([use_api, use_cloud_http, use_local_scraper]):
+def _validate_strategy(use_cloud_http: bool, use_local_scraper: bool):
+    if not any([use_cloud_http, use_local_scraper]):
         raise HTTPException(
             status_code=400,
-            detail="At least one scraper strategy (API, cloud HTTP or local) must be enabled for an analysis run.",
+            detail="At least one scraper strategy (cloud HTTP or local) must be enabled for an analysis run.",
         )
 
 
-def _validate_scraper_config(use_api: bool, use_cloud_http: bool, use_local_scraper: bool):
-    # API
-    if use_api and not settings.ALLEGRO_API_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Brak konfiguracji Allegro API (ALLEGRO_API_TOKEN). Odznacz 'Uzyj Allegro API' lub dodaj token.",
-        )
-
+def _validate_scraper_config(use_cloud_http: bool, use_local_scraper: bool):
     # cloud HTTP
     if use_cloud_http:
         proxies = settings.PROXY_LIST
@@ -47,7 +41,10 @@ def _validate_scraper_config(use_api: bool, use_cloud_http: bool, use_local_scra
         if not proxies:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Brak skonfigurowanych proxy dla cloud HTTP (PROXY_LIST). Odznacz 'Uzyj cloud HTTP (proxy)' lub ustaw liste proxy.",
+                detail=(
+                    "Brak skonfigurowanych proxy dla cloud HTTP (PROXY_LIST). "
+                    "Odznacz 'Proxy / Cloud scraper' lub ustaw liste proxy."
+                ),
             )
 
     # local Selenium
@@ -56,7 +53,7 @@ def _validate_scraper_config(use_api: bool, use_cloud_http: bool, use_local_scra
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 "Brak adresu uslugi lokalnego scrapera (LOCAL_SCRAPER_URL). "
-                "Odznacz 'Uzyj lokalnego Selenium' albo skonfiguruj URL. "
+                "Odznacz 'Local scraper (Selenium)' albo skonfiguruj URL. "
                 "W Dockerze: LOCAL_SCRAPER_URL=http://local_scraper:5050, "
                 "w Kubernetes: np. http://local-scraper.default.svc.cluster.local:5050."
             ),
@@ -68,14 +65,32 @@ async def upload_analysis(
     file: UploadFile = File(...),
     category_id: str = Form(...),
     mode: str = Form("mixed"),
-    use_api: bool = Form(True),
     use_cloud_http: bool = Form(True),
     use_local_scraper: bool = Form(True),
     db: Session = Depends(get_db),
 ):
     mode = (mode or "mixed").lower()
-    _validate_strategy(use_api, use_cloud_http, use_local_scraper)
-    _validate_scraper_config(use_api, use_cloud_http, use_local_scraper)
+    _validate_strategy(use_cloud_http, use_local_scraper)
+    _validate_scraper_config(use_cloud_http, use_local_scraper)
+    if use_local_scraper:
+        health = check_local_scraper_health(timeout_seconds=2.0)
+        if health.get("status") != "ok":
+            url = health.get("url") or settings.LOCAL_SCRAPER_URL or "LOCAL_SCRAPER_URL"
+            status_label = health.get("status") or "unknown"
+            status_code = health.get("status_code")
+            error = health.get("error")
+            suffix = f", status_code={status_code}" if status_code else ""
+            if error:
+                suffix += f", error={error}"
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Local scraper niedostepny lub niezdrowy "
+                    f"(status={status_label}{suffix}). "
+                    f"Sprawdz usluge pod {url} albo wylacz 'Local scraper (Selenium)' "
+                    "i uzyj 'Proxy / Cloud scraper'."
+                ),
+            )
 
     try:
         category_uuid = uuid.UUID(category_id)
@@ -93,7 +108,6 @@ async def upload_analysis(
         raise HTTPException(status_code=400, detail="Plik musi być w formacie Excel (.xls/.xlsx)")
 
     strategy = ScrapingStrategyConfig(
-        use_api=use_api,
         use_cloud_http=use_cloud_http,
         use_local_scraper=use_local_scraper,
     )
