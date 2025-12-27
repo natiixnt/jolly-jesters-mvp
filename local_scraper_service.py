@@ -26,6 +26,11 @@ class ScrapeResponse(BaseModel):
     source: Optional[str] = None
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok", "ts": datetime.utcnow().isoformat()}
+
+
 @app.post("/scrape", response_model=ScrapeResponse)
 def scrape(req: ScrapeRequest):
     try:

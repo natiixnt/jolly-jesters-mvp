@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 from app.core.config import settings
 from app.services.schemas import AllegroResult, ScrapingStrategyConfig
 from app.utils.allegro_api_client import fetch_from_allegro_api
 from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import fetch_via_local_scraper
+
+logger = logging.getLogger(__name__)
 
 
 async def fetch_allegro_data(ean: str, strategy: ScrapingStrategyConfig) -> AllegroResult:
@@ -30,6 +34,12 @@ async def fetch_allegro_data(ean: str, strategy: ScrapingStrategyConfig) -> Alle
     ):
         result = await fetch_via_local_scraper(ean)
         return result
+    elif strategy.use_local_scraper and not settings.LOCAL_SCRAPER_ENABLED:
+        logger.warning(
+            "Local scraper strategy requested for ean=%s but LOCAL_SCRAPER_ENABLED is false. "
+            "Set LOCAL_SCRAPER_ENABLED=true and expose the host scraper on LOCAL_SCRAPER_URL.",
+            ean,
+        )
 
     return AllegroResult(
         price=None,

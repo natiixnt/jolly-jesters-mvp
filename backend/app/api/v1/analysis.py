@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
 from app.services.schemas import ScrapingStrategyConfig
+from app.utils.local_scraper_client import check_local_scraper_health
 from app.workers.tasks import run_analysis_task
 
 router = APIRouter(tags=["analysis"])
@@ -51,16 +52,33 @@ def _validate_scraper_config(use_api: bool, use_cloud_http: bool, use_local_scra
             )
 
     # local Selenium
-    if use_local_scraper and not settings.LOCAL_SCRAPER_URL:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Brak adresu uslugi lokalnego scrapera (LOCAL_SCRAPER_URL). "
-                "Odznacz 'Uzyj lokalnego Selenium' albo skonfiguruj URL. "
-                "W Dockerze: LOCAL_SCRAPER_URL=http://local_scraper:5050, "
-                "w Kubernetes: np. http://local-scraper.default.svc.cluster.local:5050."
-            ),
-        )
+    if use_local_scraper:
+        if not settings.LOCAL_SCRAPER_URL:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Brak adresu uslugi lokalnego scrapera (LOCAL_SCRAPER_URL). "
+                    "Odznacz 'Uzyj lokalnego Selenium' albo skonfiguruj URL. "
+                    "W Dockerze: LOCAL_SCRAPER_URL=http://host.docker.internal:5050 "
+                    "(bez /scrape na koncu); w Kubernetes: np. http://local-scraper.default.svc.cluster.local:5050."
+                ),
+            )
+        if not settings.LOCAL_SCRAPER_ENABLED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Lokalny scraper jest wylaczony (LOCAL_SCRAPER_ENABLED=false). Ustaw na true aby korzystac z Selenium na hoscie.",
+            )
+        try:
+            check_local_scraper_health(timeout=3.0)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Lokalny scraper nieosiagalny pod {settings.LOCAL_SCRAPER_URL}: {exc}. "
+                    "Upewnij sie, ze serwis scrapera dziala na hoscie (uvicorn local_scraper_service:app --host 0.0.0.0 --port 5050), "
+                    "a w Linux extra_hosts ma host-gateway i firewall nie blokuje portu 5050."
+                ),
+            )
 
 
 @router.post("/upload", response_model=AnalysisUploadResponse)

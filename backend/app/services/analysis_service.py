@@ -434,7 +434,7 @@ def _resolve_source_label(item: AnalysisRunItem, product: Product | None) -> str
 
 def _resolve_scrape_status(item: AnalysisRunItem) -> str:
     if item.source == AnalysisItemSource.error:
-        return "error"
+        return "scraper_error"
     if item.source == AnalysisItemSource.not_found:
         return "not_found"
     return "ok"
