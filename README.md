@@ -1,4 +1,4 @@
-﻿# Jolly Jesters MVP
+# Jolly Jesters MVP
 
 Offline-first analiza oplacalnoœci Allegro z FastAPI, PostgreSQL, Redis i Celery.
 Nie korzystamy z oficjalnego API; scraping działa przez proxy/cloud HTTP oraz lokalny Selenium.
@@ -6,7 +6,7 @@ Nie korzystamy z oficjalnego API; scraping działa przez proxy/cloud HTTP oraz l
 ## Uruchomienie (dev)
 
 ```
-docker-compose up --build
+docker compose up --build
 ```
 
 Backend i workery uruchamiaja sie z kodu w obrazie (bez bind mount), wiec po zmianach w `backend/` wykonaj:
@@ -23,6 +23,11 @@ docker compose build backend worker scraper_cloud_worker scraper_worker
 - Jeśli koniecznie potrzebujesz bind mount (live edit), dodaj override z `./backend:/app` tylko lokalnie i licz się z niestabilnością.
 
 Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/`. Stary widok Streamlit (port 8501) moze zostac do celow dev, ale podstawowa sciezka uzytkownika to HTML z backendu.
+
+Po zmianach zaleznosci Pythona zbuduj na nowo obrazy backend/worker:
+```
+docker compose build --no-cache backend worker
+```
 
 ## Kolejki Celery (architektura)
 
@@ -117,17 +122,17 @@ Notes:
 W trybie hostowym ustaw `LOCAL_SCRAPER_URL=http://host.docker.internal:5050`
 (albo inny port), zeby kontenery widzialy scraper.
 
-## Migracje bazy (Alebmic)
+## Migracje bazy (Alembic)
 
-- Zalecany sposob uruchamiania migracji: **tylko z poziomu kontenera backendu**, aby `app` by'o na PYTHONPATH:
+- Zalecany sposob uruchamiania migracji: **tylko z poziomu kontenera backendu**, aby `app` bylo na PYTHONPATH:
   ```
   docker compose exec backend alembic upgrade head
   ```
-- Alternatywnie mo'na u'y' skryptu pomocniczego (tak'e **wewn'trz** kontenera):
+- Alternatywnie mozna uzyc skryptu pomocniczego (takze **wewnatrz** kontenera):
   ```
   docker compose exec backend bash backend/scripts/migrate.sh
   ```
-- Nie uruchamiaj `alembic upgrade head` bezpo'rednio z hosta (czeste b''dy `ModuleNotFoundError: app` / Pydantic). U'ywaj polecenia z `docker compose exec`.
+- Nie uruchamiaj `alembic upgrade head` bezposrednio z hosta (czeste bledy `ModuleNotFoundError: app` / Pydantic). Uzywaj polecenia z `docker compose exec`.
 
 ## Wymagane zmienne srodowiskowe
 
@@ -176,14 +181,14 @@ Oczekiwane: HTTP 400 z komunikatem o niedostepnym local scraperze.
 
 ## Minimalny flow (cURL)
 
-1) Utwórz kategoriê:
+1) Utworz kategorie:
 ```bash
 curl -X POST http://localhost:8000/api/v1/categories/ \
   -H "Content-Type: application/json" \
   -d '{"name":"Perfumy","profitability_multiplier":1.5,"commission_rate":0.1}'
 ```
 
-2) Wyœlij plik Excel (kolumny: EAN, Name, PurchasePrice):
+2) Wyslij plik Excel (kolumny: EAN, Name, PurchasePrice):
 ```bash
 curl -X POST http://localhost:8000/api/v1/analysis/upload \
   -F "category_id=<ID_Z_KROKU_1>" \
@@ -192,7 +197,7 @@ curl -X POST http://localhost:8000/api/v1/analysis/upload \
   -F "use_cloud_http=true" \
   -F "use_local_scraper=true"
 ```
-Zwróci `analysis_run_id`.
+Zwraca `analysis_run_id`.
 
 3) Sprawdzaj status:
 ```bash

@@ -17,7 +17,10 @@ def _local_scraper_base_url() -> Optional[str]:
     url = settings.LOCAL_SCRAPER_URL
     if not url:
         return None
-    return url.rstrip("/")
+    base = url.strip().rstrip("/")
+    if base.lower().endswith("/scrape"):
+        base = base[: -len("/scrape")]
+    return base
 
 
 def build_local_scraper_url(path: str) -> Optional[str]:
@@ -94,6 +97,7 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
                 "error_type": type(exc).__name__,
                 "error_detail": repr(exc),
                 "source": "local",
+                "url": url,
             },
             error="network_error",
             source="local",
@@ -115,6 +119,7 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
                 "error": repr(exc),
                 "error_type": type(exc).__name__,
                 "source": "local",
+                "url": url,
             },
             source="local",
         )
@@ -126,7 +131,13 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
     except Exception as exc:
         payload = {"body": resp.text, "error": f"invalid_json: {exc}"}
 
-    payload["status_code"] = resp.status_code
+    if not isinstance(payload, dict):
+        payload = {"body": str(payload)}
+
+    payload.setdefault("status_code", resp.status_code)
+    payload.setdefault("url", url)
+    payload["source"] = payload.get("source") or "local_scraper"
+
     if resp.status_code >= 400:
         payload.setdefault("error", f"http_{resp.status_code}")
         if resp.text:

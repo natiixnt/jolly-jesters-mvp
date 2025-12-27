@@ -43,6 +43,12 @@ async def fetch_allegro_data(ean: str, strategy: ScrapingStrategyConfig) -> Alle
             result.is_not_found,
         )
         return result
+    elif strategy.use_local_scraper and not settings.LOCAL_SCRAPER_ENABLED:
+        logger.warning(
+            "Local scraper strategy requested for ean=%s but LOCAL_SCRAPER_ENABLED is false. "
+            "Set LOCAL_SCRAPER_ENABLED=true and expose the host scraper on LOCAL_SCRAPER_URL.",
+            ean,
+        )
 
     logger.warning("SCRAPER_STRATEGY fallback temporary_error ean=%s", ean)
     return AllegroResult(

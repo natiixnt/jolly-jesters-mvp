@@ -12,9 +12,8 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.utils.local_scraper_client import check_local_scraper_health
 
-logger = logging.getLogger(__name__)
-
 app = FastAPI(title="Jolly Jesters MVP", version="1.0.0")
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
