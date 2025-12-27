@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     allegro_api_token: Optional[str] = Field(default=None, env="ALLEGRO_API_TOKEN")
     proxy_list_raw: Optional[str] = Field(default=None, env="PROXY_LIST")
     proxy_timeout: float = Field(default=15.0)
+    local_scraper_timeout: float = Field(default=90.0, env="LOCAL_SCRAPER_TIMEOUT")
     scraping_retries: int = Field(default=2)
     local_scraper_enabled: bool = Field(default=False, env="LOCAL_SCRAPER_ENABLED")
     local_scraper_url: Optional[str] = Field(default=None, env="LOCAL_SCRAPER_URL")

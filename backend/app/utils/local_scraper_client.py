@@ -42,16 +42,26 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
         base_url = settings.LOCAL_SCRAPER_URL.rstrip("/")
         url = f"{base_url}/scrape"
         logger.info("Local scraper request ean=%s url=%s", ean, url)
-        async with httpx.AsyncClient(timeout=settings.proxy_timeout) as client:
+        async with httpx.AsyncClient(timeout=settings.local_scraper_timeout) as client:
             resp = await client.post(url, json={"ean": ean})
     except Exception as exc:
-        logger.warning("Local scraper network error for ean=%s err=%s", ean, exc)
+        logger.warning(
+            "Local scraper network error for ean=%s type=%s err=%r",
+            ean,
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
         return AllegroResult(
             price=None,
             sold_count=None,
             is_not_found=False,
             is_temporary_error=True,
-            raw_payload={"error": str(exc), "source": "local"},
+            raw_payload={
+                "error": repr(exc),
+                "error_type": type(exc).__name__,
+                "source": "local",
+            },
             source="local",
         )
 
@@ -59,10 +69,21 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
 
     try:
         payload: Dict[str, Any] = resp.json()
-    except Exception:
-        payload = {"body": resp.text}
+    except Exception as exc:
+        payload = {"body": resp.text, "error": f"invalid_json: {exc}"}
 
     payload["status_code"] = resp.status_code
+    if resp.status_code >= 400:
+        payload.setdefault("error", f"http_{resp.status_code}")
+        if resp.text:
+            payload["response_text"] = resp.text[:1000]
+        logger.warning(
+            "Local scraper HTTP error ean=%s status=%s body=%s",
+            ean,
+            resp.status_code,
+            (resp.text or "")[:200],
+        )
+
     source_label = payload.get("source") or "local_scraper"
     scraped_at = _parse_datetime(payload.get("scraped_at"))
     blocked = bool(payload.get("blocked"))
@@ -97,7 +118,12 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
     except (TypeError, ValueError):
         sold_count = None
 
-    if resp.status_code >= 500 or blocked or (error_message and not payload.get("not_found")):
+    has_data = bool(payload.get("offers")) or price_val is not None or sold_val is not None
+    if not has_data and not payload.get("not_found") and not error_message:
+        payload["error"] = "empty_payload"
+        error_message = payload["error"]
+
+    if resp.status_code >= 400 or blocked or (error_message and not payload.get("not_found")):
         return AllegroResult(
             price=None,
             sold_count=None,

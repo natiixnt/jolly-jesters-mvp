@@ -1,12 +1,36 @@
+import logging
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from main import scrape_single_ean
+from main import get_runtime_info, scrape_single_ean
+
+logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(title="Local Allegro Selenium Scraper", version="1.0.0")
+
+
+@app.on_event("startup")
+def _log_runtime_info() -> None:
+    info = get_runtime_info()
+    logger.info(
+        "local_scraper runtime arch=%s chrome=%s chromedriver=%s chrome_path=%s driver_path=%s errors=%s",
+        info.get("arch"),
+        info.get("chrome_version"),
+        info.get("chromedriver_version"),
+        info.get("chrome_path"),
+        info.get("chromedriver_path"),
+        info.get("errors"),
+    )
+
+
+@app.get("/health")
+def health() -> dict:
+    info = get_runtime_info()
+    status = "ok" if not info.get("errors") else "degraded"
+    return {"status": status, "details": info}
 
 
 class ScrapeRequest(BaseModel):
@@ -46,7 +70,11 @@ def scrape(req: ScrapeRequest):
     try:
         detail = scrape_single_ean(req.ean)
     except Exception as exc:
+        logger.exception("Local scraper crashed for ean=%s", req.ean)
         raise HTTPException(status_code=500, detail=str(exc))
+
+    if detail.get("error"):
+        logger.warning("Local scraper error ean=%s error=%s", req.ean, detail.get("error"))
 
     return ScrapeResponse(
         ean=req.ean,

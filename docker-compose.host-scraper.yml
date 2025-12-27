@@ -1,0 +1,4 @@
+services:
+  local_scraper:
+    profiles:
+      - container-scraper

@@ -56,9 +56,6 @@ services:
     environment:
       - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-true}
-      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
-      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
@@ -72,12 +69,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   local_scraper:
     build:
-      context: .
-      dockerfile: backend/Dockerfile.local_scraper
+      context: ./backend
+      dockerfile: Dockerfile.local_scraper
     platform: linux/amd64
+    profiles:
+      - container-scraper
     container_name: local_scraper
     restart: unless-stopped
     env_file:
@@ -85,8 +86,17 @@ services:
     environment:
       - LOCAL_SCRAPER_URL=http://localhost:5050/
       - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
+      - SELENIUM_HEADED=false
+      - LOCAL_SCRAPER_LISTING_TIMEOUT=50
+      - LOCAL_SCRAPER_PAGELOAD_TIMEOUT=45
     ports:
       - "5050:5050"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5050/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
       
   worker:
     build:
@@ -97,9 +107,6 @@ services:
     environment:
       - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-true}
-      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
-      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis"
     volumes:
@@ -111,6 +118,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
       
   scraper_worker:
     build:
@@ -122,9 +131,6 @@ services:
     environment:
       - ALLEGRO_API_TOKEN=${ALLEGRO_API_TOKEN:-}
       - PROXY_LIST=${PROXY_LIST:-}
-      - LOCAL_SCRAPER_ENABLED=${LOCAL_SCRAPER_ENABLED:-true}
-      - LOCAL_SCRAPER_URL=${LOCAL_SCRAPER_URL:-http://local_scraper:5050}
-      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
       - WORKSPACE=/workspace
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1"
@@ -140,6 +146,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     build:

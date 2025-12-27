@@ -22,6 +22,45 @@ docker compose build backend worker scraper_worker
 
 Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/`. Stary widok Streamlit (port 8501) moze zostac do celow dev, ale podstawowa sciezka uzytkownika to HTML z backendu.
 
+## Local scraper on host (recommended for dev)
+
+If Allegro blocks headless Chrome in Docker, run the local scraper on the host.
+This is the default setup in `docker-compose.yml`.
+
+1) Start local scraper outside Docker:
+```
+./backend/scripts/run_local_scraper.sh
+```
+
+2) Start Docker services (host scraper is default):
+```
+./scripts/dev_up.sh
+```
+
+Notes:
+- The script runs Chrome in headed mode so you can solve captcha if needed.
+- To keep cookies, set `SELENIUM_USER_DATA_DIR=~/.local-scraper-profile`.
+- The script installs required dependencies automatically (brew/apt/dnf/pacman/zypper/apk).
+  You may be prompted for sudo on Linux.
+- If chromedriver is missing, the script downloads a matching version from
+  Chrome-for-Testing into `~/.local/bin`.
+- On Ubuntu/Debian, if Chromium is missing and snap isn't installed, the script
+  will install `snapd` and try to install Chromium via snap.
+- To persist `~/.local/bin` in PATH, set `LOCAL_SCRAPER_PERSIST_PATH=1`
+  before running the script.
+- If port `5050` is in use, run:
+  `LOCAL_SCRAPER_PORT=5051 ./backend/scripts/run_local_scraper.sh`
+  and start compose with:
+  `LOCAL_SCRAPER_PORT=5051 ./scripts/dev_up.sh`
+- The scraper script auto-updates `backend/.env` with the chosen port.
+  The compose wrapper also updates `backend/.env` if you pass
+  `LOCAL_SCRAPER_PORT` or `LOCAL_SCRAPER_URL`.
+  To skip this, set `LOCAL_SCRAPER_UPDATE_ENV=0`.
+  To update a different env file, set `LOCAL_SCRAPER_ENV_FILE=/path/to/.env`.
+- To run the scraper inside Docker instead, use:
+  `docker compose --profile container-scraper up --build` and set
+  `LOCAL_SCRAPER_URL=http://local_scraper:5050`.
+
 ## Migracje bazy (Alebmic)
 
 - Zalecany sposob uruchamiania migracji: **tylko z poziomu kontenera backendu**, aby `app` by'o na PYTHONPATH:

@@ -1,9 +1,10 @@
 FROM python:3.11-slim
 
-# Minimal system dependencies; let SeleniumBase manage browser/driver downloads
+# System dependencies + Chromium (works on amd64/arm64)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       wget curl unzip ca-certificates \
+      chromium chromium-driver \
       fonts-liberation \
       libnss3 libxss1 libasound2 libgbm1 xvfb \
       libglib2.0-0 libatk1.0-0 libatk-bridge2.0-0 \
@@ -15,7 +16,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install Python dependencies (reuse backend requirements)
-COPY backend/requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 

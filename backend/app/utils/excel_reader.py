@@ -152,7 +152,7 @@ def _parse_price(raw: object) -> Optional[Decimal]:
     try:
         return Decimal(text)
     except Exception:
-    return None
+        return None
 
 
 def _context_currency_hint(file_name: Optional[str], sheet_names: Sequence[str]) -> Optional[str]:
