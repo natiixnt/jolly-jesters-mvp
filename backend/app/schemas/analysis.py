@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, root_validator
 
 from app.models.enums import AnalysisItemSource, AnalysisStatus, ProfitabilityLabel, ScrapeStatus
 from app.schemas.category import CategoryRead
@@ -22,6 +23,7 @@ class AnalysisStatusResponse(BaseModel):
     created_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    canceled_at: Optional[datetime] = None
     total_products: int
     processed_products: int
     error_message: Optional[str]
@@ -59,6 +61,7 @@ class AnalysisRunSummary(BaseModel):
     status: AnalysisStatus
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    canceled_at: Optional[datetime] = None
     total_products: int
     processed_products: int
     mode: Optional[str] = None
@@ -68,6 +71,10 @@ class AnalysisRunSummary(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class AnalysisRunListResponse(BaseModel):
+    runs: List[AnalysisRunSummary]
 
 
 class AnalysisResultItem(BaseModel):
@@ -97,3 +104,38 @@ class AnalysisResultsResponse(BaseModel):
     total: int
     error_message: Optional[str]
     items: List[AnalysisResultItem]
+
+
+class AnalysisStartFromDbRequest(BaseModel):
+    category_id: UUID
+    mode: str = "mixed"
+    use_cloud_http: bool = True
+    use_local_scraper: bool = True
+    cache_days: Optional[int] = 30
+    include_all_cached: bool = False
+    only_with_data: bool = False
+    limit: Optional[int] = None
+    source: Optional[str] = None
+    ean_contains: Optional[str] = None
+
+    @root_validator(pre=True)
+    def _map_legacy_fields(cls, values):
+        if values is None:
+            return values
+        if "cache_days" not in values:
+            if "days_back" in values:
+                values["cache_days"] = values.get("days_back")
+            elif "last_days" in values:
+                values["cache_days"] = values.get("last_days")
+        if "only_with_data" not in values and "only_successful" in values:
+            values["only_with_data"] = values.get("only_successful")
+        return values
+
+    class Config:
+        extra = "ignore"
+
+
+class AnalysisRetryResponse(BaseModel):
+    run_id: int
+    status: AnalysisStatus
+    scheduled: int

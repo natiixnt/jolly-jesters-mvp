@@ -78,7 +78,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.local_scraper
       args:
-        WITH_VNC: ${LOCAL_SCRAPER_WITH_VNC:-0}
+        WITH_VNC: ${LOCAL_SCRAPER_WITH_VNC:-1}
     container_name: local_scraper
     restart: unless-stopped
     env_file:
@@ -87,7 +87,12 @@ services:
       - DISPLAY=:99
       - SELENIUM_HEADED=true
       - SELENIUM_USER_DATA_DIR=/data/chrome-profile
-      - LOCAL_SCRAPER_ENABLE_VNC=${LOCAL_SCRAPER_ENABLE_VNC:-0}
+      - SELENIUM_KILL_EXISTING=1
+      - SELENIUM_PROFILE_FALLBACK=${SELENIUM_PROFILE_FALLBACK:-1}
+      - SELENIUM_TEMP_PROFILE_DIR=${SELENIUM_TEMP_PROFILE_DIR:-/tmp}
+      - LOCAL_SCRAPER_ENABLE_VNC=${LOCAL_SCRAPER_ENABLE_VNC:-1}
+      - SELENIUM_CHROME_LOG_PATH=${SELENIUM_CHROME_LOG_PATH:-}
+      - SELENIUM_CHROMEDRIVER_LOG_PATH=${SELENIUM_CHROMEDRIVER_LOG_PATH:-}
       - LOCAL_SCRAPER_LISTING_TIMEOUT=50
       - LOCAL_SCRAPER_PAGELOAD_TIMEOUT=45
     ports:
@@ -96,6 +101,8 @@ services:
       - "127.0.0.1:6080:6080"
     volumes:
       - local_scraper_profile:/data/chrome-profile
+      # Optional (bind mount host profile; ensure permissions):
+      # - ~/.local-scraper-profile:/data/chrome-profile
     shm_size: 2gb # needed for Chrome
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5050/health"]
@@ -177,8 +184,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   frontend:
     build:

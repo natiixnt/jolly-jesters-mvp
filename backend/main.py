@@ -4,12 +4,15 @@ import os
 import platform
 import re
 import shutil
+import signal
 import subprocess
+from pathlib import Path
+import time
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import SessionNotCreatedException, TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -18,6 +21,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 logger = logging.getLogger(__name__)
+_LAST_DRIVER_DEBUG: Dict[str, Any] = {}
 
 
 def _env_flag_enabled(value: Optional[str]) -> bool:
@@ -85,6 +89,111 @@ def _binary_version(path: Optional[str]) -> Optional[str]:
         return None
 
 
+def _cleanup_profile_lock(user_data_dir: str) -> None:
+    for name in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+        path = Path(user_data_dir) / name
+        try:
+            if path.exists():
+                path.unlink()
+        except Exception:
+            continue
+
+
+def _terminate_chrome_for_profile(user_data_dir: str) -> None:
+    if not _env_flag_enabled(os.getenv("SELENIUM_KILL_EXISTING")):
+        return
+    target = f"--user-data-dir={user_data_dir}"
+    pids: List[int] = []
+    for proc in Path("/proc").iterdir():
+        if not proc.name.isdigit():
+            continue
+        try:
+            cmdline = (proc / "cmdline").read_text(errors="ignore")
+        except Exception:
+            continue
+        if target in cmdline and ("chromium" in cmdline or "chrome" in cmdline):
+            try:
+                pids.append(int(proc.name))
+            except ValueError:
+                continue
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except Exception:
+            continue
+    if pids:
+        time.sleep(0.5)
+        for pid in pids:
+            try:
+                os.kill(pid, 0)
+            except Exception:
+                continue
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except Exception:
+                continue
+
+
+def _normalize_user_data_dir(value: str) -> str:
+    return str(Path(value).expanduser())
+
+
+def _new_temp_profile_dir() -> str:
+    base = Path(os.getenv("SELENIUM_TEMP_PROFILE_DIR", "/tmp")) / "local-scraper-profile"
+    base.mkdir(parents=True, exist_ok=True)
+    return str(base / f"profile-{time.time_ns()}")
+
+
+def _build_chrome_options(
+    user_data_dir_override: Optional[str] = None,
+    headless_override: Optional[bool] = None,
+) -> Options:
+    headless = is_headless_mode() if headless_override is None else headless_override
+    chrome_path = _resolve_chrome_binary()
+    options = Options()
+    if chrome_path:
+        options.binary_location = chrome_path
+    if headless:
+        options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-first-run")
+    options.add_argument("--no-default-browser-check")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--window-size=1280,800")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--lang=pl-PL")
+    user_agent = os.getenv("SELENIUM_USER_AGENT")
+    if user_agent:
+        options.add_argument(f"--user-agent={user_agent}")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    user_data_dir = user_data_dir_override or os.getenv("SELENIUM_USER_DATA_DIR")
+    if user_data_dir:
+        user_data_dir = _normalize_user_data_dir(user_data_dir)
+        _terminate_chrome_for_profile(user_data_dir)
+        _cleanup_profile_lock(user_data_dir)
+        options.add_argument(f"--user-data-dir={user_data_dir}")
+    profile_dir = os.getenv("SELENIUM_PROFILE_DIR")
+    if profile_dir:
+        options.add_argument(f"--profile-directory={profile_dir}")
+    chrome_log_path = os.getenv("SELENIUM_CHROME_LOG_PATH")
+    if chrome_log_path:
+        chrome_log_file = Path(chrome_log_path).expanduser()
+        chrome_log_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            chrome_log_file.touch(exist_ok=True)
+        except Exception:
+            pass
+        options.add_argument("--enable-logging")
+        options.add_argument("--v=1")
+        options.add_argument(f"--log-path={chrome_log_file}")
+    return options
+
+
 def _listing_state_from_scripts(driver: WebDriver) -> Optional[Dict]:
     scripts = driver.find_elements(By.CSS_SELECTOR, "script[data-serialize-box-id]")
     for script in scripts:
@@ -136,40 +245,107 @@ def get_runtime_info() -> dict:
     return info
 
 
+def get_driver_debug_info() -> Dict[str, Any]:
+    if _LAST_DRIVER_DEBUG:
+        return dict(_LAST_DRIVER_DEBUG)
+    return {
+        "status": "not_initialized",
+        "scraper_mode": get_scraper_mode(),
+        "user_data_dir": os.getenv("SELENIUM_USER_DATA_DIR"),
+        "profile_dir": os.getenv("SELENIUM_PROFILE_DIR"),
+        "chrome_args": [],
+        "user_agent": None,
+        "navigator_webdriver": None,
+        "browser_version": None,
+    }
+
+
+def _update_driver_debug(driver: WebDriver, options: Options) -> None:
+    debug: Dict[str, Any] = {
+        "status": "ok",
+        "scraper_mode": get_scraper_mode(),
+        "user_data_dir": os.getenv("SELENIUM_USER_DATA_DIR"),
+        "profile_dir": os.getenv("SELENIUM_PROFILE_DIR"),
+        "chrome_args": list(getattr(options, "arguments", [])),
+        "user_agent": None,
+        "navigator_webdriver": None,
+        "browser_version": None,
+    }
+    try:
+        debug["user_agent"] = driver.execute_script("return navigator.userAgent")
+    except Exception:
+        pass
+    try:
+        debug["navigator_webdriver"] = driver.execute_script("return navigator.webdriver")
+    except Exception:
+        pass
+    try:
+        caps = getattr(driver, "capabilities", {}) or {}
+        debug["browser_version"] = caps.get("browserVersion") or caps.get("browser_version")
+    except Exception:
+        pass
+
+    _LAST_DRIVER_DEBUG.clear()
+    _LAST_DRIVER_DEBUG.update(debug)
+    logger.info(
+        "local_scraper driver debug mode=%s user_data_dir=%s profile_dir=%s chrome_args=%s user_agent=%s webdriver=%s browser_version=%s",
+        debug.get("scraper_mode"),
+        debug.get("user_data_dir"),
+        debug.get("profile_dir"),
+        debug.get("chrome_args"),
+        debug.get("user_agent"),
+        debug.get("navigator_webdriver"),
+        debug.get("browser_version"),
+    )
+
+
 def _create_driver() -> WebDriver:
-    headless = is_headless_mode()
-    chrome_path = _resolve_chrome_binary()
     driver_path = _resolve_chromedriver_path()
     if not driver_path:
         raise RuntimeError("chromedriver_not_found")
 
-    options = Options()
-    if chrome_path:
-        options.binary_location = chrome_path
-    if headless:
-        options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1280,800")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-infobars")
-    options.add_argument("--lang=pl-PL")
-    user_agent = os.getenv("SELENIUM_USER_AGENT")
-    if user_agent:
-        options.add_argument(f"--user-agent={user_agent}")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    user_data_dir = os.getenv("SELENIUM_USER_DATA_DIR")
-    if user_data_dir:
-        options.add_argument(f"--user-data-dir={user_data_dir}")
-    profile_dir = os.getenv("SELENIUM_PROFILE_DIR")
-    if profile_dir:
-        options.add_argument(f"--profile-directory={profile_dir}")
+    def _start_driver(options: Options) -> WebDriver:
+        chromedriver_log_path = os.getenv("SELENIUM_CHROMEDRIVER_LOG_PATH")
+        log_output = None
+        if chromedriver_log_path:
+            chromedriver_log_file = Path(chromedriver_log_path).expanduser()
+            chromedriver_log_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                chromedriver_log_file.touch(exist_ok=True)
+            except Exception:
+                pass
+            log_output = str(chromedriver_log_file)
+        service = Service(executable_path=driver_path, log_output=log_output)
+        return webdriver.Chrome(service=service, options=options)
 
-    service = Service(executable_path=driver_path)
-    driver = webdriver.Chrome(service=service, options=options)
+    last_exc: Optional[Exception] = None
+
+    def _try_start(label: str, options: Options) -> Optional[WebDriver]:
+        nonlocal last_exc
+        try:
+            return _start_driver(options)
+        except (SessionNotCreatedException, WebDriverException) as exc:
+            last_exc = exc
+            logger.warning("Chrome start failed (%s): %s", label, exc)
+            return None
+
+    options = _build_chrome_options()
+    driver = _try_start("default", options)
+
+    if driver is None and _env_flag_enabled(os.getenv("SELENIUM_PROFILE_FALLBACK")):
+        fallback_dir = _new_temp_profile_dir()
+        logger.warning("Retrying with fallback profile dir=%s", fallback_dir)
+        options = _build_chrome_options(user_data_dir_override=fallback_dir)
+        driver = _try_start("fallback_profile", options)
+
+    if driver is None and not is_headless_mode():
+        fallback_dir = _new_temp_profile_dir()
+        logger.warning("Retrying in headless mode with profile dir=%s", fallback_dir)
+        options = _build_chrome_options(user_data_dir_override=fallback_dir, headless_override=True)
+        driver = _try_start("fallback_headless", options)
+
+    if driver is None:
+        raise last_exc if last_exc is not None else RuntimeError("chromedriver_start_failed")
     try:
         driver.execute_cdp_cmd(
             "Page.addScriptToEvaluateOnNewDocument",
@@ -181,6 +357,7 @@ def _create_driver() -> WebDriver:
         driver.maximize_window()
     except Exception:
         pass
+    _update_driver_debug(driver, options)
     return driver
 
 

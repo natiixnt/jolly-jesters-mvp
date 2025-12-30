@@ -110,7 +110,45 @@
       padding: 18px;
     }
     form { display: grid; gap: 16px; }
+    .is-hidden { display: none !important; }
     label { font-weight: 700; font-size: 13px; letter-spacing: 0.01em; color: var(--muted); text-transform: uppercase; }
+    .step {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: #0b152b;
+      display: grid;
+      gap: 12px;
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .step-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(34,211,238,0.15);
+      border: 1px solid rgba(34,211,238,0.4);
+      color: var(--text);
+      font-weight: 700;
+    }
+    .step-body { display: grid; gap: 12px; }
     .icon-btn {
       display: inline-flex;
       align-items: center;
@@ -129,7 +167,7 @@
       transition: background-color 0.15s ease, color 0.15s ease;
     }
     .icon-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
-    select, input[type="file"], .modes, .checkboxes, input[type="number"], input[type="text"] {
+    select, input[type="file"], .checkboxes, input[type="number"], input[type="text"] {
       width: 100%;
       background: #0b152b;
       border: 1px solid var(--border);
@@ -137,6 +175,7 @@
       padding: 12px 14px;
       color: var(--text);
     }
+    input::placeholder { color: rgba(255,255,255,0.45); }
     input[type="datetime-local"] {
       width: 100%;
       background: #0b152b;
@@ -160,23 +199,197 @@
     }
     input[type="file"], input[type="number"], input[type="text"] { appearance: auto; background-image: none; padding-right: 14px; }
     .helper { color: var(--muted); font-size: 13px; margin-top: 4px; }
-    .modes { display: flex; gap: 10px; padding: 0; border: none; background: transparent; }
-    .mode {
-      flex: 1;
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       border: 1px solid var(--border);
-      background: #0b152b;
       border-radius: 12px;
+      overflow: hidden;
+      background: #0b152b;
+    }
+    .segmented label {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--muted);
+      transition: color 0.2s, background 0.2s;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+    }
+    .segmented label span {
+      pointer-events: none;
+      width: 100%;
+      text-align: center;
+      padding: 10px 12px;
+      margin: -10px -12px;
+      border-radius: 10px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .segmented input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .segmented input:checked + span {
+      color: var(--text);
+      background: rgba(34,211,238,0.15);
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+    }
+    .tab-btn {
+      background: #0b152b;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, transform 0.2s;
+    }
+    .tab-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .tab-btn.is-active {
+      background: rgba(34,211,238,0.18);
+      color: var(--text);
+      border-color: rgba(34,211,238,0.4);
+    }
+    .source-panel {
+      display: grid;
+      gap: 10px;
       padding: 12px;
+      border: 1px dashed rgba(148,163,184,0.35);
+      border-radius: 12px;
+      background: rgba(15,23,42,0.45);
+    }
+    .checkboxes { display: grid; gap: 10px; padding: 12px; }
+    .checkboxes label { text-transform: none; color: var(--text); font-size: 15px; letter-spacing: 0; }
+    .toggle-group { display: grid; gap: 10px; }
+    .toggle {
       display: flex;
       align-items: center;
       gap: 10px;
-      cursor: pointer;
-      transition: border-color 0.2s, transform 0.2s;
+      font-size: 14px;
+      color: var(--text);
     }
-    .mode input { accent-color: var(--accent); }
-    .mode:hover { border-color: var(--accent); transform: translateY(-1px); }
-    .checkboxes { display: grid; gap: 10px; padding: 12px; }
-    .checkboxes label { text-transform: none; color: var(--text); font-size: 15px; letter-spacing: 0; }
+    .toggle input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .toggle__track {
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      background: #0b152b;
+      border: 1px solid var(--border);
+      position: relative;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .toggle__track::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #94a3b8;
+      top: 2px;
+      left: 3px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle input:checked + .toggle__track {
+      background: rgba(34,211,238,0.2);
+      border-color: rgba(34,211,238,0.6);
+    }
+    .toggle input:checked + .toggle__track::after {
+      transform: translateX(18px);
+      background: var(--accent);
+    }
+    .toggle__label { font-weight: 600; }
+    .accordion {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(15,23,42,0.6);
+      overflow: hidden;
+    }
+    .accordion__header {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .accordion__body {
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      gap: 8px;
+    }
+    .active-run {
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #0b152b;
+    }
+    .active-run__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .active-run__title { font-weight: 700; font-size: 14px; }
+    .active-run__meta { color: var(--muted); font-size: 12px; }
+    .active-run__actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .active-run__actions .action-btn,
+    .active-run__actions .ghost-btn {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+    .currency-table {
+      display: grid;
+      gap: 8px;
+    }
+    .currency-row {
+      display: grid;
+      grid-template-columns: 90px minmax(180px, 1.4fr) 90px 80px;
+      gap: 8px;
+      align-items: center;
+    }
+    .currency-row--head {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .currency-rows { display: grid; gap: 6px; }
+    @media (max-width: 720px) {
+      .currency-row { grid-template-columns: 1fr 1fr; }
+      .currency-row--head { display: none; }
+    }
     .primary-btn {
       background: linear-gradient(120deg, var(--accent-2), var(--accent));
       color: #fff;
@@ -276,6 +489,11 @@
     .history-card {
       margin-top: 16px;
     }
+    .history-card--analysis {
+      max-width: 1100px;
+      margin-left: auto;
+      margin-right: auto;
+    }
     .history-header {
       display: flex;
       justify-content: space-between;
@@ -291,18 +509,34 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       background: #0b152b;
-      overflow: hidden;
+      overflow: visible;
     }
     .history-row {
-      padding: 12px;
+      padding: 10px;
       display: grid;
-      grid-template-columns: 1.6fr 1.1fr 1fr 1fr 1fr;
+      grid-template-columns: 1.4fr 1.1fr 1fr 0.9fr 1fr;
       gap: 10px;
       align-items: center;
       cursor: pointer;
     }
     .history-row:hover { background: rgba(255,255,255,0.02); }
-    .history-row .history-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+    .history-row .history-actions {
+      display: grid;
+      gap: 8px;
+      align-items: center;
+      justify-items: end;
+    }
+    .history-buttons {
+      display: grid;
+      gap: 6px;
+      width: 100%;
+      max-width: 180px;
+    }
+    .history-buttons .action-btn,
+    .history-buttons a.action-btn {
+      width: 100%;
+      justify-content: center;
+    }
     @media (max-width: 900px) {
       .history-row { grid-template-columns: 1fr 1fr; }
     }
@@ -316,18 +550,43 @@
     }
     .history-detail strong { color: var(--text); }
     .history-error-line { color: var(--danger); margin-top: 6px; }
-    .history-error-chip {
-      background: rgba(239,68,68,0.15);
-      color: var(--danger);
-      padding: 4px 8px;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 12px;
+    .history-ops {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
     }
+    .history-ops-menu {
+      position: absolute;
+      top: 120%;
+      right: 0;
+      background: #0b152b;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px;
+      display: none;
+      min-width: 180px;
+      z-index: 20;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    .history-ops-menu button {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .history-ops-menu button:hover { background: rgba(255,255,255,0.08); color: var(--accent); }
+    .history-ops-menu button.danger { color: #fca5a5; }
+    .history-ops-menu button.danger:hover { color: #fecaca; }
+    .history-ops.open .history-ops-menu { display: block; }
     .badge {
-      padding: 4px 8px;
+      padding: 3px 7px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 11px;
       color: #fff;
       display: inline-block;
     }
@@ -335,7 +594,81 @@
     .badge.running { background: #22d3ee; }
     .badge.completed { background: #10b981; }
     .badge.failed { background: #ef4444; }
+    .badge.canceled { background: #64748b; }
     .ghost-btn--small { padding: 8px 10px; font-size: 13px; }
+    .history-row .action-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+    .history-row .ghost-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+    .market-filters {
+      display: grid;
+      grid-template-columns: minmax(160px, 1.2fr) minmax(140px, 1fr) minmax(160px, 1fr) minmax(180px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .market-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .market-table .table-scroll {
+      max-height: 420px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .market-table table {
+      width: 100%;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+    .market-table table td { white-space: normal; word-break: break-word; }
+    .market-table .cell-ean { width: 120px; }
+    .market-table table th,
+    .market-table table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .market-table table thead th {
+      position: sticky;
+      top: 0;
+      background: #0b152b;
+      z-index: 1;
+    }
+    .market-table .cell-num { text-align: right; white-space: nowrap; }
+    .market-table .cell-date { white-space: nowrap; width: 160px; }
+    .market-table .cell-source {
+      white-space: nowrap;
+      width: 110px;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .market-table .cell-name { min-width: 220px; }
+    @media (max-width: 900px) {
+      .market-filters { grid-template-columns: 1fr 1fr; }
+      .market-actions { grid-column: 1 / -1; justify-content: flex-start; }
+      .market-table table th:nth-child(8),
+      .market-table table td:nth-child(8),
+      .market-table table th:nth-child(9),
+      .market-table table td:nth-child(9) {
+        display: none;
+      }
+    }
+    @media (max-width: 640px) {
+      .market-filters { grid-template-columns: 1fr; }
+      .market-table table th:nth-child(7),
+      .market-table table td:nth-child(7) {
+        display: none;
+      }
+    }
     .results-table {
       margin-top: 12px;
       border: 1px solid var(--border);
@@ -378,10 +711,39 @@
     }
     .detail-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
     .results-empty { color: var(--muted); margin-top: 12px; }
-    .currency-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-    .currency-row input { flex: 1; }
+    .results-banner {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(100,116,139,0.4);
+      background: rgba(100,116,139,0.15);
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+    .currency-row input {
+      width: 100%;
+      background: #0b152b;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text);
+    }
+    .currency-row input::placeholder { color: var(--muted); }
     .currency-row input.currency-code { max-width: 90px; }
-    .currency-row input.currency-rate { max-width: 160px; }
+    .currency-row input.currency-rate { max-width: none; }
+    .categories-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .categories-list .ghost-btn--small {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    #add-category-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
     .modal {
       position: fixed;
       inset: 0;
@@ -459,81 +821,149 @@
     <div class="layout" id="layout">
       <div class="card main-card" id="main-card">
         <form id="upload-form">
-          <div>
-            <label for="category-select" style="display:flex; align-items:center; gap:8px;">
-              <span>Kategoria</span>
-              <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
-            </label>
-            <select id="category-select" name="category_id" required></select>
-            <div class="helper" id="category-info"></div>
-          </div>
-          <div>
-            <label for="file-input">Plik (CSV/XLSX)</label>
-            <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" required />
-            <div class="helper">Obsługiwane formaty: .xlsx, .xls, .csv</div>
-          </div>
-          <div>
-            <label>Tryb analizy</label>
-            <div class="modes">
-              <label class="mode">
-                <input type="radio" name="mode" value="mixed" checked />
-                <div>
-                  <div><strong>MIXED</strong></div>
-                  <div class="muted">OFFLINE + odświeżenie, gdy dane są stare</div>
+          <div class="accordion" id="basic-section">
+            <button type="button" class="accordion__header" id="basic-toggle" aria-expanded="true" aria-controls="basic-body">
+              Podstawowe
+              <span>▾</span>
+            </button>
+            <div class="accordion__body" id="basic-body">
+              <div>
+                <label for="category-select" style="display:flex; align-items:center; gap:8px;">
+                  <span>Kategoria</span>
+                  <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
+                </label>
+                <select id="category-select" name="category_id" required></select>
+                <div class="helper" id="category-info"></div>
+              </div>
+              <div>
+                <label for="file-input">Plik (CSV/XLSX)</label>
+                <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" required />
+                <div class="helper">Obsługiwane formaty: .xlsx, .xls, .csv</div>
+              </div>
+              <div>
+                <label>Tryb analizy</label>
+                <div class="segmented" role="group" aria-label="Tryb analizy">
+                  <label>
+                    <input type="radio" name="mode" value="mixed" checked />
+                    <span>MIXED</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="mode" value="offline" />
+                    <span>OFFLINE</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="mode" value="online" />
+                    <span>ONLINE</span>
+                  </label>
                 </div>
-              </label>
-              <label class="mode">
-                <input type="radio" name="mode" value="offline" />
-                <div>
-                  <div><strong>OFFLINE</strong></div>
-                  <div class="muted">Bez scrapingu, tylko dane z bazy</div>
-                </div>
-              </label>
-              <label class="mode">
-                <input type="radio" name="mode" value="online" />
-                <div>
-                  <div><strong>ONLINE</strong></div>
-                  <div class="muted">Pomijaj cache, zawsze scrapuj na nowo</div>
-                </div>
-              </label>
+                <div class="helper">MIXED = cache + odświeżanie, OFFLINE = tylko baza, ONLINE = zawsze scraping.</div>
+              </div>
+              <div class="button-row">
+                <button type="submit" id="submit-btn" class="primary-btn">Start analizy</button>
+              </div>
+              <div class="error" id="error"></div>
             </div>
           </div>
-          <div>
-            <label>Strategie scrapera</label>
-            <div class="checkboxes" id="strategy-boxes">
-              <label><input type="checkbox" name="use_cloud_http" value="true" checked /> Proxy / Cloud scraper</label>
-              <label><input type="checkbox" name="use_local_scraper" value="true" checked /> Local scraper (Selenium)</label>
+
+          <div class="accordion" id="strategy-section">
+            <button type="button" class="accordion__header" id="strategy-toggle" aria-expanded="false" aria-controls="strategy-body">
+              Strategie scrapera
+              <span>▸</span>
+            </button>
+            <div class="accordion__body is-hidden" id="strategy-body">
+              <label>Źródła scrapowania</label>
+              <div class="toggle-group" id="strategy-boxes">
+                <label class="toggle">
+                  <input type="checkbox" name="use_cloud_http" value="true" checked />
+                  <span class="toggle__track"></span>
+                  <span class="toggle__label">Proxy / Cloud</span>
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" name="use_local_scraper" value="true" checked />
+                  <span class="toggle__track"></span>
+                  <span class="toggle__label">Local (Selenium)</span>
+                </label>
+              </div>
+              <div class="helper" id="strategy-offline-hint"></div>
+              <div class="accordion" style="margin-top:8px;">
+                <button type="button" class="accordion__header" id="scraper-advanced-toggle" aria-expanded="false" aria-controls="scraper-advanced-body">
+                  Zaawansowane
+                  <span>▸</span>
+                </button>
+                <div class="accordion__body is-hidden" id="scraper-advanced-body">
+                  <div class="helper">Proxy/Cloud wymaga ustawionej listy proxy (PROXY_LIST).</div>
+                  <div class="helper">Local scraper wymaga działającej usługi i poprawnego URL.</div>
+                </div>
+              </div>
+              <div class="error" id="strategy-error"></div>
             </div>
-            <div class="error" id="strategy-error"></div>
           </div>
-          <div>
-            <button type="submit" id="submit-btn" class="primary-btn">Start analizy</button>
-          </div>
-          <div class="error" id="error"></div>
-        </form>
 
-        <div class="status-panel" id="status-panel">
-          <div class="pill">Run ID: <span id="run-id"></span></div>
-          <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
-          <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
-          <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
-          <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
-          <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
-            <button class="action-btn" id="preview-link" type="button">Podgląd wyników</button>
-            <a class="action-btn secondary" id="download-link" href="#">⬇ Pobierz raport</a>
+          <div class="accordion" id="db-section">
+            <button type="button" class="accordion__header" id="db-toggle" aria-expanded="false" aria-controls="db-body">
+              Analiza z bazy
+              <span>▸</span>
+            </button>
+            <div class="accordion__body is-hidden" id="db-body">
+              <div>
+                <label for="db-last-days">Ostatnie dni cache</label>
+                <input type="number" id="db-last-days" min="1" max="365" value="30" />
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="db-only-success" />
+                <span class="toggle__track"></span>
+                <span class="toggle__label">Tylko z udanymi danymi</span>
+              </label>
+              <div class="accordion">
+                <button type="button" class="accordion__header" id="db-limit-toggle" aria-expanded="false" aria-controls="db-limit-body">
+                  Pokaż limity
+                  <span>▸</span>
+                </button>
+                <div class="accordion__body is-hidden" id="db-limit-body">
+                  <label for="db-limit">Limit pozycji</label>
+                  <input type="number" id="db-limit" min="1" max="10000" placeholder="np. 200" />
+                </div>
+              </div>
+              <div class="accordion">
+                <button type="button" class="accordion__header" id="db-advanced-toggle" aria-expanded="false" aria-controls="db-advanced-body">
+                  Opcje zaawansowane
+                  <span>▸</span>
+                </button>
+                <div class="accordion__body is-hidden" id="db-advanced-body">
+                  <label class="toggle">
+                    <input type="checkbox" id="db-all-cached" />
+                    <span class="toggle__track"></span>
+                    <span class="toggle__label">Wszystkie zapisane produkty</span>
+                  </label>
+                  <div class="helper">Włączenie tej opcji ignoruje pole „Ostatnie dni cache”.</div>
+                  <div>
+                    <label for="db-source">Źródło danych</label>
+                    <select id="db-source">
+                      <option value="any">Dowolne</option>
+                      <option value="cloud">Proxy / Cloud</option>
+                      <option value="local_scraper">Local scraper</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="db-ean-contains">EAN zawiera</label>
+                    <input type="text" id="db-ean-contains" placeholder="np. 590" />
+                  </div>
+                </div>
+              </div>
+              <div class="button-row">
+                <button type="button" id="start-db-btn" class="action-btn">Analiza z bazy</button>
+              </div>
+              <div class="helper" id="db-info">Analiza z cache uruchamia się bez wgrywania pliku.</div>
+              <div class="error" id="db-error"></div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="card sidebar" id="sidebar">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; position: relative;">
-          <span style="font-weight:700;">Panel</span>
-          <button class="sidebar-toggle" id="sidebar-toggle" title="Zwiń panel">«</button>
-        </div>
-        <div class="sidebar-content" style="display:grid; gap:18px;">
-          <div>
-            <h3 class="section-title">Ustawienia</h3>
-            <div style="display:grid; gap:12px;">
+          <div class="accordion" id="advanced-section">
+            <button type="button" class="accordion__header" id="advanced-toggle" aria-expanded="false" aria-controls="advanced-body">
+              Zaawansowane
+              <span>▸</span>
+            </button>
+            <div class="accordion__body is-hidden" id="advanced-body">
               <div>
                 <label for="local-windows">Liczba jednocześnie otwieranych okien lokalnego scrapera</label>
                 <input type="number" id="local-windows" min="1" max="10" />
@@ -548,32 +978,89 @@
                 <button class="ghost-btn" id="save-ttl-btn" style="margin-top:8px;">Zapisz TTL cache</button>
                 <div class="success" id="settings-ttl-success"></div>
               </div>
-              <div>
-                <label>Kursy walut (do PLN)</label>
-                <div id="currency-list"></div>
-                <div class="button-row" style="margin-top:8px;">
-                  <button class="ghost-btn ghost-btn--small" type="button" id="add-currency-btn">Dodaj walutę</button>
-                  <button class="action-btn" type="button" id="save-currencies-btn">Zapisz kursy</button>
-                </div>
-                <div class="helper" id="currency-helper"></div>
-                <div class="success" id="currency-success"></div>
-                <div class="error" id="currency-error"></div>
-              </div>
               <div class="error" id="settings-error"></div>
             </div>
           </div>
+        </form>
 
-          <div>
-            <h3 class="section-title">Kategorie <button id="add-category-btn" class="ghost-btn">+</button></h3>
-            <div class="helper" id="categories-list"></div>
-            <div class="success" id="category-success"></div>
-            <div class="error" id="category-error"></div>
+        <div class="status-panel" id="status-panel">
+          <div class="pill">Run ID: <span id="run-id"></span></div>
+          <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
+          <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
+          <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+          <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
+          <div class="button-row" id="status-actions" style="margin-top:8px; display:none;">
+            <button class="action-btn secondary" type="button" id="cancel-run-btn">Anuluj</button>
+          </div>
+          <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
+            <button class="action-btn" id="preview-link" type="button">Podgląd wyników</button>
+            <a class="action-btn secondary" id="download-link" href="#">⬇ Pobierz raport</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card sidebar" id="sidebar">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; position: relative;">
+          <span style="font-weight:700;">Panel</span>
+          <button class="sidebar-toggle" id="sidebar-toggle" title="Zwiń panel">«</button>
+        </div>
+        <div class="sidebar-content" style="display:grid; gap:18px;">
+          <div class="accordion" id="ops-section">
+            <button type="button" class="accordion__header" id="ops-toggle" aria-expanded="true" aria-controls="ops-body">
+              Operacje
+              <span>▾</span>
+            </button>
+            <div class="accordion__body" id="ops-body">
+              <div id="active-runs"></div>
+              <div class="helper" id="active-runs-empty">Brak aktywnych analiz.</div>
+              <div class="error" id="active-runs-error"></div>
+            </div>
+          </div>
+
+          <div class="accordion" id="currency-section">
+            <button type="button" class="accordion__header" id="currency-toggle" aria-expanded="false" aria-controls="currency-body">
+              Kursy walut
+              <span>▸</span>
+            </button>
+            <div class="accordion__body is-hidden" id="currency-body">
+              <div class="currency-table">
+                <div class="currency-row currency-row--head">
+                  <span>Waluta</span>
+                  <span>Kurs do PLN</span>
+                  <span>Domyślna</span>
+                  <span>Akcje</span>
+                </div>
+                <div id="currency-list" class="currency-rows"></div>
+              </div>
+              <div class="button-row" style="margin-top:8px;">
+                <button class="ghost-btn ghost-btn--small" type="button" id="add-currency-btn">Dodaj walutę</button>
+                <button class="action-btn" type="button" id="save-currencies-btn">Zapisz kursy</button>
+              </div>
+              <div class="helper" id="currency-helper"></div>
+              <div class="success" id="currency-success"></div>
+              <div class="error" id="currency-error"></div>
+            </div>
+          </div>
+
+          <div class="accordion" id="category-section">
+            <button type="button" class="accordion__header" id="categories-toggle" aria-expanded="false" aria-controls="categories-body">
+              Kategorie
+              <span>▸</span>
+            </button>
+            <div class="accordion__body is-hidden" id="categories-body">
+              <div class="button-row" style="justify-content:flex-end;">
+                <button id="add-category-btn" class="ghost-btn">+</button>
+              </div>
+              <div class="categories-list" id="categories-list"></div>
+              <div class="success" id="category-success"></div>
+              <div class="error" id="category-error"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="card history-card">
+    <div class="card history-card history-card--analysis">
       <div class="history-header" id="history-toggle">
         <h3 class="section-title" style="margin:0;">Historia analiz</h3>
         <span id="history-caret" style="cursor:pointer;">▼</span>
@@ -588,7 +1075,7 @@
         <h3 class="section-title" style="margin:0;">Baza Allegro (ostatnie dane rynkowe)</h3>
       </div>
       <div style="display:grid; gap:10px; margin-top:8px;">
-        <div style="display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="market-filters">
           <div>
             <label for="market-category">Kategoria</label>
             <select id="market-category">
@@ -612,13 +1099,13 @@
             <label for="market-date">Od kiedy</label>
             <input id="market-date" type="datetime-local" />
           </div>
-        </div>
-        <div class="button-row">
-          <button class="action-btn" id="market-search">Szukaj</button>
-          <button class="ghost-btn ghost-btn--small" id="market-reset">Reset</button>
+          <div class="market-actions">
+            <button class="action-btn" id="market-search">Szukaj</button>
+            <button class="ghost-btn ghost-btn--small" id="market-reset">Reset</button>
+          </div>
         </div>
         <div id="market-error" class="error"></div>
-        <div class="results-table" id="market-table"></div>
+        <div class="results-table market-table" id="market-table"></div>
         <div class="results-pagination">
           <button class="ghost-btn ghost-btn--small" id="market-prev" type="button">◀ Wstecz</button>
           <span class="muted" id="market-page-info"></span>
@@ -634,6 +1121,7 @@
         <div>
           <h3 style="margin:0;">Podgląd wyników analizy</h3>
           <div class="results-meta" id="results-meta"></div>
+          <div class="results-banner" id="results-banner" style="display:none;"></div>
         </div>
         <div class="modal-actions" style="margin-top:0;">
           <button class="close-btn" id="results-close">Zamknij</button>
@@ -746,15 +1234,44 @@
     const form = document.getElementById('upload-form');
     const errorBox = document.getElementById('error');
     const strategyError = document.getElementById('strategy-error');
+    const strategyOfflineHint = document.getElementById('strategy-offline-hint');
     const submitBtn = document.getElementById('submit-btn');
     const panel = document.getElementById('status-panel');
+    const fileInput = document.getElementById('file-input');
+    const basicToggle = document.getElementById('basic-toggle');
+    const basicBody = document.getElementById('basic-body');
+    const strategyToggle = document.getElementById('strategy-toggle');
+    const strategyBody = document.getElementById('strategy-body');
+    const dbToggle = document.getElementById('db-toggle');
+    const dbBody = document.getElementById('db-body');
+    const advancedToggle = document.getElementById('advanced-toggle');
+    const advancedBody = document.getElementById('advanced-body');
+    const opsToggle = document.getElementById('ops-toggle');
+    const opsBody = document.getElementById('ops-body');
+    const currencyToggle = document.getElementById('currency-toggle');
+    const currencyBody = document.getElementById('currency-body');
+    const categoriesToggle = document.getElementById('categories-toggle');
+    const categoriesBody = document.getElementById('categories-body');
+    const activeRuns = document.getElementById('active-runs');
+    const activeRunsEmpty = document.getElementById('active-runs-empty');
+    const activeRunsError = document.getElementById('active-runs-error');
     const runIdEl = document.getElementById('run-id');
     const runStatusEl = document.getElementById('run-status');
     const runProgressEl = document.getElementById('run-progress');
     const runErrorEl = document.getElementById('run-error');
     const progressBar = document.getElementById('progress-bar');
+    const statusActions = document.getElementById('status-actions');
+    const cancelRunBtn = document.getElementById('cancel-run-btn');
     const downloadLink = document.getElementById('download-link');
     const reportLinks = document.getElementById('report-links');
+    const startDbBtn = document.getElementById('start-db-btn');
+    const dbLastDaysInput = document.getElementById('db-last-days');
+    const dbAllCachedInput = document.getElementById('db-all-cached');
+    const dbOnlySuccessInput = document.getElementById('db-only-success');
+    const dbLimitInput = document.getElementById('db-limit');
+    const dbSourceInput = document.getElementById('db-source');
+    const dbEanContainsInput = document.getElementById('db-ean-contains');
+    const dbError = document.getElementById('db-error');
     const localWindowsInput = document.getElementById('local-windows');
     const cacheTtlInput = document.getElementById('cache-ttl');
     const settingsInfo = document.getElementById('settings-info');
@@ -796,11 +1313,18 @@
     const resultsClose = document.getElementById('results-close');
     const resultsTable = document.getElementById('results-table');
     const resultsMeta = document.getElementById('results-meta');
+    const resultsBanner = document.getElementById('results-banner');
     const resultsError = document.getElementById('results-error');
     const resultsEmpty = document.getElementById('results-empty');
     const resultsPageInfo = document.getElementById('results-page-info');
     const resultsPrev = document.getElementById('results-prev');
     const resultsNext = document.getElementById('results-next');
+    const scraperAdvancedToggle = document.getElementById('scraper-advanced-toggle');
+    const scraperAdvancedBody = document.getElementById('scraper-advanced-body');
+    const dbLimitToggle = document.getElementById('db-limit-toggle');
+    const dbLimitBody = document.getElementById('db-limit-body');
+    const dbAdvancedToggle = document.getElementById('db-advanced-toggle');
+    const dbAdvancedBody = document.getElementById('db-advanced-body');
     const marketCategory = document.getElementById('market-category');
     const marketEan = document.getElementById('market-ean');
     const marketSource = document.getElementById('market-source');
@@ -814,13 +1338,45 @@
     const marketReset = document.getElementById('market-reset');
     let historyExpanded = true;
     let pollTimer = null;
+    let refreshTimer = null;
+    let refreshInFlight = false;
     let previewState = { runId: null, offset: 0, limit: 50, total: 0 };
     let categoriesCache = [];
     let categoryDetailId = null;
     let marketState = { offset: 0, limit: 50, total: 0 };
+    let savedStrategyState = null;
+
+    function normalizeMessage(msg) {
+      if (!msg) return '';
+      if (typeof msg === 'string') return msg;
+      try {
+        return JSON.stringify(msg);
+      } catch (err) {
+        return String(msg);
+      }
+    }
 
     function setMessage(msg, target) {
-      target.textContent = msg || '';
+      target.textContent = normalizeMessage(msg);
+    }
+
+    function formatHttpError(res, data, fallback) {
+      const detail = data && (data.detail ?? data.message);
+      const detailText = normalizeMessage(detail);
+      const suffix = detailText ? `: ${detailText}` : '';
+      return `${fallback} (HTTP ${res.status})${suffix}`;
+    }
+
+    function formatNetworkError(err, fallback) {
+      const message = err && err.message ? err.message : '';
+      if (
+        message.includes('Failed to fetch') ||
+        message.includes('NetworkError') ||
+        message.includes('Load failed')
+      ) {
+        return 'Brak połączenia z backendem. Sprawdź czy kontenery działają.';
+      }
+      return message || fallback;
     }
 
     function briefSuccess(target) {
@@ -832,6 +1388,16 @@
       if (!value) return '-';
       try {
         return new Date(value).toLocaleString();
+      } catch (err) {
+        return String(value);
+      }
+    }
+
+    function formatDateShort(value) {
+      if (!value) return '-';
+      try {
+        const date = new Date(value);
+        return date.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
       } catch (err) {
         return String(value);
       }
@@ -860,17 +1426,28 @@
       return `${num.toFixed(1)}%`;
     }
 
+    function statusLabel(status) {
+      const map = {
+        pending: 'Oczekuje',
+        running: 'W toku',
+        completed: 'Zakończono',
+        failed: 'Błąd',
+        canceled: 'Anulowano',
+      };
+      return map[status] || status || '—';
+    }
+
     function renderCurrencyRows(rates) {
       currencyList.innerHTML = '';
       rates.forEach((r, idx) => {
         const row = document.createElement('div');
         row.className = 'currency-row';
         row.innerHTML = `
+          <input class="currency-code" data-idx="${idx}" type="text" value="${r.currency}" />
+          <input class="currency-rate" data-idx="${idx}" type="number" step="0.0001" min="0" value="${r.rate_to_pln}" />
           <button type="button" class="ghost-btn ghost-btn--small" data-default="${idx}" title="Ustaw jako domyślną">
             ${r.is_default ? '★' : '☆'}
           </button>
-          <input class="currency-code" data-idx="${idx}" value="${r.currency}" />
-          <input class="currency-rate" data-idx="${idx}" type="number" step="0.0001" min="0" value="${r.rate_to_pln}" />
           <button type="button" class="ghost-btn ghost-btn--small" data-remove="${idx}">Usuń</button>
         `;
         currencyList.appendChild(row);
@@ -894,12 +1471,14 @@
       currencySuccess.textContent = '';
       try {
         const res = await fetch('/api/v1/settings/currencies');
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Nie udało się pobrać kursów.');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać kursów.'));
+        }
         renderCurrencyRows(data.rates || []);
         currencyHelper.textContent = 'PLN musi mieć kurs 1.0. Dodaj inne waluty, aby były przeliczane na PLN.';
       } catch (err) {
-        currencyError.textContent = err.message || 'Błąd pobierania kursów.';
+        currencyError.textContent = formatNetworkError(err, 'Błąd pobierania kursów.');
       }
     }
 
@@ -919,14 +1498,13 @@
           data = await res.json().catch(() => ({}));
         }
         if (!res.ok) {
-          const detail = (data && data.detail) || 'Nie udało się zapisać kursów.';
-          throw new Error(detail);
+          throw new Error(formatHttpError(res, data, 'Nie udało się zapisać kursów.'));
         }
         renderCurrencyRows(data.rates || []);
         currencySuccess.textContent = 'Zapisano kursy walut.';
         setTimeout(() => { currencySuccess.textContent = ''; }, 2000);
       } catch (err) {
-        currencyError.textContent = err.message || 'Błąd zapisu kursów.';
+        currencyError.textContent = formatNetworkError(err, 'Błąd zapisu kursów.');
       }
     }
 
@@ -937,37 +1515,99 @@
       return strategies.length ? strategies.join(' · ') : 'Brak danych';
     }
 
+    function renderActiveRuns(runs) {
+      activeRuns.innerHTML = '';
+      activeRunsError.textContent = '';
+      if (!runs.length) {
+        activeRunsEmpty.style.display = 'block';
+        return;
+      }
+      activeRunsEmpty.style.display = 'none';
+
+      runs.forEach((run) => {
+        const card = document.createElement('div');
+        card.className = 'active-run';
+        card.innerHTML = `
+          <div class="active-run__top">
+            <span class="badge ${run.status}">${statusLabel(run.status)}</span>
+            <span class="muted">#${run.id}</span>
+          </div>
+          <div class="active-run__title">${run.category_name || 'Kategoria usunięta'}</div>
+          <div class="active-run__meta">${run.processed_products}/${run.total_products} · ${formatDateTime(run.created_at)}</div>
+          <div class="active-run__actions"></div>
+        `;
+
+        const actions = card.querySelector('.active-run__actions');
+        if (actions) {
+          const preview = document.createElement('button');
+          preview.type = 'button';
+          preview.className = 'action-btn secondary';
+          preview.textContent = 'Podgląd';
+          preview.addEventListener('click', () => openResultsModal(run.id));
+          actions.appendChild(preview);
+
+          if (run.status === 'pending' || run.status === 'running') {
+            const cancel = document.createElement('button');
+            cancel.type = 'button';
+            cancel.className = 'ghost-btn';
+            cancel.textContent = 'Anuluj';
+            cancel.addEventListener('click', () => cancelRun(run.id));
+            actions.appendChild(cancel);
+          }
+        }
+
+        activeRuns.appendChild(card);
+      });
+    }
+
+    async function loadActiveRuns() {
+      activeRunsError.textContent = '';
+      try {
+        const res = await fetch('/api/v1/analysis/active');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać aktywnych analiz.'));
+        }
+        const runs = Array.isArray(data) ? data : (data.runs || []);
+        renderActiveRuns(runs);
+      } catch (err) {
+        activeRuns.innerHTML = '';
+        activeRunsEmpty.style.display = 'none';
+        activeRunsError.textContent = formatNetworkError(err, 'Błąd pobierania aktywnych analiz.');
+      }
+    }
+
     function renderMarketTable(data) {
       if (!data.items || !data.items.length) {
         marketTable.innerHTML = '<div class="helper">Brak danych do wyświetlenia.</div>';
       } else {
         const rows = data.items.map((item) => `
           <tr>
-            <td>${item.ean || '—'}</td>
-            <td>${item.name || '—'}</td>
+            <td class="cell-ean">${item.ean || '—'}</td>
+            <td class="cell-name">${item.name || '—'}</td>
             <td>${item.category_name || '—'}</td>
-            <td>${formatMoney(item.purchase_price_pln)}</td>
-            <td>${formatMoney(item.allegro_price_pln)}</td>
-            <td>${item.sold_count ?? '—'}</td>
-            <td>${item.source || '—'}</td>
-            <td>${formatDateTime(item.last_checked_at)}</td>
-            <td title="${item.last_run_id ? `run #${item.last_run_id}` : ''}">${formatDateTime(item.last_run_at)}</td>
+            <td class="cell-num">${formatMoney(item.purchase_price_pln)}</td>
+            <td class="cell-num">${formatMoney(item.allegro_price_pln)}</td>
+            <td class="cell-num">${item.sold_count ?? '—'}</td>
+            <td class="cell-source">${item.source || '—'}</td>
+            <td class="cell-date">${formatDateShort(item.last_checked_at)}</td>
+            <td class="cell-date" title="${item.last_run_id ? `run #${item.last_run_id}` : ''}">${formatDateShort(item.last_run_at)}</td>
           </tr>
         `).join('');
         marketTable.innerHTML = `
-          <div style="overflow:auto;">
+          <div class="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>EAN</th>
+                  <th class="cell-ean">EAN</th>
                   <th>Nazwa</th>
                   <th>Kategoria</th>
-                  <th>Cena zakupu (PLN)</th>
-                  <th>Cena Allegro</th>
-                  <th>Sprzedanych</th>
-                  <th>Źródło</th>
-                  <th>Ostatnio sprawdzono</th>
-                  <th>Ostatni run</th>
+                  <th class="cell-num">Cena zakupu (PLN)</th>
+                  <th class="cell-num">Cena Allegro</th>
+                  <th class="cell-num">Sprzedanych</th>
+                  <th class="cell-source">Źródło</th>
+                  <th class="cell-date">Ostatnio sprawdz.</th>
+                  <th class="cell-date">Ostatni run</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -995,15 +1635,24 @@
 
     function renderResultsTable(data) {
       resultsError.textContent = data.error_message || '';
-      const metaParts = [`Run #${data.run_id}`, `Status: ${data.status}`];
+      const metaParts = [`Run #${data.run_id}`, `Status: ${statusLabel(data.status)}`];
       if (typeof data.total === 'number') metaParts.push(`Wiersze: ${data.total}`);
       resultsMeta.textContent = metaParts.join(' · ');
+      if (data.status === 'canceled') {
+        resultsBanner.textContent = data.error_message || 'Analiza została anulowana.';
+        resultsBanner.style.display = 'block';
+      } else {
+        resultsBanner.textContent = '';
+        resultsBanner.style.display = 'none';
+      }
 
       if (!data.items || !data.items.length) {
         resultsTable.innerHTML = '';
         resultsEmpty.style.display = 'block';
         if (data.status === 'failed') {
           resultsEmpty.textContent = data.error_message || 'Analiza przerwana, brak danych do wyświetlenia.';
+        } else if (data.status === 'canceled') {
+          resultsEmpty.textContent = data.error_message || 'Analiza została anulowana.';
         } else {
           resultsEmpty.textContent = data.error_message || 'Brak danych do wyświetlenia.';
         }
@@ -1087,12 +1736,14 @@
       if (!runId) return;
       resultsError.textContent = '';
       resultsEmpty.style.display = 'none';
+      resultsBanner.textContent = '';
+      resultsBanner.style.display = 'none';
       resultsTable.innerHTML = '<div class="helper">Ładowanie wyników...</div>';
       try {
         const res = await fetch(`/api/v1/analysis/${runId}/results?offset=${offset}&limit=${previewState.limit}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          resultsError.textContent = data.detail || 'Nie udało się pobrać wyników.';
+          resultsError.textContent = formatHttpError(res, data, 'Nie udało się pobrać wyników.');
           resultsTable.innerHTML = '';
           resultsPageInfo.textContent = '';
           resultsPrev.disabled = true;
@@ -1104,7 +1755,7 @@
         previewState.total = data.total || 0;
         renderResultsTable(data);
       } catch (err) {
-        resultsError.textContent = err.message || 'Błąd podczas pobierania wyników.';
+        resultsError.textContent = formatNetworkError(err, 'Błąd podczas pobierania wyników.');
         resultsTable.innerHTML = '';
       }
     }
@@ -1131,9 +1782,11 @@
       });
     }
 
-    async function loadMarketData(offset = 0) {
+    async function loadMarketData(offset = 0, silent = false) {
       marketError.textContent = '';
-      marketTable.innerHTML = '<div class="helper">Ładowanie...</div>';
+      if (!silent) {
+        marketTable.innerHTML = '<div class="helper">Ładowanie...</div>';
+      }
       const params = new URLSearchParams();
       if (marketCategory.value) params.append('category_id', marketCategory.value);
       if (marketEan.value) params.append('ean', marketEan.value);
@@ -1144,12 +1797,14 @@
       try {
         const res = await fetch(`/api/v1/market-data?${params.toString()}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || 'Nie udało się pobrać danych.');
+        if (!res.ok) {
+          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać danych.'));
+        }
         marketState.offset = offset;
         marketState.total = data.total || 0;
         renderMarketTable(data);
       } catch (err) {
-        marketError.textContent = err.message || 'Błąd pobierania danych.';
+        marketError.textContent = formatNetworkError(err, 'Błąd pobierania danych.');
         marketTable.innerHTML = '';
       }
     }
@@ -1165,7 +1820,6 @@
         btn.type = 'button';
         btn.className = 'ghost-btn ghost-btn--small';
         btn.textContent = cat.name;
-        btn.style.marginRight = '8px';
         btn.addEventListener('click', () => openCategoryDetail(cat.id));
         categoriesList.appendChild(btn);
       });
@@ -1174,8 +1828,10 @@
     async function loadCategories() {
       try {
         const res = await fetch('/api/v1/categories/');
-        if (!res.ok) throw new Error('Nie udało się pobrać kategorii.');
-        const data = await res.json();
+        const data = await res.json().catch(() => ([]));
+        if (!res.ok) {
+          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać kategorii.'));
+        }
         categoriesCache = data;
         if (!data.length) {
           categorySelect.innerHTML = '';
@@ -1192,12 +1848,17 @@
         renderCategoriesList();
         populateMarketCategories();
       } catch (err) {
-        categoryInfo.textContent = err.message;
+        categoryInfo.textContent = formatNetworkError(err, 'Nie udało się pobrać kategorii.');
         submitBtn.disabled = true;
       }
     }
 
     function validateStrategies() {
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      if (mode === 'offline') {
+        setMessage('', strategyError);
+        return true;
+      }
       const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
       const checked = boxes.filter(b => b.checked);
       if (!checked.length) {
@@ -1208,16 +1869,70 @@
       return true;
     }
 
+    function updateStrategiesForMode() {
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
+      if (mode === 'offline') {
+        if (!savedStrategyState) {
+          savedStrategyState = boxes.map(box => box.checked);
+        }
+        boxes.forEach((box) => {
+          box.checked = true;
+          box.disabled = true;
+        });
+        strategyOfflineHint.textContent = 'Tryb OFFLINE ignoruje strategie scrapera.';
+        strategyError.textContent = '';
+        return;
+      }
+
+      boxes.forEach((box, idx) => {
+        box.disabled = false;
+        if (savedStrategyState && savedStrategyState[idx] !== undefined) {
+          box.checked = savedStrategyState[idx];
+        }
+      });
+      savedStrategyState = null;
+      strategyOfflineHint.textContent = '';
+    }
+
+    function setAccordionState(toggle, body, open, storageKey) {
+      body.classList.toggle('is-hidden', !open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      const icon = toggle.querySelector('span');
+      if (icon) icon.textContent = open ? '▾' : '▸';
+      if (storageKey) localStorage.setItem(storageKey, open ? '1' : '0');
+    }
+
+    function initAccordion(toggle, body, storageKey, defaultOpen = false) {
+      if (!toggle || !body) return;
+      const stored = storageKey ? localStorage.getItem(storageKey) : null;
+      const open = stored === null ? defaultOpen : stored === '1';
+      setAccordionState(toggle, body, open, storageKey);
+      toggle.addEventListener('click', () => {
+        const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+        setAccordionState(toggle, body, !isOpen, storageKey);
+      });
+    }
+
+    function toggleDbFilters() {
+      const allCached = dbAllCachedInput.checked;
+      dbLastDaysInput.disabled = allCached;
+      if (allCached) {
+        dbLastDaysInput.value = dbLastDaysInput.value || 30;
+      }
+    }
+
     function setStatus(data) {
-      runStatusEl.textContent = data.status;
+      runStatusEl.textContent = statusLabel(data.status);
       const processed = data.processed_products ?? 0;
       const total = data.total_products ?? 0;
       runProgressEl.textContent = `${processed}/${total}`;
       const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : (data.status === 'completed' ? 100 : 0);
       progressBar.style.width = `${pct}%`;
-      runErrorEl.textContent = data.error_message || '';
+      const errorFallback = data.status === 'canceled' ? 'Analiza została anulowana.' : '';
+      runErrorEl.textContent = data.error_message || errorFallback;
       const showDownload = data.status === 'completed';
-      const showPreview = Boolean(data.id) && (data.status === 'completed' || data.status === 'failed' || processed > 0);
+      const showPreview = Boolean(data.id) && (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled' || processed > 0);
       if (showDownload) {
         const href = `/api/v1/analysis/${data.id}/download`;
         downloadLink.href = href;
@@ -1228,11 +1943,42 @@
         previewBtn.style.display = showPreview ? 'inline-flex' : 'none';
       }
       reportLinks.style.display = showDownload || showPreview ? 'flex' : 'none';
+      const canCancel = data.status === 'pending' || data.status === 'running';
+      statusActions.style.display = canCancel ? 'flex' : 'none';
+      if (cancelRunBtn) cancelRunBtn.dataset.runId = data.id || '';
     }
 
     function stopPolling() {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = null;
+    }
+
+    function stopAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+
+    function isEditingMarketFilters() {
+      const active = document.activeElement;
+      if (!active || !active.closest) return false;
+      return Boolean(active.closest('.market-filters'));
+    }
+
+    async function runAutoRefresh() {
+      if (refreshInFlight) return;
+      refreshInFlight = true;
+      const tasks = [];
+      if (historyExpanded) tasks.push(loadHistory());
+      if (!opsBody.classList.contains('is-hidden')) tasks.push(loadActiveRuns());
+      if (!currencyBody.classList.contains('is-hidden')) tasks.push(loadCurrencyRates());
+      if (!isEditingMarketFilters()) tasks.push(loadMarketData(marketState.offset, true));
+      await Promise.allSettled(tasks);
+      refreshInFlight = false;
+    }
+
+    function startAutoRefresh(intervalMs = 5000) {
+      stopAutoRefresh();
+      refreshTimer = setInterval(runAutoRefresh, intervalMs);
     }
 
     async function pollStatus(runId) {
@@ -1244,33 +1990,42 @@
           const data = await res.json();
           setStatus(data);
 
-            if (data.status === 'completed' || data.status === 'failed') {
-              if (data.status === 'failed') {
-                runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
-              }
-              stopPolling();
-              await loadHistory();
+          if (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled') {
+            if (data.status === 'failed') {
+              runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
             }
-          } catch (err) {
-            setMessage(err.message, errorBox);
+            if (data.status === 'canceled') {
+              runErrorEl.textContent = data.error_message || 'Analiza została anulowana.';
+            }
+            stopPolling();
+            await loadHistory();
+            await loadActiveRuns();
           }
-        };
-        await fetchStatus();
+        } catch (err) {
+          setMessage(formatNetworkError(err, 'Nie udało się pobrać statusu.'), errorBox);
+        }
+      };
+      await fetchStatus();
       pollTimer = setInterval(fetchStatus, 3000);
     }
 
     async function loadSettings() {
       try {
         const res = await fetch('/api/v1/settings/');
-        if (!res.ok) throw new Error('Nie udało się pobrać ustawień.');
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać ustawień.'));
+        }
         cacheTtlInput.value = data.cache_ttl_days ?? 30;
         localWindowsInput.value = data.local_scraper_windows ?? 1;
         setMessage('', settingsInfo);
       } catch (err) {
         cacheTtlInput.value = cacheTtlInput.value || 30;
         localWindowsInput.value = localWindowsInput.value || 1;
-        setMessage('Nie udało się pobrać ustawień. Używane są wartości domyślne.', settingsInfo);
+        setMessage(
+          formatNetworkError(err, 'Nie udało się pobrać ustawień. Używane są wartości domyślne.'),
+          settingsInfo,
+        );
       }
     }
 
@@ -1288,7 +2043,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(data.detail || 'Nie udało się zapisać ustawień.', settingsError);
+          setMessage(formatHttpError(res, data, 'Nie udało się zapisać ustawień.'), settingsError);
           return;
         }
         cacheTtlInput.value = data.cache_ttl_days;
@@ -1296,7 +2051,7 @@
         if (field === 'windows') briefSuccess(settingsWindowsSuccess);
         if (field === 'ttl') briefSuccess(settingsTtlSuccess);
       } catch (err) {
-        setMessage(err.message, settingsError);
+        setMessage(formatNetworkError(err, 'Nie udało się zapisać ustawień.'), settingsError);
       }
     }
 
@@ -1310,11 +2065,10 @@
       const finished = formatDateTime(run.finished_at);
       const modeLabel = (run.mode || '').toUpperCase() || '—';
       const finishedLabel = finished !== '-' ? finished : 'W toku / oczekuje';
-      const statusBadge = `<span class="badge ${run.status}">${run.status}</span>`;
+      const statusBadge = `<span class="badge ${run.status}">${statusLabel(run.status)}</span>`;
       const downloadLink = run.status === 'completed'
-        ? `<a class="action-btn secondary" href="/api/v1/analysis/${run.id}/download">⬇ Pobierz raport</a>`
+        ? `/api/v1/analysis/${run.id}/download`
         : '';
-      const errorChip = run.status === 'failed' ? '<span class="history-error-chip">Błąd</span>' : '';
 
       row.innerHTML = `
         <div><strong>${created}</strong><small>${finishedLabel}</small></div>
@@ -1323,13 +2077,14 @@
         <div><small>Postęp:</small> ${run.processed_products}/${run.total_products}</div>
         <div class="history-actions">
           ${statusBadge}
-          ${errorChip}
-          ${downloadLink ? `<div>${downloadLink}</div>` : ''}
+          <div class="history-buttons"></div>
+          <div class="history-ops"></div>
         </div>
       `;
 
       const actionsEl = row.querySelector('.history-actions');
       if (actionsEl) {
+        const buttonsEl = actionsEl.querySelector('.history-buttons');
         const previewButton = document.createElement('button');
         previewButton.type = 'button';
         previewButton.className = 'action-btn';
@@ -1338,7 +2093,57 @@
           e.stopPropagation();
           openResultsModal(run.id);
         });
-        actionsEl.prepend(previewButton);
+        if (buttonsEl) {
+          buttonsEl.appendChild(previewButton);
+          if (downloadLink) {
+            const downloadBtn = document.createElement('a');
+            downloadBtn.className = 'action-btn secondary';
+            downloadBtn.href = downloadLink;
+            downloadBtn.textContent = '⬇ Pobierz raport';
+            buttonsEl.appendChild(downloadBtn);
+          }
+        }
+
+        const ops = actionsEl.querySelector('.history-ops');
+        const menuItems = [];
+        if (run.status !== 'canceled') {
+          menuItems.push('<button type="button" data-op="retry-cloud">Retry: Cloud</button>');
+          menuItems.push('<button type="button" data-op="retry-local">Retry: Local</button>');
+        }
+        if (run.status === 'pending' || run.status === 'running') {
+          menuItems.push('<button type="button" data-op="cancel" class="danger">Anuluj</button>');
+        }
+        if (ops && menuItems.length) {
+          ops.innerHTML = `
+            <button type="button" class="ghost-btn ghost-btn--small">Operacje ▾</button>
+            <div class="history-ops-menu">${menuItems.join('')}</div>
+          `;
+
+          const opsButton = ops.querySelector('button');
+          const menu = ops.querySelector('.history-ops-menu');
+          opsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            ops.classList.toggle('open');
+          });
+          menu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = e.target.getAttribute('data-op');
+            if (action === 'cancel') {
+              if (run.status === 'pending' || run.status === 'running') {
+                cancelRun(run.id);
+              }
+            }
+            if (action === 'retry-cloud') {
+              if (run.status !== 'canceled') retryFailed(run.id, 'cloud');
+            }
+            if (action === 'retry-local') {
+              if (run.status !== 'canceled') retryFailed(run.id, 'local');
+            }
+            ops.classList.remove('open');
+          });
+        } else if (ops) {
+          ops.remove();
+        }
       }
 
       const detail = document.createElement('div');
@@ -1349,6 +2154,9 @@
         ['Zakończono:', finished !== '-' ? finished : '—'],
         ['Postęp:', `${run.processed_products}/${run.total_products}`],
       ];
+      if (run.canceled_at) {
+        detailItems.push(['Anulowano:', formatDateTime(run.canceled_at)]);
+      }
       detailItems.forEach(([label, value]) => {
         const rowEl = document.createElement('div');
         const strong = document.createElement('strong');
@@ -1365,6 +2173,15 @@
         errorLine.appendChild(strong);
         errorLine.append(` ${run.error_message || 'Brak szczegółów.'}`);
         detail.appendChild(errorLine);
+      }
+      if (run.status === 'canceled') {
+        const cancelLine = document.createElement('div');
+        cancelLine.className = 'history-error-line';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Powód anulowania:';
+        cancelLine.appendChild(strong);
+        cancelLine.append(` ${run.error_message || 'Brak szczegółów.'}`);
+        detail.appendChild(cancelLine);
       }
 
       row.addEventListener('click', (e) => {
@@ -1387,8 +2204,10 @@
 
       try {
         const res = await fetch('/api/v1/analysis');
-        if (!res.ok) throw new Error('Nie udało się pobrać historii.');
-        const data = await res.json();
+        const data = await res.json().catch(() => ([]));
+        if (!res.ok) {
+          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać historii.'));
+        }
         if (!Array.isArray(data) || !data.length) {
           historyList.style.display = 'none';
           if (historyExpanded) {
@@ -1407,9 +2226,121 @@
         historyList.innerHTML = '';
         historyList.style.display = 'none';
         if (historyExpanded) {
-          historyError.textContent = 'Nie udało się pobrać historii.';
+          historyError.textContent = formatNetworkError(err, 'Nie udało się pobrać historii.');
           historyError.style.display = 'block';
         }
+      }
+    }
+
+    function getStrategyFlags() {
+      const useCloudInput = form.querySelector('input[name="use_cloud_http"]');
+      const useLocalInput = form.querySelector('input[name="use_local_scraper"]');
+      return {
+        use_cloud_http: useCloudInput?.checked || false,
+        use_local_scraper: useLocalInput?.checked || false,
+      };
+    }
+
+    async function startFromDb() {
+      setMessage('', errorBox);
+      setMessage('', dbError);
+      setMessage('', strategyError);
+      downloadLink.style.display = 'none';
+
+      if (!validateStrategies()) return;
+      if (!categorySelect.value) {
+        setMessage('Wybierz kategorię do analizy.', dbError);
+        return;
+      }
+
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const cacheDays = dbAllCachedInput.checked ? null : (Number(dbLastDaysInput.value) || 30);
+      const limitValue = Number(dbLimitInput.value);
+      const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : null;
+      const flags = getStrategyFlags();
+      const payload = {
+        category_id: categorySelect.value,
+        mode,
+        ...flags,
+        cache_days: cacheDays,
+        include_all_cached: dbAllCachedInput.checked,
+        only_with_data: dbOnlySuccessInput.checked,
+        limit,
+        source: dbSourceInput?.value || 'any',
+        ean_contains: (dbEanContainsInput?.value || '').trim() || null,
+      };
+
+      startDbBtn.disabled = true;
+      submitBtn.disabled = true;
+      startDbBtn.textContent = 'Uruchamianie...';
+
+      try {
+        const res = await fetch('/api/v1/analysis/run_from_cache', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setMessage(formatHttpError(res, data, 'Nie udało się uruchomić analizy z bazy.'), dbError);
+          return;
+        }
+        panel.style.display = 'block';
+        runIdEl.textContent = data.analysis_run_id;
+        setStatus({ status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+        await pollStatus(data.analysis_run_id);
+        await loadHistory();
+        await loadActiveRuns();
+        await loadActiveRuns();
+      } catch (err) {
+        setMessage(formatNetworkError(err, 'Wystąpił błąd.'), dbError);
+      } finally {
+        startDbBtn.disabled = false;
+        submitBtn.disabled = false;
+        startDbBtn.textContent = 'Analiza z bazy';
+      }
+    }
+
+    async function cancelRun(runId) {
+      if (!runId) return;
+      cancelRunBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/v1/analysis/${runId}/cancel`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setMessage(formatHttpError(res, data, 'Nie udało się anulować analizy.'), errorBox);
+          return;
+        }
+        const isCurrent = String(runId) === String(runIdEl.textContent);
+        if (isCurrent) {
+          setStatus(data);
+          stopPolling();
+        }
+        await loadHistory();
+        await loadActiveRuns();
+      } catch (err) {
+        setMessage(formatNetworkError(err, 'Błąd anulowania.'), errorBox);
+      } finally {
+        cancelRunBtn.disabled = false;
+      }
+    }
+
+    async function retryFailed(runId, strategy) {
+      if (!runId) return;
+      historyError.textContent = '';
+      try {
+        const res = await fetch(`/api/v1/analysis/${runId}/retry_failed?strategy=${strategy}`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          historyError.textContent = formatHttpError(res, data, 'Nie udało się uruchomić retry.');
+          return;
+        }
+        await loadHistory();
+        if (Number(runId) === Number(runIdEl.textContent)) {
+          await pollStatus(runId);
+        }
+      } catch (err) {
+        historyError.textContent = formatNetworkError(err, 'Błąd retry.');
       }
     }
 
@@ -1420,8 +2351,6 @@
       downloadLink.style.display = 'none';
 
       if (!validateStrategies()) return;
-
-      const fileInput = document.getElementById('file-input');
       if (!fileInput.files || !fileInput.files.length) {
         setMessage('Wybierz plik do analizy.', errorBox);
         return;
@@ -1432,10 +2361,9 @@
       fd.append('category_id', categorySelect.value);
       fd.append('mode', form.querySelector('input[name="mode"]:checked')?.value || 'mixed');
 
-      ['use_cloud_http', 'use_local_scraper'].forEach(name => {
-        const input = form.querySelector(`input[name="${name}"]`);
-        fd.append(name, input.checked ? 'true' : 'false');
-      });
+      const flags = getStrategyFlags();
+      fd.append('use_cloud_http', flags.use_cloud_http ? 'true' : 'false');
+      fd.append('use_local_scraper', flags.use_local_scraper ? 'true' : 'false');
 
       submitBtn.disabled = true;
       submitBtn.textContent = 'Wysyłanie...';
@@ -1444,7 +2372,7 @@
         const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(data.detail || 'Nie udało się uruchomić analizy.', errorBox);
+          setMessage(formatHttpError(res, data, 'Nie udało się uruchomić analizy.'), errorBox);
           return;
         }
         panel.style.display = 'block';
@@ -1453,7 +2381,7 @@
         await pollStatus(data.analysis_run_id);
         await loadHistory();
       } catch (err) {
-        setMessage(err.message || 'Wystąpił błąd.', errorBox);
+        setMessage(formatNetworkError(err, 'Wystąpił błąd.'), errorBox);
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Start analizy';
@@ -1461,6 +2389,30 @@
     });
 
     document.getElementById('strategy-boxes').addEventListener('change', validateStrategies);
+    form.querySelectorAll('input[name="mode"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        updateStrategiesForMode();
+        validateStrategies();
+      });
+    });
+    startDbBtn.addEventListener('click', startFromDb);
+    cancelRunBtn.addEventListener('click', () => {
+      const runId = cancelRunBtn.dataset.runId || runIdEl.textContent;
+      if (runId) cancelRun(runId);
+    });
+    dbAllCachedInput.addEventListener('change', toggleDbFilters);
+    initAccordion(basicToggle, basicBody, 'ui.basic', true);
+    initAccordion(strategyToggle, strategyBody, 'ui.strategy', false);
+    initAccordion(dbToggle, dbBody, 'ui.db', false);
+    initAccordion(advancedToggle, advancedBody, 'ui.advanced', false);
+    initAccordion(opsToggle, opsBody, 'ui.ops', true);
+    initAccordion(currencyToggle, currencyBody, 'ui.currency', false);
+    initAccordion(categoriesToggle, categoriesBody, 'ui.categories', false);
+    initAccordion(scraperAdvancedToggle, scraperAdvancedBody, 'ui.scraperAdvanced', false);
+    initAccordion(dbLimitToggle, dbLimitBody, 'ui.dbLimit', false);
+    initAccordion(dbAdvancedToggle, dbAdvancedBody, 'ui.dbAdvanced', false);
+    toggleDbFilters();
+    updateStrategiesForMode();
 
     previewBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1504,6 +2456,14 @@
         marketState.offset = nextOffset;
         loadMarketData(nextOffset);
       }
+    });
+
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('.history-ops.open').forEach((menu) => {
+        if (!menu.contains(e.target)) {
+          menu.classList.remove('open');
+        }
+      });
     });
 
     document.getElementById('save-windows-btn').addEventListener('click', async () => {
@@ -1563,14 +2523,14 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(data.detail || 'Nie udało się dodać kategorii.', categoryModalError);
+          setMessage(formatHttpError(res, data, 'Nie udało się dodać kategorii.'), categoryModalError);
           return;
         }
         categoryModal.style.display = 'none';
         setMessage('Kategoria dodana.', categorySuccess);
         await loadCategories();
       } catch (err) {
-        setMessage(err.message || 'Błąd podczas dodawania kategorii.', categoryModalError);
+        setMessage(formatNetworkError(err, 'Błąd podczas dodawania kategorii.'), categoryModalError);
       }
     });
 
@@ -1581,13 +2541,13 @@
       try {
         const res = await fetch(`/api/v1/categories/${id}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || 'Nie udało się pobrać kategorii.');
+        if (!res.ok) throw new Error(formatHttpError(res, data, 'Nie udało się pobrać kategorii.'));
         document.getElementById('detail-cat-name').value = data.name || '';
         document.getElementById('detail-cat-multiplier').value = data.profitability_multiplier ?? '';
         document.getElementById('detail-cat-commission').value = data.commission_rate ? Number(data.commission_rate) * 100 : '';
         categoryDetailModal.style.display = 'flex';
       } catch (err) {
-        categoryError.textContent = err.message || 'Błąd pobierania kategorii.';
+        categoryError.textContent = formatNetworkError(err, 'Błąd pobierania kategorii.');
       }
     }
 
@@ -1614,11 +2574,11 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || 'Nie udało się zapisać kategorii.');
+        if (!res.ok) throw new Error(formatHttpError(res, data, 'Nie udało się zapisać kategorii.'));
         categoryDetailSuccess.textContent = 'Zapisano zmiany.';
         await loadCategories();
       } catch (err) {
-        categoryDetailError.textContent = err.message || 'Błąd zapisu kategorii.';
+        categoryDetailError.textContent = formatNetworkError(err, 'Błąd zapisu kategorii.');
       }
     });
 
@@ -1667,6 +2627,8 @@
     loadSettings();
     loadCurrencyRates();
     loadHistory();
+    loadActiveRuns();
+    startAutoRefresh(5000);
     loadMarketData();
   </script>
 </body>

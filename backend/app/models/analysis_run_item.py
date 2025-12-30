@@ -34,3 +34,8 @@ class AnalysisRunItem(Base):
 
     analysis_run = relationship("AnalysisRun", back_populates="items")
     product = relationship("Product", back_populates="analysis_items")
+    tasks = relationship(
+        "AnalysisRunTask",
+        back_populates="analysis_run_item",
+        cascade="all, delete-orphan",
+    )

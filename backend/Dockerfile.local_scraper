@@ -34,6 +34,9 @@ RUN if [ "$WITH_VNC" = "1" ]; then \
       mkdir -p /opt/novnc && \
       curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.tar.gz \
         | tar -xz --strip-components=1 -C /opt/novnc; \
+      if [ ! -f /opt/novnc/index.html ] && [ -f /opt/novnc/vnc.html ]; then \
+        ln -s /opt/novnc/vnc.html /opt/novnc/index.html; \
+      fi; \
     fi
 
 # Copy scraper service code

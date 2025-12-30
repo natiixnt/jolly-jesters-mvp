@@ -19,6 +19,7 @@ class AnalysisStatus(str, enum.Enum):
     running = "running"
     completed = "completed"
     failed = "failed"
+    canceled = "canceled"
 
 
 class AnalysisItemSource(str, enum.Enum):

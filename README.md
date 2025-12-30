@@ -29,6 +29,23 @@ Po zmianach zaleznosci Pythona zbuduj na nowo obrazy backend/worker:
 docker compose build --no-cache backend worker
 ```
 
+## Analiza z bazy + zarzadzanie runami
+
+- W UI w glownym formularzu dostepny jest blok **Analiza z bazy**:
+  - wybierz kategorie, tryb i strategie jak zwykle,
+  - ustaw filtry (ostatnie N dni, wszystkie zapisane, tylko z udanymi danymi, limit),
+  - kliknij "Analiza z bazy" aby uruchomic run bez uploadu pliku.
+- W trakcie runu mozna go anulowac (przycisk "Anuluj" w panelu statusu lub w historii).
+- Dla runow z bledami dostepne jest "Retry" (menu Operacje w historii).
+
+API:
+```
+POST /api/v1/analysis/run_from_cache (alias: /api/v1/analysis/run_from_db, /api/v1/analysis/start_from_db)
+POST /api/v1/analysis/{id}/cancel
+POST /api/v1/analysis/{id}/retry_failed?strategy=cloud|local
+GET /api/v1/analysis/active
+```
+
 ## Kolejki Celery (architektura)
 
 - `analysis`: uruchamia `run_analysis_task` i planuje per-item scraping.
@@ -52,6 +69,53 @@ docker compose exec backend curl -v http://local_scraper:5050/health
 
 Profil Chrome jest zapisywany w wolumenie `local_scraper_profile`
 (`SELENIUM_USER_DATA_DIR=/data/chrome-profile`) i przetrwa restart kontenera.
+
+### Uzycie profilu z hosta (bind mount, opcjonalnie)
+
+Jesli chcesz użyć istniejacego profilu Chrome z hosta (np. po udanym rozwiazaniu captcha),
+utwórz `docker-compose.override.yml` i podmontuj katalog profilu:
+```
+services:
+  local_scraper:
+    volumes:
+      - ~/.local-scraper-profile:/data/chrome-profile
+```
+Uwaga: zadbaj o uprawnienia (Docker musi mieć dostęp do katalogu). Profil z macOS/Windows
+moze nie dzialac w kontenerze Linux (inne sciezki/formaty) - najlepiej uzywac profilu
+utworzonego na Linux/host.
+
+### Linux: dopasowanie IP hosta (network_mode: host, opcjonalnie)
+
+Na Linuxie mozesz uruchomic kontener local_scraper w trybie host network:
+```
+docker compose -f docker-compose.yml -f docker-compose.local-scraper-hostnet.yml up --build
+```
+W tym trybie ustaw `LOCAL_SCRAPER_URL=http://host.docker.internal:5050` (lub adres hosta),
+bo nazwa serwisu `local_scraper` nie dziala w sieci hosta.
+
+### Manualne rozwiazanie captcha przez noVNC
+
+1) Zbuduj obraz z VNC: `LOCAL_SCRAPER_WITH_VNC=1 docker compose build local_scraper`
+2) Uruchom z VNC: `LOCAL_SCRAPER_ENABLE_VNC=1 docker compose up -d local_scraper`
+3) Otworz `http://127.0.0.1:6080` (jesli widzisz directory listing, wejdz w `/vnc.html`)
+   i rozwiaz captcha w oknie Chrome.
+4) Uruchom ponownie analize w UI (ten sam profil zostaje w `/data/chrome-profile`).
+Jeśli Chrome nie startuje, ustaw `SELENIUM_CHROME_LOG_PATH=/tmp/chrome.log` w serwisie
+`local_scraper` i sprawdz log w kontenerze.
+
+Jeśli dalej widzisz `SessionNotCreatedException`, mozna wlaczyc fallback na tymczasowy profil:
+`SELENIUM_PROFILE_FALLBACK=1` (Chrome spróbuje uruchomic sie na nowym profilu w `/tmp`).
+Opcjonalnie ustaw `SELENIUM_CHROMEDRIVER_LOG_PATH=/tmp/chromedriver.log` zeby zobaczyc logi
+chromedrivera.
+
+Jeśli log pokazuje, że profil jest zajety przez inny proces, ustaw
+`SELENIUM_KILL_EXISTING=1` (kontener spróbuje zakończyć pozostale procesy Chrome
+używające tego samego profilu).
+
+### VPS/DC IP (ważne)
+
+Na VPS/datacenter IP captcha moze pojawiac sie nadal mimo headed. Rozważ uruchomienie local_scraper
+na zaufanej sieci domowej (host mode) albo użycie proxy rezydencjalnych w trybie cloud/proxy.
 
 ## Host scraper (Windows/macOS/Linux - opcjonalnie dev)
 
@@ -151,10 +215,12 @@ W trybie hostowym ustaw `LOCAL_SCRAPER_URL=http://host.docker.internal:5050`
 1) Local scraper (Docker):
 ```
 docker compose exec backend curl -v http://local_scraper:5050/health
+docker compose exec backend curl -v http://local_scraper:5050/debug
 ```
 2) Host scraper (opcjonalnie dev):
 ```
 curl http://127.0.0.1:5050/health
+curl http://127.0.0.1:5050/debug
 ```
 3) ENV w kontenerach:
 ```

@@ -17,7 +17,13 @@ from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
 from app.models.enums import AnalysisItemSource, AnalysisStatus, ProfitabilityLabel, ScrapeStatus
 from app.models.product import Product
-from app.services.analysis_service import _ensure_product_state, _persist_market_data, _update_effective_state, process_analysis_run
+from app.services.analysis_service import (
+    _ensure_product_state,
+    _persist_market_data,
+    _update_effective_state,
+    process_analysis_run,
+    record_run_task,
+)
 from app.services.profitability_service import calculate_profitability
 from app.services.schemas import ScrapingStrategyConfig
 from app.utils.allegro_scraper_http import fetch_via_http_scraper
@@ -117,6 +123,9 @@ def _apply_scrape_result(
 
 
 def _finalize_item(db: SessionLocal, run: AnalysisRun, item: AnalysisRunItem, prev_status: ScrapeStatus | None) -> None:
+    if run.status == AnalysisStatus.canceled:
+        db.commit()
+        return
     if prev_status not in TERMINAL_STATUSES:
         run.processed_products += 1
     if run.processed_products >= run.total_products and run.status != AnalysisStatus.completed:
@@ -190,11 +199,21 @@ def _log_local_scraper_connectivity() -> None:
 def run_analysis_task(run_id: int, mode: str = "mixed"):
     db = SessionLocal()
     try:
+        run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
+        if not run:
+            logger.warning("RUN_ANALYSIS_TASK missing_run run_id=%s", run_id)
+            return
+        if run.status == AnalysisStatus.canceled:
+            logger.info("RUN_ANALYSIS_TASK canceled run_id=%s", run_id)
+            return
+
         def _enqueue_cloud_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig) -> None:
-            scrape_one_cloud.delay(item.ean, item.id, asdict(strategy))
+            result = scrape_one_cloud.delay(item.ean, item.id, asdict(strategy))
+            record_run_task(db, run, result.id, "cloud", item=item, ean=item.ean)
 
         def _enqueue_local_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig) -> None:
-            scrape_one_local.delay(item.ean, item.id, asdict(strategy))
+            result = scrape_one_local.delay(item.ean, item.id, asdict(strategy))
+            record_run_task(db, run, result.id, "local", item=item, ean=item.ean)
 
         process_analysis_run(
             db,
@@ -228,7 +247,7 @@ def scrape_one_local(
         if not run:
             logger.warning("LOCAL_SCRAPER_TASK missing_run item_id=%s run_id=%s", item.id, item.analysis_run_id)
             return
-        if run.status in {AnalysisStatus.failed, AnalysisStatus.completed}:
+        if run.status in {AnalysisStatus.failed, AnalysisStatus.completed, AnalysisStatus.canceled}:
             logger.info(
                 "LOCAL_SCRAPER_TASK skip run_status=%s item_id=%s",
                 run.status,
@@ -296,7 +315,7 @@ def scrape_one_cloud(
         if not run:
             logger.warning("CLOUD_SCRAPER_TASK missing_run item_id=%s run_id=%s", item.id, item.analysis_run_id)
             return
-        if run.status in {AnalysisStatus.failed, AnalysisStatus.completed}:
+        if run.status in {AnalysisStatus.failed, AnalysisStatus.completed, AnalysisStatus.canceled}:
             logger.info("CLOUD_SCRAPER_TASK skip run_status=%s item_id=%s", run.status, item.id)
             return
 

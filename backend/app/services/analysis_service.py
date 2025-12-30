@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Callable, Iterable, List, Tuple
+from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
@@ -11,6 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import settings
 from app.models.analysis_run import AnalysisRun
 from app.models.analysis_run_item import AnalysisRunItem
+from app.models.analysis_run_task import AnalysisRunTask
 from app.models.category import Category
 from app.models.enums import AnalysisItemSource, AnalysisStatus, MarketDataSource, ProfitabilityLabel, ScrapeStatus
 from app.models.product import Product
@@ -21,10 +24,14 @@ from app.services.profitability_service import calculate_profitability
 from app.services.schemas import ScrapingStrategyConfig
 from app.services import settings_service
 
+logger = logging.getLogger(__name__)
+
 
 def _mark_run_failed(db: Session, run_id: int, message: str) -> None:
     run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
     if not run:
+        return
+    if run.status == AnalysisStatus.canceled:
         return
     run.status = AnalysisStatus.failed
     run.error_message = message
@@ -43,6 +50,238 @@ def _ensure_product_state(db: Session, product: Product) -> ProductEffectiveStat
         db.add(state)
         db.flush()
     return state
+
+
+def record_run_task(
+    db: Session,
+    run: AnalysisRun,
+    task_id: str,
+    kind: str,
+    item: AnalysisRunItem | None = None,
+    ean: str | None = None,
+) -> None:
+    if not task_id:
+        return
+    db.add(
+        AnalysisRunTask(
+            analysis_run_id=run.id,
+            analysis_run_item_id=item.id if item else None,
+            celery_task_id=task_id,
+            kind=kind,
+            ean=ean,
+        )
+    )
+
+
+def _resolve_cached_cutoff(cache_days: int | None, include_all_cached: bool) -> datetime | None:
+    if include_all_cached:
+        return None
+    days = cache_days if cache_days is not None and cache_days > 0 else 30
+    return datetime.now(timezone.utc) - timedelta(days=days)
+
+
+def build_cached_worklist(
+    db: Session,
+    category_id: UUID,
+    cache_days: int | None = 30,
+    include_all_cached: bool = False,
+    only_with_data: bool = False,
+    limit: int | None = None,
+    source: str | None = None,
+    ean_contains: str | None = None,
+) -> List[Product]:
+    base = (
+        db.query(Product)
+        .outerjoin(ProductEffectiveState, ProductEffectiveState.product_id == Product.id)
+        .outerjoin(ProductMarketData, ProductMarketData.id == ProductEffectiveState.last_market_data_id)
+        .filter(Product.category_id == category_id)
+    )
+
+    total_candidates = base.count()
+    cutoff = _resolve_cached_cutoff(cache_days, include_all_cached)
+
+    if cutoff is not None:
+        effective_ts = func.coalesce(
+            ProductMarketData.last_checked_at,
+            ProductEffectiveState.last_checked_at,
+            Product.updated_at,
+            Product.created_at,
+        )
+        base = base.filter(effective_ts >= cutoff)
+
+    if only_with_data:
+        base = base.filter(
+            ProductMarketData.id.isnot(None),
+            ProductMarketData.is_not_found.is_(False),
+        )
+
+    if source:
+        normalized = source.strip().lower()
+        if normalized not in {"any", "all"}:
+            if normalized in {"local_scraper", "local"}:
+                base = base.filter(ProductMarketData.source == MarketDataSource.local)
+            elif normalized in {"cloud", "cloud_http"}:
+                base = base.filter(ProductMarketData.source == MarketDataSource.cloud_http)
+            elif normalized in {"scraping"}:
+                base = base.filter(ProductMarketData.source == MarketDataSource.scraping)
+            elif normalized in {"api"}:
+                base = base.filter(ProductMarketData.source == MarketDataSource.api)
+            else:
+                raise ValueError("Invalid source filter")
+
+    if ean_contains and ean_contains.strip():
+        base = base.filter(Product.ean.ilike(f"%{ean_contains.strip()}%"))
+
+    filtered_count = base.count()
+
+    base = base.order_by(
+        func.coalesce(ProductMarketData.last_checked_at, Product.updated_at).desc().nullslast(),
+        Product.created_at.desc(),
+    )
+
+    if limit is not None and limit > 0:
+        base = base.limit(limit)
+
+    products = base.all()
+    deduped: List[Product] = []
+    seen: set[str] = set()
+    for product in products:
+        if product.ean in seen:
+            continue
+        seen.add(product.ean)
+        deduped.append(product)
+
+    logger.info(
+        "CACHED_WORKLIST category=%s candidates=%s filtered=%s final=%s include_all=%s only_with_data=%s cache_days=%s limit=%s source=%s ean=%s",
+        category_id,
+        total_candidates,
+        filtered_count,
+        len(deduped),
+        include_all_cached,
+        only_with_data,
+        cache_days,
+        limit,
+        source,
+        ean_contains,
+    )
+    return deduped
+
+
+def prepare_cached_analysis_run(
+    db: Session,
+    category: Category,
+    products: List[Product],
+    strategy: ScrapingStrategyConfig,
+    mode: str = "mixed",
+    run_metadata: dict | None = None,
+) -> AnalysisRun:
+    run = AnalysisRun(
+        category_id=category.id,
+        input_file_name="cached_db",
+        input_source="cache",
+        run_metadata=run_metadata or {},
+        status=AnalysisStatus.pending,
+        total_products=len(products),
+        processed_products=0,
+        mode=mode,
+        use_cloud_http=strategy.use_cloud_http,
+        use_local_scraper=strategy.use_local_scraper,
+    )
+    db.add(run)
+    db.flush()
+
+    for idx, product in enumerate(products, start=1):
+        purchase_price = product.purchase_price
+        db.add(
+            AnalysisRunItem(
+                analysis_run_id=run.id,
+                product_id=product.id,
+                row_number=idx,
+                ean=product.ean,
+                input_name=product.name,
+                original_purchase_price=purchase_price,
+                original_currency="PLN",
+                input_purchase_price=purchase_price,
+                purchase_price_pln=purchase_price,
+                source=AnalysisItemSource.baza,
+            )
+        )
+
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def list_run_task_ids(db: Session, run_id: int) -> List[str]:
+    rows = (
+        db.query(AnalysisRunTask.celery_task_id)
+        .filter(AnalysisRunTask.analysis_run_id == run_id)
+        .all()
+    )
+    return [row[0] for row in rows if row and row[0]]
+
+
+def cancel_analysis_run(
+    db: Session,
+    run_id: int,
+    reason: str | None = None,
+) -> AnalysisRun | None:
+    run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
+    if not run:
+        return None
+    if run.status == AnalysisStatus.canceled:
+        return run
+    if run.status in {AnalysisStatus.completed, AnalysisStatus.failed}:
+        return run
+
+    now = datetime.now(timezone.utc)
+    run.status = AnalysisStatus.canceled
+    run.canceled_at = now
+    run.finished_at = run.finished_at or now
+    run.error_message = reason or "Anulowano przez użytkownika"
+    db.commit()
+    return run
+
+
+def retry_failed_items(
+    db: Session,
+    run_id: int,
+    enqueue: Callable[[AnalysisRunItem], str | None],
+    retry_statuses: set[ScrapeStatus] | None = None,
+) -> int:
+    run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
+    if not run or run.status == AnalysisStatus.canceled:
+        return 0
+
+    statuses = retry_statuses or {ScrapeStatus.error, ScrapeStatus.network_error, ScrapeStatus.blocked}
+    items = (
+        db.query(AnalysisRunItem)
+        .filter(
+            AnalysisRunItem.analysis_run_id == run_id,
+            AnalysisRunItem.scrape_status.in_(statuses),
+        )
+        .all()
+    )
+    if not items:
+        return 0
+
+    if run.status in {AnalysisStatus.completed, AnalysisStatus.failed}:
+        run.status = AnalysisStatus.running
+        run.finished_at = None
+    run.error_message = None
+
+    scheduled = 0
+    for item in items:
+        item.scrape_status = ScrapeStatus.pending
+        item.error_message = None
+        item.source = AnalysisItemSource.scraping
+        task_id = enqueue(item)
+        if task_id:
+            record_run_task(db, run, task_id, "retry", item=item, ean=item.ean)
+        scheduled += 1
+
+    db.commit()
+    return scheduled
 
 
 def _persist_market_data(
@@ -175,6 +414,12 @@ def _enqueue_scrape(
     return True
 
 
+def _should_rescrape_cached_not_found(strategy: ScrapingStrategyConfig) -> bool:
+    if not strategy.use_local_scraper:
+        return False
+    return bool(settings.LOCAL_SCRAPER_ENABLED and settings.LOCAL_SCRAPER_URL)
+
+
 def _iter_batches(items: List[AnalysisRunItem], batch_size: int) -> Iterable[List[AnalysisRunItem]]:
     if batch_size <= 0:
         yield items
@@ -192,6 +437,9 @@ def process_analysis_run(
 ) -> None:
     run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
     if not run:
+        return
+    if run.status == AnalysisStatus.canceled:
+        logger.info("ANALYSIS_RUN canceled_before_start run_id=%s", run_id)
         return
 
     try:
@@ -232,7 +480,15 @@ def process_analysis_run(
         pending_items = 0
 
         for batch in _iter_batches(items, batch_size):
+            db.refresh(run)
+            if run.status == AnalysisStatus.canceled:
+                logger.info("ANALYSIS_RUN canceled_midway run_id=%s", run_id)
+                return
             for item in batch:
+                db.refresh(run)
+                if run.status == AnalysisStatus.canceled:
+                    logger.info("ANALYSIS_RUN canceled_midway run_id=%s", run_id)
+                    return
                 status = _normalize_scrape_status(item)
                 if status in TERMINAL_STATUSES:
                     continue
@@ -300,7 +556,7 @@ def process_analysis_run(
                     pending_items += 1
                 db.commit()
 
-        if pending_items == 0 and run.processed_products >= run.total_products:
+        if run.status != AnalysisStatus.canceled and pending_items == 0 and run.processed_products >= run.total_products:
             run.status = AnalysisStatus.completed
             run.finished_at = datetime.now(timezone.utc)
             db.commit()
@@ -353,6 +609,8 @@ def _process_mixed_item(
     cached_not_found = state.last_checked_at and state.is_not_found and state.last_checked_at >= cutoff
 
     if cached_not_found:
+        if _should_rescrape_cached_not_found(strategy):
+            return _enqueue_scrape(item, strategy, enqueue_cloud_scrape, enqueue_local_scrape)
         score = None
         label = ProfitabilityLabel.nieokreslony
         _update_effective_state(state, state.last_market_data, score, label)
@@ -414,6 +672,22 @@ def list_recent_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
     rows = (
         db.query(AnalysisRun, Category.name.label("category_name"))
         .outerjoin(Category, AnalysisRun.category_id == Category.id)
+        .order_by(AnalysisRun.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    runs: List[AnalysisRun] = []
+    for run, category_name in rows:
+        run.category_name = category_name or "Kategoria usunięta"  # type: ignore[attr-defined]
+        runs.append(run)
+    return runs
+
+
+def list_active_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
+    rows = (
+        db.query(AnalysisRun, Category.name.label("category_name"))
+        .outerjoin(Category, AnalysisRun.category_id == Category.id)
+        .filter(AnalysisRun.status.in_([AnalysisStatus.pending, AnalysisStatus.running]))
         .order_by(AnalysisRun.created_at.desc())
         .limit(limit)
         .all()
