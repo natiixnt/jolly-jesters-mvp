@@ -22,6 +22,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 logger = logging.getLogger(__name__)
 _LAST_DRIVER_DEBUG: Dict[str, Any] = {}
+_FORCED_PROFILE_DIR: Optional[str] = None
 
 
 def _env_flag_enabled(value: Optional[str]) -> bool:
@@ -142,6 +143,13 @@ def _new_temp_profile_dir() -> str:
     base = Path(os.getenv("SELENIUM_TEMP_PROFILE_DIR", "/tmp")) / "local-scraper-profile"
     base.mkdir(parents=True, exist_ok=True)
     return str(base / f"profile-{time.time_ns()}")
+
+
+def _get_forced_profile_dir() -> str:
+    global _FORCED_PROFILE_DIR
+    if not _FORCED_PROFILE_DIR:
+        _FORCED_PROFILE_DIR = _new_temp_profile_dir()
+    return _FORCED_PROFILE_DIR
 
 
 def _build_chrome_options(
@@ -329,17 +337,35 @@ def _create_driver() -> WebDriver:
             logger.warning("Chrome start failed (%s): %s", label, exc)
             return None
 
-    options = _build_chrome_options()
-    driver = _try_start("default", options)
+    forced_profile_dir: Optional[str] = None
+    if _env_flag_enabled(os.getenv("SELENIUM_FORCE_TEMP_PROFILE")):
+        forced_profile_dir = _get_forced_profile_dir()
+        logger.warning("Using forced profile dir=%s", forced_profile_dir)
+    elif _FORCED_PROFILE_DIR:
+        forced_profile_dir = _FORCED_PROFILE_DIR
+        logger.warning("Using fallback profile dir=%s", forced_profile_dir)
 
-    if driver is None and _env_flag_enabled(os.getenv("SELENIUM_PROFILE_FALLBACK")):
+    options = _build_chrome_options(user_data_dir_override=forced_profile_dir)
+    driver = _try_start("forced_profile" if forced_profile_dir else "default", options)
+
+    if driver is None and forced_profile_dir is not None:
+        fallback_dir = _new_temp_profile_dir()
+        logger.warning("Retrying with new forced profile dir=%s", fallback_dir)
+        options = _build_chrome_options(user_data_dir_override=fallback_dir)
+        driver = _try_start("forced_profile_retry", options)
+        if driver is not None:
+            _FORCED_PROFILE_DIR = fallback_dir
+
+    if driver is None and forced_profile_dir is None and _env_flag_enabled(os.getenv("SELENIUM_PROFILE_FALLBACK")):
         fallback_dir = _new_temp_profile_dir()
         logger.warning("Retrying with fallback profile dir=%s", fallback_dir)
         options = _build_chrome_options(user_data_dir_override=fallback_dir)
         driver = _try_start("fallback_profile", options)
+        if driver is not None:
+            _FORCED_PROFILE_DIR = fallback_dir
 
     if driver is None and not is_headless_mode():
-        fallback_dir = _new_temp_profile_dir()
+        fallback_dir = _FORCED_PROFILE_DIR or _new_temp_profile_dir()
         logger.warning("Retrying in headless mode with profile dir=%s", fallback_dir)
         options = _build_chrome_options(user_data_dir_override=fallback_dir, headless_override=True)
         driver = _try_start("fallback_headless", options)
@@ -394,6 +420,28 @@ def _parse_sold_count(label: Optional[str]) -> Optional[int]:
         return int(match.group(1).replace(" ", ""))
     except Exception:
         return None
+
+
+def _normalize_gtin(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    digits = re.sub(r"\\D+", "", str(value))
+    if not digits:
+        return None
+    return digits
+
+
+def _gtin_matches(a: Optional[str], b: Optional[str]) -> bool:
+    a_norm = _normalize_gtin(a)
+    b_norm = _normalize_gtin(b)
+    if not a_norm or not b_norm:
+        return False
+    if a_norm == b_norm:
+        return True
+    max_len = max(len(a_norm), len(b_norm))
+    if a_norm.zfill(max_len) == b_norm.zfill(max_len):
+        return True
+    return a_norm.lstrip("0") == b_norm.lstrip("0")
 
 
 def _extract_offers(elements: List[Dict]) -> Tuple[List[Dict], Optional[str], Optional[str], Optional[int]]:
@@ -476,41 +524,8 @@ def scrape_single_ean(ean: str) -> dict:
         driver = _create_driver()
         driver.set_page_load_timeout(int(os.getenv("LOCAL_SCRAPER_PAGELOAD_TIMEOUT", "45")))
         driver.get(f"https://allegro.pl/listing?string={ean}")
-        block_reason = _detect_block_reason(driver)
-        if block_reason:
-            return {
-                "ean": str(ean),
-                "product_title": None,
-                "product_url": None,
-                "category_sold_count": None,
-                "offers_total_sold_count": None,
-                "lowest_price": None,
-                "second_lowest_price": None,
-                "offers": [],
-                "not_found": False,
-                "blocked": True,
-                "scraped_at": scraped_at,
-                "source": "local_scraper",
-                "error": f"blocked:{block_reason}",
-            }
         _accept_cookies(driver)
-        block_reason = _detect_block_reason(driver)
-        if block_reason:
-            return {
-                "ean": str(ean),
-                "product_title": None,
-                "product_url": None,
-                "category_sold_count": None,
-                "offers_total_sold_count": None,
-                "lowest_price": None,
-                "second_lowest_price": None,
-                "offers": [],
-                "not_found": False,
-                "blocked": True,
-                "scraped_at": scraped_at,
-                "source": "local_scraper",
-                "error": f"blocked:{block_reason}",
-            }
+        # Wait for listing data before deciding about blocks to avoid false positives.
         data = _wait_for_listing_data(driver)
         elements = data.get("__listing_StoreState", {}).get("items", {}).get("elements", []) or []
 
@@ -529,7 +544,7 @@ def scrape_single_ean(ean: str) -> dict:
             offers_total_sold_count = None
 
         not_found = not offers
-        if original_ean and original_ean != str(ean):
+        if original_ean and not _gtin_matches(original_ean, str(ean)):
             not_found = True
 
         result = {

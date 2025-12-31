@@ -4,12 +4,31 @@ set -euo pipefail
 display="${DISPLAY:-:99}"
 screen="${XVFB_SCREEN:-1280x800x24}"
 user_data_dir="${SELENIUM_USER_DATA_DIR:-/data/chrome-profile}"
+display_num="${display#*:}"
+display_num="${display_num%%.*}"
+lock_file="/tmp/.X${display_num}-lock"
+socket_file="/tmp/.X11-unix/X${display_num}"
 
 export DISPLAY="$display"
 
 mkdir -p "$user_data_dir"
 
+if [ -e "$lock_file" ] || [ -e "$socket_file" ]; then
+  echo "[local_scraper] Removing stale Xvfb locks for display $display" >&2
+  rm -f "$lock_file" "$socket_file"
+fi
+
 Xvfb "$display" -screen 0 "$screen" -ac -nolisten tcp &
+for _ in $(seq 1 50); do
+  if [ -e "$socket_file" ]; then
+    break
+  fi
+  sleep 0.1
+done
+if [ ! -e "$socket_file" ]; then
+  echo "[local_scraper] Xvfb did not start for display $display" >&2
+  exit 1
+fi
 
 if [ "${LOCAL_SCRAPER_ENABLE_VNC:-0}" = "1" ]; then
   novnc_web="${NOVNC_WEB_DIR:-/opt/novnc}"

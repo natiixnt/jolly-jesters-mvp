@@ -29,6 +29,14 @@ Po zmianach zaleznosci Pythona zbuduj na nowo obrazy backend/worker:
 docker compose build --no-cache backend worker
 ```
 
+## Standard formularzy UI (FastAPI + Jinja)
+
+We wszystkich formularzach stosujemy ten sam uklad:
+- `.form-grid` (2 kolumny na desktopie, 1 na mobile)
+- lewa kolumna `.form-filters`: input/select/number/text oraz pola filtrujace
+- prawa kolumna `.form-options`: toggle/checkbox/switch (opcje zachowania)
+- ponizej `.form-footer`: CTA (Start/Zapisz), helpery, walidacja/status
+
 ## Analiza z bazy + zarzadzanie runami
 
 - W UI w glownym formularzu dostepny jest blok **Analiza z bazy**:

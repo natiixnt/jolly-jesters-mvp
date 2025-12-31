@@ -1,8 +1,10 @@
 import logging
 import os
+import time
+from contextlib import contextmanager
 from datetime import datetime
-from threading import Lock
-from typing import List, Optional
+from threading import Condition, Lock
+from typing import List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -10,7 +12,49 @@ from pydantic import BaseModel
 from main import get_driver_debug_info, get_runtime_info, get_scraper_mode, scrape_single_ean
 
 logger = logging.getLogger("uvicorn.error")
-_SCRAPE_LOCK = Lock()
+_WINDOWS_LOCK = Lock()
+_WINDOWS_COND = Condition(_WINDOWS_LOCK)
+_ACTIVE_WINDOWS = 0
+
+
+def _normalize_windows(value: object) -> int:
+    try:
+        return max(1, int(value))
+    except Exception:
+        return 1
+
+
+_MAX_WINDOWS = _normalize_windows(os.getenv("LOCAL_SCRAPER_WINDOWS", "1"))
+
+
+def _get_windows_state() -> Tuple[int, int]:
+    with _WINDOWS_COND:
+        return _MAX_WINDOWS, _ACTIVE_WINDOWS
+
+
+def _set_max_windows(value: object) -> int:
+    global _MAX_WINDOWS
+    normalized = _normalize_windows(value)
+    with _WINDOWS_COND:
+        _MAX_WINDOWS = normalized
+        _WINDOWS_COND.notify_all()
+    logger.info("local_scraper windows updated to=%s", normalized)
+    return normalized
+
+
+@contextmanager
+def _scrape_slot():
+    global _ACTIVE_WINDOWS
+    with _WINDOWS_COND:
+        while _ACTIVE_WINDOWS >= _MAX_WINDOWS:
+            _WINDOWS_COND.wait(timeout=1.0)
+        _ACTIVE_WINDOWS += 1
+    try:
+        yield
+    finally:
+        with _WINDOWS_COND:
+            _ACTIVE_WINDOWS = max(0, _ACTIVE_WINDOWS - 1)
+            _WINDOWS_COND.notify_all()
 
 app = FastAPI(title="Local Allegro Selenium Scraper", version="1.0.0")
 
@@ -18,11 +62,13 @@ app = FastAPI(title="Local Allegro Selenium Scraper", version="1.0.0")
 @app.on_event("startup")
 def _log_runtime_info() -> None:
     info = get_runtime_info()
+    max_windows, _ = _get_windows_state()
     logger.info(
-        "local_scraper config mode=%s user_data_dir=%s profile_dir=%s",
+        "local_scraper config mode=%s user_data_dir=%s profile_dir=%s windows=%s",
         get_scraper_mode(),
         os.getenv("SELENIUM_USER_DATA_DIR"),
         os.getenv("SELENIUM_PROFILE_DIR"),
+        max_windows,
     )
     logger.info(
         "local_scraper runtime arch=%s chrome=%s chromedriver=%s chrome_path=%s driver_path=%s errors=%s",
@@ -39,6 +85,8 @@ def _log_runtime_info() -> None:
 def health() -> dict:
     info = get_runtime_info()
     status = "ok" if not info.get("errors") else "degraded"
+    max_windows, active = _get_windows_state()
+    info = {**info, "local_scraper_windows": max_windows, "active_windows": active}
     return {"status": status, "details": info}
 
 
@@ -49,6 +97,15 @@ def debug() -> dict:
 
 class ScrapeRequest(BaseModel):
     ean: str
+
+
+class ScraperConfig(BaseModel):
+    local_scraper_windows: int
+
+
+class ScraperConfigResponse(BaseModel):
+    local_scraper_windows: int
+    active_windows: int
 
 
 class Offer(BaseModel):
@@ -79,10 +136,27 @@ class ScrapeResponse(BaseModel):
     original_ean: Optional[str] = None
 
 
+@app.get("/config", response_model=ScraperConfigResponse)
+def get_config() -> ScraperConfigResponse:
+    max_windows, active = _get_windows_state()
+    return ScraperConfigResponse(local_scraper_windows=max_windows, active_windows=active)
+
+
+@app.put("/config", response_model=ScraperConfigResponse)
+def update_config(payload: ScraperConfig) -> ScraperConfigResponse:
+    max_windows = _set_max_windows(payload.local_scraper_windows)
+    _, active = _get_windows_state()
+    return ScraperConfigResponse(local_scraper_windows=max_windows, active_windows=active)
+
+
 @app.post("/scrape", response_model=ScrapeResponse)
 def scrape(req: ScrapeRequest):
     try:
-        with _SCRAPE_LOCK:
+        delay = float(os.getenv("LOCAL_SCRAPER_REQUEST_DELAY", "0") or "0")
+        if delay > 0:
+            logger.info("Local scraper delay ean=%s seconds=%s", req.ean, delay)
+            time.sleep(delay)
+        with _scrape_slot():
             detail = scrape_single_ean(req.ean)
     except Exception as exc:
         logger.exception("Local scraper crashed for ean=%s", req.ean)

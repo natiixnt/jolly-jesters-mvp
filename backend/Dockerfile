@@ -44,9 +44,12 @@ RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
 # krok 4: skopiowanie i instalacja zaleznosci pythona
 COPY requirements.txt .
 # usunieto: COPY vendor ./vendor (juz niepotrzebne)
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir python-dotenv alembic psycopg2-binary
+ENV PIP_DEFAULT_TIMEOUT=120 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN pip install --no-cache-dir --upgrade pip --retries 5 --timeout 120 \
+    && pip install --no-cache-dir -r requirements.txt --retries 5 --timeout 120 \
+    && pip install --no-cache-dir python-dotenv alembic psycopg2-binary --retries 5 --timeout 120
 
 # usunieto: linie zwiazane z antibot.exe (juz niepotrzebne)
   

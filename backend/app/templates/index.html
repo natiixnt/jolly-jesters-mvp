@@ -20,7 +20,7 @@
       --danger: #f87171;
       --success: #34d399;
     }
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -88,6 +88,12 @@
       color: var(--accent);
       transform: translateY(-1px);
     }
+    .action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
     .button-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .layout {
       margin-top: 20px;
@@ -111,7 +117,15 @@
     }
     form { display: grid; gap: 16px; }
     .is-hidden { display: none !important; }
-    label { font-weight: 700; font-size: 13px; letter-spacing: 0.01em; color: var(--muted); text-transform: uppercase; }
+    label {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.01em;
+      color: var(--muted);
+      text-transform: uppercase;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
     .step {
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -149,6 +163,71 @@
       font-weight: 700;
     }
     .step-body { display: grid; gap: 12px; }
+    .form-grid {
+      display: grid;
+      gap: 16px;
+      align-items: start;
+    }
+    .form-grid.has-options {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .form-grid.single {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .form-grid > div { min-width: 0; }
+    .minw-0 { min-width: 0; }
+    .form-filters,
+    .form-options {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .form-grid .button-row { flex-wrap: wrap; }
+    .form-cta {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      min-width: 220px;
+      max-width: 100%;
+      white-space: nowrap;
+    }
+    .btn--block {
+      width: 100%;
+    }
+    .form-section-title {
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .form-footer {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .form-footer button,
+    .form-footer a {
+      max-width: 100%;
+    }
+    .form-empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
     .icon-btn {
       display: inline-flex;
       align-items: center;
@@ -198,7 +277,14 @@
       padding-right: 48px;
     }
     input[type="file"], input[type="number"], input[type="text"] { appearance: auto; background-image: none; padding-right: 14px; }
-    .helper { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .helper {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
     .segmented {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -245,6 +331,20 @@
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 8px;
     }
+    .tabs.tabs-scroll {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      gap: 8px;
+      padding-bottom: 4px;
+    }
+    .tabs.tabs-scroll .tab-btn { flex: 0 0 auto; }
+    .tab-panel {
+      display: none;
+      gap: 12px;
+    }
+    .tab-panel.is-active { display: grid; }
     .tab-btn {
       background: #0b152b;
       border: 1px solid var(--border);
@@ -372,13 +472,15 @@
     .currency-table {
       display: grid;
       gap: 8px;
+      max-width: 100%;
     }
     .currency-row {
       display: grid;
-      grid-template-columns: 90px minmax(180px, 1.4fr) 90px 80px;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
       gap: 8px;
       align-items: center;
     }
+    .currency-row > * { min-width: 0; }
     .currency-row--head {
       color: var(--muted);
       font-size: 11px;
@@ -386,11 +488,29 @@
       letter-spacing: 0.08em;
     }
     .currency-rows { display: grid; gap: 6px; }
+    .currency-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
     @media (max-width: 720px) {
       .currency-row { grid-template-columns: 1fr 1fr; }
+      .currency-actions { grid-column: 1 / -1; }
       .currency-row--head { display: none; }
     }
+    @media (max-width: 480px) {
+      .currency-row { grid-template-columns: 1fr; }
+      .currency-actions { grid-column: auto; }
+    }
     .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      min-width: 220px;
+      max-width: 100%;
+      white-space: nowrap;
       background: linear-gradient(120deg, var(--accent-2), var(--accent));
       color: #fff;
       border: none;
@@ -405,13 +525,15 @@
     .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .primary-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 40px rgba(34, 211, 238, 0.3); }
     .status-panel {
-      margin-top: 18px;
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 16px;
       background: #0b1327;
-      display: none;
+      display: grid;
+      gap: 8px;
     }
+    .status-empty { color: var(--muted); }
+    .status-details { display: grid; gap: 6px; }
     .status-row { display: flex; gap: 8px; margin-top: 6px; color: var(--muted); font-size: 14px; align-items: center; }
     .pill {
       display: inline-flex;
@@ -456,6 +578,7 @@
     .sidebar {
       transition: max-width 0.2s ease, width 0.2s ease, opacity 0.2s;
     }
+    .layout > * { min-width: 0; }
     .sidebar.collapsed {
       display: none;
     }
@@ -490,9 +613,9 @@
       margin-top: 16px;
     }
     .history-card--analysis {
-      max-width: 1100px;
-      margin-left: auto;
-      margin-right: auto;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
     }
     .history-header {
       display: flex;
@@ -519,6 +642,7 @@
       align-items: center;
       cursor: pointer;
     }
+    .history-row > * { min-width: 0; }
     .history-row:hover { background: rgba(255,255,255,0.02); }
     .history-row .history-actions {
       display: grid;
@@ -538,6 +662,7 @@
       justify-content: center;
     }
     @media (max-width: 900px) {
+      .form-grid { grid-template-columns: 1fr; }
       .history-row { grid-template-columns: 1fr 1fr; }
     }
     .history-row small { color: var(--muted); display: block; }
@@ -608,27 +733,34 @@
     }
     .market-filters {
       display: grid;
-      grid-template-columns: minmax(160px, 1.2fr) minmax(140px, 1fr) minmax(160px, 1fr) minmax(180px, 1fr) auto;
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
       gap: 12px;
-      align-items: end;
+      align-items: start;
     }
+    .market-filters > div { min-width: 0; }
     .market-actions {
       display: flex;
       gap: 8px;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: flex-start;
+      flex-wrap: wrap;
     }
     .market-table .table-scroll {
       max-height: 420px;
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: auto;
     }
     .market-table table {
+      min-width: 980px;
       width: 100%;
-      table-layout: fixed;
+      table-layout: auto;
       font-size: 12px;
     }
-    .market-table table td { white-space: normal; word-break: break-word; }
+    .market-table table th,
+    .market-table table td {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .market-table .cell-ean { width: 120px; }
     .market-table table th,
     .market-table table td {
@@ -651,10 +783,9 @@
       font-size: 12px;
       color: var(--muted);
     }
-    .market-table .cell-name { min-width: 220px; }
+    .market-table .cell-name { min-width: 220px; max-width: 360px; }
     @media (max-width: 900px) {
-      .market-filters { grid-template-columns: 1fr 1fr; }
-      .market-actions { grid-column: 1 / -1; justify-content: flex-start; }
+      .market-filters { grid-template-columns: 1fr; }
       .market-table table th:nth-child(8),
       .market-table table td:nth-child(8),
       .market-table table th:nth-child(9),
@@ -669,14 +800,40 @@
         display: none;
       }
     }
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      max-width: 100%;
+    }
+    .table-wrap > div {
+      display: inline-block;
+      min-width: 100%;
+      vertical-align: top;
+    }
+    .table-wrap table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .table-scroll {
+      overflow: auto;
+      max-height: 60vh;
+    }
     .results-table {
       margin-top: 12px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      overflow: hidden;
+      overflow: visible;
     }
-    .results-table table { width: 100%; border-collapse: collapse; }
-    .results-table th, .results-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    .results-table table { min-width: 980px; width: 100%; border-collapse: collapse; }
+    .results-table th,
+    .results-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .results-table tbody tr:hover { background: rgba(255,255,255,0.02); cursor: pointer; }
     .results-detail { background: #0b152b; color: var(--muted); }
     .results-pagination {
@@ -729,8 +886,8 @@
       color: var(--text);
     }
     .currency-row input::placeholder { color: var(--muted); }
-    .currency-row input.currency-code { max-width: 90px; }
-    .currency-row input.currency-rate { max-width: none; }
+    .currency-row input.currency-code { max-width: 100%; }
+    .currency-row input.currency-rate { max-width: 100%; }
     .categories-list {
       display: flex;
       flex-wrap: wrap;
@@ -773,6 +930,7 @@
       gap: 10px;
       margin-top: 12px;
       justify-content: flex-end;
+      flex-wrap: wrap;
     }
     .close-btn {
       background: transparent;
@@ -805,6 +963,33 @@
     .faq-content h2 { margin-top: 0; }
     .faq-item { margin-top: 12px; }
     .faq-item strong { display: block; margin-bottom: 4px; }
+    .settings-block {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: #0b152b;
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .settings-panel {
+      display: grid;
+      gap: 16px;
+    }
+    .settings-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .results-step { margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -813,7 +998,7 @@
     <div class="top">
       <div>
         <h1>MVP: import i analiza produktów</h1>
-        <p class="lead">MVP analizy opłacalności Allegro. Wgraj plik, wybierz kategorię i strategię scrapera.</p>
+        <p class="lead">Wgraj plik, wybierz kategorię i uruchom analizę. Zaawansowane opcje są w Ustawieniach.</p>
       </div>
         <button class="ghost-btn" id="faq-btn">FAQ / pomoc</button>
     </div>
@@ -821,180 +1006,328 @@
     <div class="layout" id="layout">
       <div class="card main-card" id="main-card">
         <form id="upload-form">
-          <div class="accordion" id="basic-section">
-            <button type="button" class="accordion__header" id="basic-toggle" aria-expanded="true" aria-controls="basic-body">
-              Podstawowe
-              <span>▾</span>
-            </button>
-            <div class="accordion__body" id="basic-body">
-              <div>
-                <label for="category-select" style="display:flex; align-items:center; gap:8px;">
-                  <span>Kategoria</span>
-                  <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
-                </label>
-                <select id="category-select" name="category_id" required></select>
-                <div class="helper" id="category-info"></div>
+          <div class="step">
+            <div class="step-header">
+              <div class="step-title">
+                <span class="step-badge">1</span>
+                Dane wejściowe
               </div>
-              <div>
-                <label for="file-input">Plik (CSV/XLSX)</label>
-                <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" required />
-                <div class="helper">Obsługiwane formaty: .xlsx, .xls, .csv</div>
-              </div>
-              <div>
-                <label>Tryb analizy</label>
-                <div class="segmented" role="group" aria-label="Tryb analizy">
-                  <label>
-                    <input type="radio" name="mode" value="mixed" checked />
-                    <span>MIXED</span>
-                  </label>
-                  <label>
-                    <input type="radio" name="mode" value="offline" />
-                    <span>OFFLINE</span>
-                  </label>
-                  <label>
-                    <input type="radio" name="mode" value="online" />
-                    <span>ONLINE</span>
-                  </label>
-                </div>
-                <div class="helper">MIXED = cache + odświeżanie, OFFLINE = tylko baza, ONLINE = zawsze scraping.</div>
-              </div>
-              <div class="button-row">
-                <button type="submit" id="submit-btn" class="primary-btn">Start analizy</button>
-              </div>
-              <div class="error" id="error"></div>
             </div>
-          </div>
-
-          <div class="accordion" id="strategy-section">
-            <button type="button" class="accordion__header" id="strategy-toggle" aria-expanded="false" aria-controls="strategy-body">
-              Strategie scrapera
-              <span>▸</span>
-            </button>
-            <div class="accordion__body is-hidden" id="strategy-body">
-              <label>Źródła scrapowania</label>
-              <div class="toggle-group" id="strategy-boxes">
-                <label class="toggle">
-                  <input type="checkbox" name="use_cloud_http" value="true" checked />
-                  <span class="toggle__track"></span>
-                  <span class="toggle__label">Proxy / Cloud</span>
-                </label>
-                <label class="toggle">
-                  <input type="checkbox" name="use_local_scraper" value="true" checked />
-                  <span class="toggle__track"></span>
-                  <span class="toggle__label">Local (Selenium)</span>
-                </label>
-              </div>
-              <div class="helper" id="strategy-offline-hint"></div>
-              <div class="accordion" style="margin-top:8px;">
-                <button type="button" class="accordion__header" id="scraper-advanced-toggle" aria-expanded="false" aria-controls="scraper-advanced-body">
-                  Zaawansowane
-                  <span>▸</span>
-                </button>
-                <div class="accordion__body is-hidden" id="scraper-advanced-body">
-                  <div class="helper">Proxy/Cloud wymaga ustawionej listy proxy (PROXY_LIST).</div>
-                  <div class="helper">Local scraper wymaga działającej usługi i poprawnego URL.</div>
-                </div>
-              </div>
-              <div class="error" id="strategy-error"></div>
-            </div>
-          </div>
-
-          <div class="accordion" id="db-section">
-            <button type="button" class="accordion__header" id="db-toggle" aria-expanded="false" aria-controls="db-body">
-              Analiza z bazy
-              <span>▸</span>
-            </button>
-            <div class="accordion__body is-hidden" id="db-body">
-              <div>
-                <label for="db-last-days">Ostatnie dni cache</label>
-                <input type="number" id="db-last-days" min="1" max="365" value="30" />
-              </div>
-              <label class="toggle">
-                <input type="checkbox" id="db-only-success" />
-                <span class="toggle__track"></span>
-                <span class="toggle__label">Tylko z udanymi danymi</span>
-              </label>
-              <div class="accordion">
-                <button type="button" class="accordion__header" id="db-limit-toggle" aria-expanded="false" aria-controls="db-limit-body">
-                  Pokaż limity
-                  <span>▸</span>
-                </button>
-                <div class="accordion__body is-hidden" id="db-limit-body">
-                  <label for="db-limit">Limit pozycji</label>
-                  <input type="number" id="db-limit" min="1" max="10000" placeholder="np. 200" />
-                </div>
-              </div>
-              <div class="accordion">
-                <button type="button" class="accordion__header" id="db-advanced-toggle" aria-expanded="false" aria-controls="db-advanced-body">
-                  Opcje zaawansowane
-                  <span>▸</span>
-                </button>
-                <div class="accordion__body is-hidden" id="db-advanced-body">
-                  <label class="toggle">
-                    <input type="checkbox" id="db-all-cached" />
-                    <span class="toggle__track"></span>
-                    <span class="toggle__label">Wszystkie zapisane produkty</span>
-                  </label>
-                  <div class="helper">Włączenie tej opcji ignoruje pole „Ostatnie dni cache”.</div>
+            <div class="step-body">
+              <div class="form-grid single">
+                <div class="form-filters">
+                  <div class="form-section-title">Zakres / filtry danych</div>
                   <div>
-                    <label for="db-source">Źródło danych</label>
-                    <select id="db-source">
-                      <option value="any">Dowolne</option>
-                      <option value="cloud">Proxy / Cloud</option>
-                      <option value="local_scraper">Local scraper</option>
-                    </select>
+                    <label for="category-select" style="display:flex; align-items:center; gap:8px;">
+                      <span>Kategoria</span>
+                      <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
+                    </label>
+                    <select id="category-select" name="category_id" required></select>
+                    <div class="helper" id="category-info"></div>
+                    <div class="error" id="category-select-error"></div>
                   </div>
                   <div>
-                    <label for="db-ean-contains">EAN zawiera</label>
-                    <input type="text" id="db-ean-contains" placeholder="np. 590" />
+                    <label for="file-input">Plik (CSV/XLSX)</label>
+                    <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" required />
+                    <div class="helper">Obsługiwane formaty: .xlsx, .xls, .csv</div>
+                    <div class="error" id="file-error"></div>
                   </div>
                 </div>
               </div>
-              <div class="button-row">
-                <button type="button" id="start-db-btn" class="action-btn">Analiza z bazy</button>
-              </div>
-              <div class="helper" id="db-info">Analiza z cache uruchamia się bez wgrywania pliku.</div>
-              <div class="error" id="db-error"></div>
             </div>
           </div>
 
-          <div class="accordion" id="advanced-section">
-            <button type="button" class="accordion__header" id="advanced-toggle" aria-expanded="false" aria-controls="advanced-body">
-              Zaawansowane
-              <span>▸</span>
-            </button>
-            <div class="accordion__body is-hidden" id="advanced-body">
-              <div>
-                <label for="local-windows">Liczba jednocześnie otwieranych okien lokalnego scrapera</label>
-                <input type="number" id="local-windows" min="1" max="10" />
-                <div class="helper" id="settings-info"></div>
-                <button class="ghost-btn" id="save-windows-btn" style="margin-top:8px;">Zapisz ustawienia scrapera</button>
-                <div class="success" id="settings-windows-success"></div>
+          <div class="step">
+            <div class="step-header">
+              <div class="step-title">
+                <span class="step-badge">2</span>
+                Uruchomienie
               </div>
-              <div>
-                <label for="cache-ttl">TTL cache (dni)</label>
-                <input type="number" id="cache-ttl" min="1" max="365" />
-                <div class="helper">Po ilu dniach dane z Allegro uznajemy za przestarzałe</div>
-                <button class="ghost-btn" id="save-ttl-btn" style="margin-top:8px;">Zapisz TTL cache</button>
-                <div class="success" id="settings-ttl-success"></div>
+            </div>
+            <div class="step-body">
+              <div class="form-grid single">
+                <div class="form-filters">
+                  <div class="form-section-title">Zakres / filtry danych</div>
+                  <div>
+                    <label>Tryb analizy</label>
+                    <div class="segmented" role="group" aria-label="Tryb analizy">
+                      <label>
+                        <input type="radio" name="mode" value="mixed" checked />
+                        <span>Standard</span>
+                      </label>
+                      <label>
+                        <input type="radio" name="mode" value="offline" />
+                        <span>Tylko baza</span>
+                      </label>
+                      <label>
+                        <input type="radio" name="mode" value="online" />
+                        <span>Zawsze online</span>
+                      </label>
+                    </div>
+                    <div class="helper" id="mode-helper">Standard = cache + odświeżanie, Tylko baza = bez scrapowania, Zawsze online = zawsze dane na żywo.</div>
+                  </div>
+                </div>
               </div>
-              <div class="error" id="settings-error"></div>
+              <div class="form-footer">
+                <div class="form-cta">
+                  <button type="submit" id="submit-btn" class="primary-btn cta-btn">Start analizy</button>
+                </div>
+                <div class="error" id="error"></div>
+              </div>
             </div>
           </div>
         </form>
 
-        <div class="status-panel" id="status-panel">
-          <div class="pill">Run ID: <span id="run-id"></span></div>
-          <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
-          <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
-          <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
-          <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
-          <div class="button-row" id="status-actions" style="margin-top:8px; display:none;">
-            <button class="action-btn secondary" type="button" id="cancel-run-btn">Anuluj</button>
+        <div class="step results-step" id="results-step">
+          <div class="step-header">
+            <div class="step-title">
+              <span class="step-badge">3</span>
+              Wyniki
+            </div>
           </div>
-          <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
-            <button class="action-btn" id="preview-link" type="button">Podgląd wyników</button>
-            <a class="action-btn secondary" id="download-link" href="#">⬇ Pobierz raport</a>
+          <div class="step-body">
+            <div class="status-panel" id="status-panel">
+              <div class="status-empty" id="status-empty">Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.</div>
+              <div class="status-details" id="status-details" style="display:none;">
+                <div class="pill">Run ID: <span id="run-id"></span></div>
+                <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
+                <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
+                <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+                <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
+                <div class="button-row" id="status-actions" style="margin-top:8px; display:none;">
+                  <button class="action-btn secondary" type="button" id="cancel-run-btn">Anuluj</button>
+                </div>
+                <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
+                  <button class="action-btn" id="preview-link" type="button">Podgląd wyników</button>
+                  <a class="action-btn secondary" id="download-link" href="#">⬇ Pobierz raport</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-block" id="settings-block">
+          <div class="settings-header">
+            <div>
+              <h3 class="section-title">Ustawienia</h3>
+              <div class="helper">Opcje rzadziej używane. W trybie prostym ukryte.</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="advanced-mode-toggle" />
+              <span class="toggle__track"></span>
+              <span class="toggle__label">Tryb zaawansowany</span>
+            </label>
+          </div>
+          <div class="settings-panel is-hidden" id="settings-panel">
+            <div class="settings-actions">
+              <button type="button" class="ghost-btn" id="reset-settings-btn">Przywróć domyślne</button>
+              <div class="success" id="settings-reset-success"></div>
+            </div>
+            <div class="helper" id="settings-info"></div>
+            <div class="error" id="settings-error"></div>
+            <div class="helper">Kursy walut i Kategorie są dostępne w panelu bocznym po prawej.</div>
+            <div class="tabs tabs-scroll" id="settings-tabs">
+              <button type="button" class="tab-btn is-active" data-tab="sources">Źródło danych</button>
+              <button type="button" class="tab-btn" data-tab="performance">Wydajność</button>
+              <button type="button" class="tab-btn" data-tab="quality">Cache i jakość</button>
+              <button type="button" class="tab-btn" data-tab="history">Historia i dane</button>
+            </div>
+            <div class="tab-panel is-active" data-tab-panel="sources">
+              <div class="form-grid single">
+                <div class="form-options">
+                  <div class="form-section-title">Opcje zachowania</div>
+                  <div>
+                    <label>Źródła scrapowania</label>
+                    <div class="toggle-group" id="strategy-boxes">
+                      <div>
+                        <label class="toggle">
+                          <input type="checkbox" name="use_cloud_http" value="true" checked />
+                          <span class="toggle__track"></span>
+                          <span class="toggle__label">Proxy / Cloud</span>
+                        </label>
+                        <div class="helper">Scraping przez proxy/HTTP w chmurze.</div>
+                      </div>
+                      <div>
+                        <label class="toggle">
+                          <input type="checkbox" name="use_local_scraper" value="true" checked />
+                          <span class="toggle__track"></span>
+                          <span class="toggle__label">Local Selenium</span>
+                        </label>
+                        <div class="helper">Selenium lokalnie w kontenerze (fallback).</div>
+                      </div>
+                    </div>
+                    <div class="helper">Jeśli oba źródła są wyłączone, analiza korzysta tylko z danych z bazy i cache.</div>
+                    <div class="helper" id="strategy-offline-hint"></div>
+                    <div class="error" id="strategy-error"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tab-panel" data-tab-panel="performance">
+              <div class="form-grid single">
+                <div class="form-filters">
+                  <div class="form-section-title">Zakres / filtry danych</div>
+                  <div>
+                    <label for="local-windows">Liczba jednocześnie otwieranych okien lokalnego scrapera</label>
+                    <input type="number" id="local-windows" min="1" max="10" />
+                    <div class="helper">Więcej okien przyspiesza, ale obciąża CPU/RAM.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-footer">
+                <div class="form-cta">
+                  <button class="ghost-btn" id="save-windows-btn" type="button">Zapisz ustawienia</button>
+                </div>
+                <div class="success" id="settings-windows-success"></div>
+              </div>
+            </div>
+            <div class="tab-panel" data-tab-panel="quality">
+              <div class="form-grid single">
+                <div class="form-filters">
+                  <div class="form-section-title">Zakres / filtry danych</div>
+                  <div>
+                    <label for="cache-ttl">TTL cache (dni)</label>
+                    <input type="number" id="cache-ttl" min="1" max="365" />
+                    <div class="helper">Po ilu dniach dane z Allegro uznajemy za przestarzałe.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-footer">
+                <div class="form-cta">
+                  <button class="ghost-btn" id="save-ttl-btn" type="button">Zapisz ustawienia</button>
+                </div>
+                <div class="success" id="settings-ttl-success"></div>
+              </div>
+            </div>
+            <div class="tab-panel" data-tab-panel="history">
+              <div class="card">
+                <h3 class="section-title">Analiza z bazy</h3>
+                <div class="form-grid has-options">
+                  <div class="form-filters">
+                    <div class="form-section-title">Zakres / filtry danych</div>
+                    <div>
+                      <label for="db-last-days">Ostatnie dni cache</label>
+                      <input type="number" id="db-last-days" min="1" max="365" value="30" />
+                      <div class="helper">Zakres danych do analizy (dni wstecz).</div>
+                    </div>
+                    <div>
+                      <label for="db-limit">Limit pozycji</label>
+                      <input type="number" id="db-limit" min="1" max="10000" placeholder="np. 200" />
+                      <div class="helper">Ogranicza liczbę rekordów do analizy.</div>
+                    </div>
+                    <div>
+                      <label for="db-source">Źródło danych</label>
+                      <select id="db-source">
+                        <option value="any">Dowolne</option>
+                        <option value="cloud">Proxy / Cloud</option>
+                        <option value="local_scraper">Local Selenium</option>
+                      </select>
+                      <div class="helper">Filtruj po źródle pozyskanych danych.</div>
+                    </div>
+                    <div>
+                      <label for="db-ean-contains">EAN zawiera</label>
+                      <input type="text" id="db-ean-contains" placeholder="np. 590" />
+                      <div class="helper">Pozwala zawęzić listę do fragmentu EAN.</div>
+                    </div>
+                  </div>
+                  <div class="form-options">
+                    <div class="form-section-title">Opcje zachowania</div>
+                    <div class="toggle-group">
+                      <div>
+                        <label class="toggle">
+                          <input type="checkbox" id="db-only-success" />
+                          <span class="toggle__track"></span>
+                          <span class="toggle__label">Tylko produkty z danymi</span>
+                        </label>
+                        <div class="helper">Pomiń wpisy bez ceny/sprzedaży.</div>
+                      </div>
+                      <div>
+                        <label class="toggle">
+                          <input type="checkbox" id="db-all-cached" />
+                          <span class="toggle__track"></span>
+                          <span class="toggle__label">Wszystkie zapisane produkty</span>
+                        </label>
+                        <div class="helper">Ignoruje pole „Ostatnie dni cache”.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-footer">
+                  <div class="helper" id="db-info">Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w kroku 1.</div>
+                  <div class="form-cta">
+                    <button type="button" id="start-db-btn" class="action-btn cta-btn">Start analizy z bazy</button>
+                  </div>
+                  <div class="error" id="db-error"></div>
+                </div>
+              </div>
+
+              <div class="card history-card">
+                <div class="history-header" id="history-toggle">
+                  <h3 class="section-title" style="margin:0;">Historia analiz</h3>
+                  <span id="history-caret" style="cursor:pointer;">▼</span>
+                </div>
+                <div class="history-list" id="history-list"></div>
+                <div class="helper" id="history-empty" style="display:none;">Brak wcześniejszych analiz.</div>
+                <div class="helper" id="history-error" style="display:none;">Nie udało się pobrać historii.</div>
+              </div>
+
+              <div class="card history-card">
+                <div class="history-header">
+                  <h3 class="section-title" style="margin:0;">Baza Allegro (ostatnie dane rynkowe)</h3>
+                </div>
+                <div style="display:grid; gap:10px; margin-top:8px;">
+                  <div class="form-grid single">
+                    <div class="form-filters">
+                      <div class="form-section-title">Zakres / filtry danych</div>
+                      <div class="market-filters">
+                        <div>
+                          <label for="market-category">Kategoria</label>
+                          <select id="market-category">
+                            <option value="">Dowolna</option>
+                          </select>
+                          <div class="helper">Filtrowanie po wybranej kategorii.</div>
+                        </div>
+                        <div>
+                          <label for="market-ean">EAN</label>
+                          <input id="market-ean" type="text" placeholder="fragment EAN" />
+                          <div class="helper">Może być fragmentem kodu.</div>
+                        </div>
+                        <div>
+                          <label for="market-source">Źródło danych</label>
+                          <select id="market-source">
+                            <option value="">Dowolne</option>
+                            <option value="cloud_http">Proxy / Cloud</option>
+                            <option value="local">Local Selenium</option>
+                            <option value="scraping">Scraping (inne)</option>
+                          </select>
+                          <div class="helper">Skąd pochodziły dane rynkowe.</div>
+                        </div>
+                        <div>
+                          <label for="market-date">Od kiedy</label>
+                          <input id="market-date" type="datetime-local" />
+                          <div class="helper">Filtruj po dacie aktualizacji.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-footer">
+                    <div class="form-cta">
+                      <button class="action-btn cta-btn" id="market-search" type="button">Szukaj</button>
+                      <button class="ghost-btn ghost-btn--small" id="market-reset" type="button">Reset</button>
+                    </div>
+                  </div>
+                  <div id="market-error" class="error"></div>
+                  <div class="table-wrap">
+                    <div class="results-table market-table" id="market-table"></div>
+                  </div>
+                  <div class="results-pagination">
+                    <button class="ghost-btn ghost-btn--small" id="market-prev" type="button">◀ Wstecz</button>
+                    <span class="muted" id="market-page-info"></span>
+                    <button class="ghost-btn ghost-btn--small" id="market-next" type="button">Dalej ▶</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1023,22 +1356,28 @@
               <span>▸</span>
             </button>
             <div class="accordion__body is-hidden" id="currency-body">
-              <div class="currency-table">
-                <div class="currency-row currency-row--head">
-                  <span>Waluta</span>
-                  <span>Kurs do PLN</span>
-                  <span>Domyślna</span>
-                  <span>Akcje</span>
+              <div class="form-grid single">
+                <div class="form-filters">
+                  <div class="form-section-title">Zakres / filtry danych</div>
+                  <div class="currency-table">
+                    <div class="currency-row currency-row--head">
+                      <span>Waluta</span>
+                      <span>Kurs do PLN</span>
+                      <span>Akcje</span>
+                    </div>
+                    <div id="currency-list" class="currency-rows"></div>
+                  </div>
                 </div>
-                <div id="currency-list" class="currency-rows"></div>
               </div>
-              <div class="button-row" style="margin-top:8px;">
-                <button class="ghost-btn ghost-btn--small" type="button" id="add-currency-btn">Dodaj walutę</button>
-                <button class="action-btn" type="button" id="save-currencies-btn">Zapisz kursy</button>
+              <div class="form-footer">
+                <div class="form-cta">
+                  <button class="ghost-btn ghost-btn--small" type="button" id="add-currency-btn">Dodaj walutę</button>
+                  <button class="action-btn cta-btn" type="button" id="save-currencies-btn">Zapisz kursy</button>
+                </div>
+                <div class="helper" id="currency-helper"></div>
+                <div class="success" id="currency-success"></div>
+                <div class="error" id="currency-error"></div>
               </div>
-              <div class="helper" id="currency-helper"></div>
-              <div class="success" id="currency-success"></div>
-              <div class="error" id="currency-error"></div>
             </div>
           </div>
 
@@ -1060,59 +1399,6 @@
       </div>
     </div>
 
-    <div class="card history-card history-card--analysis">
-      <div class="history-header" id="history-toggle">
-        <h3 class="section-title" style="margin:0;">Historia analiz</h3>
-        <span id="history-caret" style="cursor:pointer;">▼</span>
-      </div>
-      <div class="history-list" id="history-list"></div>
-      <div class="helper" id="history-empty" style="display:none;">Brak wcześniejszych analiz.</div>
-      <div class="helper" id="history-error" style="display:none;">Nie udało się pobrać historii.</div>
-    </div>
-
-    <div class="card history-card">
-      <div class="history-header">
-        <h3 class="section-title" style="margin:0;">Baza Allegro (ostatnie dane rynkowe)</h3>
-      </div>
-      <div style="display:grid; gap:10px; margin-top:8px;">
-        <div class="market-filters">
-          <div>
-            <label for="market-category">Kategoria</label>
-            <select id="market-category">
-              <option value="">Dowolna</option>
-            </select>
-          </div>
-          <div>
-            <label for="market-ean">EAN</label>
-            <input id="market-ean" type="text" placeholder="fragment EAN" />
-          </div>
-          <div>
-            <label for="market-source">Źródło danych</label>
-            <select id="market-source">
-              <option value="">Dowolne</option>
-              <option value="cloud_http">cloud_http</option>
-              <option value="local">local</option>
-              <option value="scraping">scraping</option>
-            </select>
-          </div>
-          <div>
-            <label for="market-date">Od kiedy</label>
-            <input id="market-date" type="datetime-local" />
-          </div>
-          <div class="market-actions">
-            <button class="action-btn" id="market-search">Szukaj</button>
-            <button class="ghost-btn ghost-btn--small" id="market-reset">Reset</button>
-          </div>
-        </div>
-        <div id="market-error" class="error"></div>
-        <div class="results-table market-table" id="market-table"></div>
-        <div class="results-pagination">
-          <button class="ghost-btn ghost-btn--small" id="market-prev" type="button">◀ Wstecz</button>
-          <span class="muted" id="market-page-info"></span>
-          <button class="ghost-btn ghost-btn--small" id="market-next" type="button">Dalej ▶</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="modal results-modal" id="results-modal">
@@ -1129,7 +1415,9 @@
       </div>
       <div class="error" id="results-error"></div>
       <div class="results-empty" id="results-empty" style="display:none;"></div>
-      <div class="results-table" id="results-table"></div>
+      <div class="table-wrap">
+        <div class="results-table" id="results-table"></div>
+      </div>
       <div class="results-pagination">
         <button class="ghost-btn ghost-btn--small" id="results-prev" type="button">◀ Wstecz</button>
         <span class="muted" id="results-page-info"></span>
@@ -1142,22 +1430,29 @@
     <div class="modal-content">
       <h3 style="margin-top:0;">Dodaj nową kategorię</h3>
       <form id="category-modal-form">
-        <div>
-          <label for="modal-cat-name">Nazwa kategorii</label>
-          <input type="text" id="modal-cat-name" name="name" required />
+        <div class="form-grid single">
+          <div class="form-filters">
+            <div class="form-section-title">Zakres / filtry danych</div>
+            <div>
+              <label for="modal-cat-name">Nazwa kategorii</label>
+              <input type="text" id="modal-cat-name" name="name" required />
+            </div>
+            <div>
+              <label for="modal-cat-multiplier">Mnożnik opłacalności</label>
+              <input type="number" id="modal-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" value="1.5" required />
+            </div>
+            <div>
+              <label for="modal-cat-commission">Prowizja Allegro (%)</label>
+              <input type="number" id="modal-cat-commission" name="commission_rate" step="0.01" min="0" value="0" />
+            </div>
+          </div>
         </div>
-        <div>
-          <label for="modal-cat-multiplier">Mnożnik opłacalności</label>
-          <input type="number" id="modal-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" value="1.5" required />
-        </div>
-        <div>
-          <label for="modal-cat-commission">Prowizja Allegro (%)</label>
-          <input type="number" id="modal-cat-commission" name="commission_rate" step="0.01" min="0" value="0" />
-        </div>
-        <div class="error" id="category-modal-error"></div>
-        <div class="modal-actions">
-          <button type="button" class="close-btn" id="category-cancel">Anuluj</button>
-          <button type="submit" class="primary-btn">Dodaj kategorię</button>
+        <div class="form-footer">
+          <div class="error" id="category-modal-error"></div>
+          <div class="modal-actions">
+            <button type="button" class="close-btn" id="category-cancel">Anuluj</button>
+            <button type="submit" class="primary-btn">Dodaj kategorię</button>
+          </div>
         </div>
       </form>
     </div>
@@ -1167,23 +1462,30 @@
     <div class="modal-content">
       <h3 style="margin-top:0;">Szczegóły kategorii</h3>
       <form id="category-detail-form">
-        <div>
-          <label for="detail-cat-name">Nazwa kategorii</label>
-          <input type="text" id="detail-cat-name" name="name" required />
+        <div class="form-grid single">
+          <div class="form-filters">
+            <div class="form-section-title">Zakres / filtry danych</div>
+            <div>
+              <label for="detail-cat-name">Nazwa kategorii</label>
+              <input type="text" id="detail-cat-name" name="name" required />
+            </div>
+            <div>
+              <label for="detail-cat-multiplier">Mnożnik opłacalności</label>
+              <input type="number" id="detail-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" required />
+            </div>
+            <div>
+              <label for="detail-cat-commission">Prowizja Allegro (%)</label>
+              <input type="number" id="detail-cat-commission" name="commission_rate" step="0.01" min="0" />
+            </div>
+          </div>
         </div>
-        <div>
-          <label for="detail-cat-multiplier">Mnożnik opłacalności</label>
-          <input type="number" id="detail-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" required />
-        </div>
-        <div>
-          <label for="detail-cat-commission">Prowizja Allegro (%)</label>
-          <input type="number" id="detail-cat-commission" name="commission_rate" step="0.01" min="0" />
-        </div>
-        <div class="error" id="category-detail-error"></div>
-        <div class="success" id="category-detail-success"></div>
-        <div class="modal-actions">
-          <button type="button" class="close-btn" id="category-detail-cancel">Anuluj</button>
-          <button type="submit" class="action-btn">Zapisz</button>
+        <div class="form-footer">
+          <div class="error" id="category-detail-error"></div>
+          <div class="success" id="category-detail-success"></div>
+          <div class="modal-actions">
+            <button type="button" class="close-btn" id="category-detail-cancel">Anuluj</button>
+            <button type="submit" class="action-btn">Zapisz</button>
+          </div>
         </div>
       </form>
     </div>
@@ -1196,12 +1498,12 @@
         <button class="close-btn" id="faq-close">Zamknij</button>
       </div>
       <div class="faq-item">
-        <strong>Różnice między trybami MIXED, OFFLINE, ONLINE</strong>
-        <div>MIXED – używa cache, ale odświeża gdy dane są starsze niż TTL. OFFLINE – korzysta wyłącznie z danych z bazy. ONLINE – ignoruje cache i zawsze scrapuje na nowo.</div>
+        <strong>Różnice między trybami Standard, Tylko baza, Zawsze online</strong>
+        <div>Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.</div>
       </div>
       <div class="faq-item">
-        <strong>Strategie scrapera (Proxy / Cloud scraper / Local scraper (Selenium))</strong>
-        <div>Zaznacz co najmniej jedną. Proxy / Cloud scraper – scraping przez proxy. Local scraper (Selenium) – fallback z przeglądarką.</div>
+        <strong>Źródła danych (Proxy / Cloud, Local Selenium)</strong>
+        <div>Proxy / Cloud – scraping przez proxy w chmurze. Local Selenium – lokalny fallback z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.</div>
       </div>
       <div class="faq-item">
         <strong>Jak dodać nową kategorię</strong>
@@ -1213,7 +1515,7 @@
       </div>
       <div class="faq-item">
         <strong>Co zrobić, gdy analiza kończy się błędem</strong>
-        <div>Sprawdź komunikat w sekcji statusu. Upewnij się, że co najmniej jedna strategia scrapera jest włączona i że kategoria jest aktywna.</div>
+        <div>Sprawdź komunikat w sekcji statusu. Upewnij się, że kategoria jest aktywna oraz że w Ustawieniach masz wybrane źródła danych (jeśli tryb nie jest „Tylko baza”).</div>
       </div>
       <div class="faq-item">
         <strong>Co oznaczają pola kategorii: nazwa, mnożnik opłacalności i prowizja Allegro?</strong>
@@ -1230,6 +1532,8 @@
   <script>
     const categorySelect = document.getElementById('category-select');
     const categoryInfo = document.getElementById('category-info');
+    const categorySelectError = document.getElementById('category-select-error');
+    const fileError = document.getElementById('file-error');
     const categoriesList = document.getElementById('categories-list');
     const form = document.getElementById('upload-form');
     const errorBox = document.getElementById('error');
@@ -1237,15 +1541,16 @@
     const strategyOfflineHint = document.getElementById('strategy-offline-hint');
     const submitBtn = document.getElementById('submit-btn');
     const panel = document.getElementById('status-panel');
+    const statusEmpty = document.getElementById('status-empty');
+    const statusDetails = document.getElementById('status-details');
+    const resultsStep = document.getElementById('results-step');
     const fileInput = document.getElementById('file-input');
-    const basicToggle = document.getElementById('basic-toggle');
-    const basicBody = document.getElementById('basic-body');
-    const strategyToggle = document.getElementById('strategy-toggle');
-    const strategyBody = document.getElementById('strategy-body');
-    const dbToggle = document.getElementById('db-toggle');
-    const dbBody = document.getElementById('db-body');
-    const advancedToggle = document.getElementById('advanced-toggle');
-    const advancedBody = document.getElementById('advanced-body');
+    const modeHelper = document.getElementById('mode-helper');
+    const advancedModeToggle = document.getElementById('advanced-mode-toggle');
+    const settingsPanel = document.getElementById('settings-panel');
+    const settingsTabs = document.getElementById('settings-tabs');
+    const resetSettingsBtn = document.getElementById('reset-settings-btn');
+    const settingsResetSuccess = document.getElementById('settings-reset-success');
     const opsToggle = document.getElementById('ops-toggle');
     const opsBody = document.getElementById('ops-body');
     const currencyToggle = document.getElementById('currency-toggle');
@@ -1319,12 +1624,6 @@
     const resultsPageInfo = document.getElementById('results-page-info');
     const resultsPrev = document.getElementById('results-prev');
     const resultsNext = document.getElementById('results-next');
-    const scraperAdvancedToggle = document.getElementById('scraper-advanced-toggle');
-    const scraperAdvancedBody = document.getElementById('scraper-advanced-body');
-    const dbLimitToggle = document.getElementById('db-limit-toggle');
-    const dbLimitBody = document.getElementById('db-limit-body');
-    const dbAdvancedToggle = document.getElementById('db-advanced-toggle');
-    const dbAdvancedBody = document.getElementById('db-advanced-body');
     const marketCategory = document.getElementById('market-category');
     const marketEan = document.getElementById('market-ean');
     const marketSource = document.getElementById('market-source');
@@ -1344,7 +1643,20 @@
     let categoriesCache = [];
     let categoryDetailId = null;
     let marketState = { offset: 0, limit: 50, total: 0 };
-    let savedStrategyState = null;
+    let startTouched = false;
+    const DEFAULT_SETTINGS = {
+      use_cloud_http: true,
+      use_local_scraper: true,
+      local_scraper_windows: 1,
+      cache_ttl_days: 30,
+      db_last_days: 30,
+      db_only_success: false,
+      db_limit: '',
+      db_all_cached: false,
+      db_source: 'any',
+      db_ean_contains: '',
+    };
+    let settingsDefaults = { ...DEFAULT_SETTINGS };
 
     function normalizeMessage(msg) {
       if (!msg) return '';
@@ -1382,6 +1694,80 @@
     function briefSuccess(target) {
       target.textContent = 'Zapisano';
       setTimeout(() => { target.textContent = ''; }, 2000);
+    }
+
+    function scrollToResults() {
+      if (resultsStep && resultsStep.scrollIntoView) {
+        resultsStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function updateStartState() {
+      const hasCategory = Boolean(categorySelect.value) && !categorySelect.disabled;
+      const hasFile = Boolean(fileInput.files && fileInput.files.length);
+      submitBtn.disabled = !(hasCategory && hasFile);
+      if (startDbBtn) startDbBtn.disabled = !hasCategory;
+      if (!startTouched) {
+        categorySelectError.textContent = '';
+        fileError.textContent = '';
+        return hasCategory && hasFile;
+      }
+      if (hasCategory) {
+        categorySelectError.textContent = '';
+      } else if (categorySelect.disabled) {
+        categorySelectError.textContent = 'Dodaj kategorię, aby rozpocząć.';
+      } else {
+        categorySelectError.textContent = 'Wybierz kategorię.';
+      }
+      fileError.textContent = hasFile ? '' : 'Wybierz plik do analizy.';
+      return hasCategory && hasFile;
+    }
+
+    function applyDefaults() {
+      const useCloudInput = document.querySelector('input[name="use_cloud_http"]');
+      const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
+      if (useCloudInput) useCloudInput.checked = settingsDefaults.use_cloud_http;
+      if (useLocalInput) useLocalInput.checked = settingsDefaults.use_local_scraper;
+      if (localWindowsInput) localWindowsInput.value = settingsDefaults.local_scraper_windows;
+      if (cacheTtlInput) cacheTtlInput.value = settingsDefaults.cache_ttl_days;
+      if (dbLastDaysInput) dbLastDaysInput.value = settingsDefaults.db_last_days;
+      if (dbOnlySuccessInput) dbOnlySuccessInput.checked = settingsDefaults.db_only_success;
+      if (dbLimitInput) dbLimitInput.value = settingsDefaults.db_limit;
+      if (dbAllCachedInput) dbAllCachedInput.checked = settingsDefaults.db_all_cached;
+      if (dbSourceInput) dbSourceInput.value = settingsDefaults.db_source;
+      if (dbEanContainsInput) dbEanContainsInput.value = settingsDefaults.db_ean_contains;
+      toggleDbFilters();
+      updateStrategiesForMode();
+    }
+
+    function setAdvancedMode(enabled) {
+      if (!settingsPanel || !advancedModeToggle) return;
+      settingsPanel.classList.toggle('is-hidden', !enabled);
+      advancedModeToggle.checked = enabled;
+      localStorage.setItem('ui.advancedMode', enabled ? '1' : '0');
+    }
+
+    function setActiveSettingsTab(tabId) {
+      if (!settingsTabs || !tabId) return;
+      settingsTabs.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.classList.toggle('is-active', btn.dataset.tab === tabId);
+      });
+      document.querySelectorAll('[data-tab-panel]').forEach((panelEl) => {
+        panelEl.classList.toggle('is-active', panelEl.dataset.tabPanel === tabId);
+      });
+      localStorage.setItem('ui.settingsTab', tabId);
+    }
+
+    function initSettingsTabs() {
+      if (!settingsTabs) return;
+      const stored = localStorage.getItem('ui.settingsTab');
+      const initial = stored || settingsTabs.querySelector('.tab-btn')?.dataset.tab;
+      if (initial) setActiveSettingsTab(initial);
+      settingsTabs.addEventListener('click', (e) => {
+        const target = e.target.closest('.tab-btn');
+        if (!target) return;
+        setActiveSettingsTab(target.dataset.tab);
+      });
     }
 
     function formatDateTime(value) {
@@ -1437,6 +1823,16 @@
       return map[status] || status || '—';
     }
 
+    function modeLabel(mode) {
+      const key = String(mode || '').toLowerCase();
+      const map = {
+        mixed: 'Standard',
+        offline: 'Tylko baza',
+        online: 'Zawsze online',
+      };
+      return map[key] || mode || '—';
+    }
+
     function renderCurrencyRows(rates) {
       currencyList.innerHTML = '';
       rates.forEach((r, idx) => {
@@ -1445,10 +1841,12 @@
         row.innerHTML = `
           <input class="currency-code" data-idx="${idx}" type="text" value="${r.currency}" />
           <input class="currency-rate" data-idx="${idx}" type="number" step="0.0001" min="0" value="${r.rate_to_pln}" />
-          <button type="button" class="ghost-btn ghost-btn--small" data-default="${idx}" title="Ustaw jako domyślną">
-            ${r.is_default ? '★' : '☆'}
-          </button>
-          <button type="button" class="ghost-btn ghost-btn--small" data-remove="${idx}">Usuń</button>
+          <div class="currency-actions">
+            <button type="button" class="ghost-btn ghost-btn--small" data-default="${idx}" title="Ustaw jako domyślną">
+              ${r.is_default ? '★' : '☆'}
+            </button>
+            <button type="button" class="ghost-btn ghost-btn--small" data-remove="${idx}">Usuń</button>
+          </div>
         `;
         currencyList.appendChild(row);
       });
@@ -1510,9 +1908,9 @@
 
     function renderStrategies(run) {
       const strategies = [];
-      if (run.use_cloud_http) strategies.push('Proxy / Cloud scraper');
-      if (run.use_local_scraper) strategies.push('Local scraper (Selenium)');
-      return strategies.length ? strategies.join(' · ') : 'Brak danych';
+      if (run.use_cloud_http) strategies.push('Proxy / Cloud');
+      if (run.use_local_scraper) strategies.push('Local Selenium');
+      return strategies.length ? strategies.join(' · ') : 'Brak';
     }
 
     function renderActiveRuns(runs) {
@@ -1692,7 +2090,7 @@
           `;
         }).join('');
         resultsTable.innerHTML = `
-          <div style="overflow:auto; max-height:60vh;">
+          <div class="table-scroll">
             <table>
               <thead>
                 <tr>
@@ -1836,34 +2234,37 @@
         if (!data.length) {
           categorySelect.innerHTML = '';
           categorySelect.disabled = true;
-          submitBtn.disabled = true;
           categoryInfo.textContent = 'Brak aktywnych kategorii. Dodaj kategorię w sekcji „Kategorie” poniżej.';
           categoriesList.textContent = '';
+          updateStartState();
           return;
         }
         categorySelect.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
         categorySelect.disabled = false;
-        submitBtn.disabled = false;
         categoryInfo.textContent = '';
         renderCategoriesList();
         populateMarketCategories();
+        updateStartState();
       } catch (err) {
         categoryInfo.textContent = formatNetworkError(err, 'Nie udało się pobrać kategorii.');
         submitBtn.disabled = true;
+        updateStartState();
       }
     }
 
     function validateStrategies() {
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
+      const checked = boxes.filter(b => b.checked);
       if (mode === 'offline') {
+        strategyOfflineHint.textContent = 'W trybie Tylko baza scrapowanie jest wyłączone.';
         setMessage('', strategyError);
         return true;
       }
-      const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
-      const checked = boxes.filter(b => b.checked);
       if (!checked.length) {
-        setMessage('Włącz przynajmniej jedną strategię.', strategyError);
-        return false;
+        strategyOfflineHint.textContent = 'Brak aktywnych źródeł: analiza użyje tylko danych z bazy i cache.';
+      } else {
+        strategyOfflineHint.textContent = '';
       }
       setMessage('', strategyError);
       return true;
@@ -1872,27 +2273,11 @@
     function updateStrategiesForMode() {
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
       const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
-      if (mode === 'offline') {
-        if (!savedStrategyState) {
-          savedStrategyState = boxes.map(box => box.checked);
-        }
-        boxes.forEach((box) => {
-          box.checked = true;
-          box.disabled = true;
-        });
-        strategyOfflineHint.textContent = 'Tryb OFFLINE ignoruje strategie scrapera.';
-        strategyError.textContent = '';
-        return;
-      }
-
-      boxes.forEach((box, idx) => {
-        box.disabled = false;
-        if (savedStrategyState && savedStrategyState[idx] !== undefined) {
-          box.checked = savedStrategyState[idx];
-        }
+      const offline = mode === 'offline';
+      boxes.forEach((box) => {
+        box.disabled = offline;
       });
-      savedStrategyState = null;
-      strategyOfflineHint.textContent = '';
+      validateStrategies();
     }
 
     function setAccordionState(toggle, body, open, storageKey) {
@@ -1918,11 +2303,13 @@
       const allCached = dbAllCachedInput.checked;
       dbLastDaysInput.disabled = allCached;
       if (allCached) {
-        dbLastDaysInput.value = dbLastDaysInput.value || 30;
+        dbLastDaysInput.value = dbLastDaysInput.value || settingsDefaults.db_last_days;
       }
     }
 
     function setStatus(data) {
+      if (statusEmpty) statusEmpty.style.display = 'none';
+      if (statusDetails) statusDetails.style.display = 'grid';
       runStatusEl.textContent = statusLabel(data.status);
       const processed = data.processed_products ?? 0;
       const total = data.total_products ?? 0;
@@ -2016,24 +2403,37 @@
         if (!res.ok) {
           throw new Error(formatHttpError(res, data, 'Nie udało się pobrać ustawień.'));
         }
-        cacheTtlInput.value = data.cache_ttl_days ?? 30;
-        localWindowsInput.value = data.local_scraper_windows ?? 1;
+        settingsDefaults = {
+          ...DEFAULT_SETTINGS,
+          cache_ttl_days: data.cache_ttl_days ?? DEFAULT_SETTINGS.cache_ttl_days,
+          local_scraper_windows: data.local_scraper_windows ?? DEFAULT_SETTINGS.local_scraper_windows,
+        };
+        cacheTtlInput.value = settingsDefaults.cache_ttl_days;
+        localWindowsInput.value = settingsDefaults.local_scraper_windows;
         setMessage('', settingsInfo);
+        applyDefaults();
       } catch (err) {
-        cacheTtlInput.value = cacheTtlInput.value || 30;
-        localWindowsInput.value = localWindowsInput.value || 1;
+        cacheTtlInput.value = cacheTtlInput.value || DEFAULT_SETTINGS.cache_ttl_days;
+        localWindowsInput.value = localWindowsInput.value || DEFAULT_SETTINGS.local_scraper_windows;
+        settingsDefaults = {
+          ...DEFAULT_SETTINGS,
+          cache_ttl_days: Number(cacheTtlInput.value) || DEFAULT_SETTINGS.cache_ttl_days,
+          local_scraper_windows: Number(localWindowsInput.value) || DEFAULT_SETTINGS.local_scraper_windows,
+        };
         setMessage(
           formatNetworkError(err, 'Nie udało się pobrać ustawień. Używane są wartości domyślne.'),
           settingsInfo,
         );
+        applyDefaults();
       }
     }
 
     async function saveSettings(field) {
       setMessage('', settingsError);
+      settingsResetSuccess.textContent = '';
       const payload = {
-        cache_ttl_days: Number(cacheTtlInput.value) || 30,
-        local_scraper_windows: Number(localWindowsInput.value) || 1,
+        cache_ttl_days: Number(cacheTtlInput.value) || settingsDefaults.cache_ttl_days,
+        local_scraper_windows: Number(localWindowsInput.value) || settingsDefaults.local_scraper_windows,
       };
       try {
         const res = await fetch('/api/v1/settings/', {
@@ -2048,8 +2448,11 @@
         }
         cacheTtlInput.value = data.cache_ttl_days;
         localWindowsInput.value = data.local_scraper_windows;
+        settingsDefaults.cache_ttl_days = data.cache_ttl_days;
+        settingsDefaults.local_scraper_windows = data.local_scraper_windows;
         if (field === 'windows') briefSuccess(settingsWindowsSuccess);
         if (field === 'ttl') briefSuccess(settingsTtlSuccess);
+        if (field === 'reset') briefSuccess(settingsResetSuccess);
       } catch (err) {
         setMessage(formatNetworkError(err, 'Nie udało się zapisać ustawień.'), settingsError);
       }
@@ -2063,7 +2466,7 @@
 
       const created = formatDateTime(run.created_at || run.started_at);
       const finished = formatDateTime(run.finished_at);
-      const modeLabel = (run.mode || '').toUpperCase() || '—';
+      const modeText = modeLabel(run.mode);
       const finishedLabel = finished !== '-' ? finished : 'W toku / oczekuje';
       const statusBadge = `<span class="badge ${run.status}">${statusLabel(run.status)}</span>`;
       const downloadLink = run.status === 'completed'
@@ -2072,7 +2475,7 @@
 
       row.innerHTML = `
         <div><strong>${created}</strong><small>${finishedLabel}</small></div>
-        <div><strong>${run.category_name || 'Kategoria usunięta'}</strong><small>Tryb: ${modeLabel}</small></div>
+        <div><strong>${run.category_name || 'Kategoria usunięta'}</strong><small>Tryb: ${modeText}</small></div>
         <div><small>Strategie:</small> ${renderStrategies(run)}</div>
         <div><small>Postęp:</small> ${run.processed_products}/${run.total_products}</div>
         <div class="history-actions">
@@ -2233,8 +2636,12 @@
     }
 
     function getStrategyFlags() {
-      const useCloudInput = form.querySelector('input[name="use_cloud_http"]');
-      const useLocalInput = form.querySelector('input[name="use_local_scraper"]');
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const useCloudInput = document.querySelector('input[name="use_cloud_http"]');
+      const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
+      if (mode === 'offline') {
+        return { use_cloud_http: false, use_local_scraper: false };
+      }
       return {
         use_cloud_http: useCloudInput?.checked || false,
         use_local_scraper: useLocalInput?.checked || false,
@@ -2247,14 +2654,14 @@
       setMessage('', strategyError);
       downloadLink.style.display = 'none';
 
-      if (!validateStrategies()) return;
+      validateStrategies();
       if (!categorySelect.value) {
         setMessage('Wybierz kategorię do analizy.', dbError);
         return;
       }
 
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const cacheDays = dbAllCachedInput.checked ? null : (Number(dbLastDaysInput.value) || 30);
+      const cacheDays = dbAllCachedInput.checked ? null : (Number(dbLastDaysInput.value) || settingsDefaults.db_last_days);
       const limitValue = Number(dbLimitInput.value);
       const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : null;
       const flags = getStrategyFlags();
@@ -2285,9 +2692,9 @@
           setMessage(formatHttpError(res, data, 'Nie udało się uruchomić analizy z bazy.'), dbError);
           return;
         }
-        panel.style.display = 'block';
         runIdEl.textContent = data.analysis_run_id;
         setStatus({ status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+        scrollToResults();
         await pollStatus(data.analysis_run_id);
         await loadHistory();
         await loadActiveRuns();
@@ -2296,8 +2703,8 @@
         setMessage(formatNetworkError(err, 'Wystąpił błąd.'), dbError);
       } finally {
         startDbBtn.disabled = false;
-        submitBtn.disabled = false;
-        startDbBtn.textContent = 'Analiza z bazy';
+        updateStartState();
+        startDbBtn.textContent = 'Start analizy z bazy';
       }
     }
 
@@ -2350,11 +2757,9 @@
       setMessage('', strategyError);
       downloadLink.style.display = 'none';
 
-      if (!validateStrategies()) return;
-      if (!fileInput.files || !fileInput.files.length) {
-        setMessage('Wybierz plik do analizy.', errorBox);
-        return;
-      }
+      startTouched = true;
+      if (!updateStartState()) return;
+      validateStrategies();
 
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
@@ -2375,16 +2780,16 @@
           setMessage(formatHttpError(res, data, 'Nie udało się uruchomić analizy.'), errorBox);
           return;
         }
-        panel.style.display = 'block';
         runIdEl.textContent = data.analysis_run_id;
         setStatus({ status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+        scrollToResults();
         await pollStatus(data.analysis_run_id);
         await loadHistory();
       } catch (err) {
         setMessage(formatNetworkError(err, 'Wystąpił błąd.'), errorBox);
       } finally {
-        submitBtn.disabled = false;
         submitBtn.textContent = 'Start analizy';
+        updateStartState();
       }
     });
 
@@ -2392,27 +2797,35 @@
     form.querySelectorAll('input[name="mode"]').forEach((input) => {
       input.addEventListener('change', () => {
         updateStrategiesForMode();
-        validateStrategies();
       });
     });
+    fileInput.addEventListener('change', updateStartState);
+    categorySelect.addEventListener('change', updateStartState);
+    if (advancedModeToggle) {
+      advancedModeToggle.addEventListener('change', () => {
+        setAdvancedMode(advancedModeToggle.checked);
+      });
+    }
+    if (resetSettingsBtn) {
+      resetSettingsBtn.addEventListener('click', async () => {
+        applyDefaults();
+        await saveSettings('reset');
+      });
+    }
+    initSettingsTabs();
     startDbBtn.addEventListener('click', startFromDb);
     cancelRunBtn.addEventListener('click', () => {
       const runId = cancelRunBtn.dataset.runId || runIdEl.textContent;
       if (runId) cancelRun(runId);
     });
     dbAllCachedInput.addEventListener('change', toggleDbFilters);
-    initAccordion(basicToggle, basicBody, 'ui.basic', true);
-    initAccordion(strategyToggle, strategyBody, 'ui.strategy', false);
-    initAccordion(dbToggle, dbBody, 'ui.db', false);
-    initAccordion(advancedToggle, advancedBody, 'ui.advanced', false);
     initAccordion(opsToggle, opsBody, 'ui.ops', true);
     initAccordion(currencyToggle, currencyBody, 'ui.currency', false);
     initAccordion(categoriesToggle, categoriesBody, 'ui.categories', false);
-    initAccordion(scraperAdvancedToggle, scraperAdvancedBody, 'ui.scraperAdvanced', false);
-    initAccordion(dbLimitToggle, dbLimitBody, 'ui.dbLimit', false);
-    initAccordion(dbAdvancedToggle, dbAdvancedBody, 'ui.dbAdvanced', false);
     toggleDbFilters();
     updateStrategiesForMode();
+    updateStartState();
+    setAdvancedMode(localStorage.getItem('ui.advancedMode') === '1');
 
     previewBtn.addEventListener('click', (e) => {
       e.preventDefault();

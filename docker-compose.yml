@@ -89,12 +89,15 @@ services:
       - SELENIUM_USER_DATA_DIR=/data/chrome-profile
       - SELENIUM_KILL_EXISTING=1
       - SELENIUM_PROFILE_FALLBACK=${SELENIUM_PROFILE_FALLBACK:-1}
+      - SELENIUM_FORCE_TEMP_PROFILE=${SELENIUM_FORCE_TEMP_PROFILE:-1}
       - SELENIUM_TEMP_PROFILE_DIR=${SELENIUM_TEMP_PROFILE_DIR:-/tmp}
       - LOCAL_SCRAPER_ENABLE_VNC=${LOCAL_SCRAPER_ENABLE_VNC:-1}
       - SELENIUM_CHROME_LOG_PATH=${SELENIUM_CHROME_LOG_PATH:-}
       - SELENIUM_CHROMEDRIVER_LOG_PATH=${SELENIUM_CHROMEDRIVER_LOG_PATH:-}
       - LOCAL_SCRAPER_LISTING_TIMEOUT=50
       - LOCAL_SCRAPER_PAGELOAD_TIMEOUT=45
+      - LOCAL_SCRAPER_REQUEST_DELAY=${LOCAL_SCRAPER_REQUEST_DELAY:-3}
+      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
     ports:
       - "5050:5050"
       # Optional: noVNC (use SSH tunnel / firewall on VPS)
@@ -167,7 +170,7 @@ services:
       - PROXY_LIST=${PROXY_LIST:-}
       - WORKSPACE=/workspace
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=1 --prefetch-multiplier=1 --max-tasks-per-child=20"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-5} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - workspace_data:/workspace
     shm_size: 2gb # potrzebne dla selenium/chrome

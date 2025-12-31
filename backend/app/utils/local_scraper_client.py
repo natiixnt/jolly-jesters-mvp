@@ -49,6 +49,37 @@ def check_local_scraper_health(timeout_seconds: float = 2.0) -> Dict[str, Any]:
     }
 
 
+def update_local_scraper_windows(local_scraper_windows: int, timeout_seconds: float = 2.0) -> Dict[str, Any]:
+    url = build_local_scraper_url("config")
+    if not settings.LOCAL_SCRAPER_ENABLED:
+        return {"enabled": False, "url": url, "status": "disabled"}
+    if not url:
+        return {"enabled": True, "url": None, "status": "missing_url"}
+    payload = {"local_scraper_windows": max(1, int(local_scraper_windows or 1))}
+    try:
+        with httpx.Client(timeout=timeout_seconds) as client:
+            resp = client.put(url, json=payload)
+    except Exception as exc:
+        logger.warning(
+            "Local scraper config update failed url=%s err=%r",
+            url,
+            exc,
+            exc_info=True,
+        )
+        return {"enabled": True, "url": url, "status": "error", "error": repr(exc)}
+    try:
+        data = resp.json()
+    except Exception:
+        data = {"raw": resp.text}
+    return {
+        "enabled": True,
+        "url": url,
+        "status": "ok" if resp.status_code < 400 else "error",
+        "status_code": resp.status_code,
+        "data": data,
+    }
+
+
 def _parse_datetime(value: Any) -> Optional[datetime]:
     if isinstance(value, datetime):
         return value

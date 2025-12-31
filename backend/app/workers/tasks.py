@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import socket
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -40,6 +41,13 @@ TERMINAL_STATUSES = {
 }
 
 
+def _env_flag_enabled(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _error_message_from_result(result) -> str | None:
     if getattr(result, "error", None):
         return str(result.error)
@@ -70,6 +78,17 @@ def _status_and_error(result) -> tuple[ScrapeStatus, str | None]:
     if result.is_temporary_error:
         return ScrapeStatus.error, error_message or "temporary_error"
     return ScrapeStatus.ok, None
+
+
+def _maybe_fail_run_on_blocked(run: AnalysisRun, error_message: str | None) -> None:
+    if not _env_flag_enabled("LOCAL_SCRAPER_STOP_ON_BLOCKED", default=True):
+        return
+    if run.status in {AnalysisStatus.failed, AnalysisStatus.canceled, AnalysisStatus.completed}:
+        return
+    reason = error_message or "blocked"
+    run.status = AnalysisStatus.failed
+    run.error_message = reason
+    run.finished_at = datetime.now(timezone.utc)
 
 
 def _should_fallback_local(strategy_snapshot: dict | None) -> bool:
@@ -123,7 +142,7 @@ def _apply_scrape_result(
 
 
 def _finalize_item(db: SessionLocal, run: AnalysisRun, item: AnalysisRunItem, prev_status: ScrapeStatus | None) -> None:
-    if run.status == AnalysisStatus.canceled:
+    if run.status in {AnalysisStatus.canceled, AnalysisStatus.failed}:
         db.commit()
         return
     if prev_status not in TERMINAL_STATUSES:
@@ -285,6 +304,8 @@ def scrape_one_local(
             item.profitability_score = None
             item.profitability_label = None
             item.error_message = error_message or _serialize_payload(result.raw_payload)
+            if status == ScrapeStatus.blocked:
+                _maybe_fail_run_on_blocked(run, item.error_message)
             _finalize_item(db, run, item, prev_status)
             return
 
