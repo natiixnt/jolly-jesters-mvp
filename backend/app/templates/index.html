@@ -869,9 +869,15 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      vertical-align: top;
     }
     .results-table tbody tr:hover { background: rgba(255,255,255,0.02); cursor: pointer; }
-    .results-detail { background: #0b152b; color: var(--muted); }
+    .results-detail { background: #0b152b; color: var(--muted); cursor: default; }
+    .results-detail td {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+    }
     .results-pagination {
       margin-top: 12px;
       display: flex;
@@ -903,7 +909,11 @@
       font-size: 12px;
       border: 1px solid var(--border);
     }
-    .detail-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .detail-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); overflow-wrap: anywhere; }
+    .detail-grid > * { min-width: 0; }
+    @media (max-width: 768px) {
+      .detail-grid { grid-template-columns: minmax(0, 1fr); }
+    }
     .results-empty { color: var(--muted); margin-top: 12px; }
     .results-banner {
       margin-top: 8px;
@@ -2138,7 +2148,7 @@
           `;
         }).join('');
         resultsTable.innerHTML = `
-          <div class="table-scroll">
+          <div class="results-table__inner">
             <table>
               <thead>
                 <tr>
