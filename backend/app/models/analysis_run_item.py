@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -30,6 +30,12 @@ class AnalysisRunItem(Base):
         nullable=False,
         server_default=ScrapeStatus.pending.value,
         default=ScrapeStatus.pending,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
     analysis_run = relationship("AnalysisRun", back_populates="items")

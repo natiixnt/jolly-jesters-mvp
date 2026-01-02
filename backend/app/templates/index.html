@@ -555,6 +555,34 @@
     .status-details { display: grid; gap: 6px; }
     .status-row { display: flex; gap: 8px; margin-top: 6px; color: var(--muted); font-size: 14px; align-items: center; }
     .status-row > * { min-width: 0; }
+    .status-spinner {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid rgba(148,163,184,0.4);
+      border-top-color: var(--accent);
+      animation: spin 0.9s linear infinite;
+      display: none;
+    }
+    .status-spinner.is-active { display: inline-block; }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status-log {
+      margin-top: 8px;
+      display: none;
+      gap: 4px;
+      max-height: 140px;
+      overflow: auto;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #0b152b;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .status-log__item { color: var(--muted); }
+    .status-log__item--error { color: var(--danger); }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -1134,8 +1162,13 @@
               <div class="status-empty" id="status-empty">Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.</div>
               <div class="status-details" id="status-details" style="display:none;">
                 <div class="pill">Run ID: <span id="run-id"></span></div>
-                <div class="status-row"><strong>Status:</strong> <span id="run-status"></span></div>
+                <div class="status-row">
+                  <strong>Status:</strong>
+                  <span id="run-status"></span>
+                  <span class="status-spinner" id="status-spinner" aria-hidden="true"></span>
+                </div>
                 <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
+                <div class="status-row"><strong>Ostatnia aktualizacja:</strong> <span id="run-updated">—</span></div>
                 <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
                 <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
                 <div class="button-row" id="status-actions" style="margin-top:8px; display:none;">
@@ -1145,6 +1178,7 @@
                   <button class="action-btn" id="preview-link" type="button">Podgląd wyników</button>
                   <a class="action-btn secondary" id="download-link" href="#">⬇ Pobierz raport</a>
                 </div>
+                <div class="status-log" id="status-log" aria-live="polite"></div>
               </div>
             </div>
           </div>
@@ -1682,6 +1716,9 @@
     const resultsPageInfo = document.getElementById('results-page-info');
     const resultsPrev = document.getElementById('results-prev');
     const resultsNext = document.getElementById('results-next');
+    const runUpdatedEl = document.getElementById('run-updated');
+    const statusSpinner = document.getElementById('status-spinner');
+    const statusLog = document.getElementById('status-log');
     const marketCategory = document.getElementById('market-category');
     const marketEan = document.getElementById('market-ean');
     const marketSource = document.getElementById('market-source');
@@ -1698,6 +1735,9 @@
     let refreshTimer = null;
     let refreshInFlight = false;
     let previewState = { runId: null, offset: 0, limit: 50, total: 0 };
+    let runStream = null;
+    let runStreamState = { runId: null, since: null, sinceId: null, lastStatus: null };
+    let resultsPollTimer = null;
     let categoriesCache = [];
     let categoryDetailId = null;
     let marketState = { offset: 0, limit: 50, total: 0 };
@@ -2026,6 +2066,16 @@
         }
         const runs = Array.isArray(data) ? data : (data.runs || []);
         renderActiveRuns(runs);
+        const activeRun = runs.find((run) => run.status === 'pending' || run.status === 'running');
+        if (activeRun) {
+          if (String(runStreamState.runId || '') !== String(activeRun.id)) {
+            runIdEl.textContent = activeRun.id;
+            setStatus({ ...activeRun, id: activeRun.id, updated_at: new Date().toISOString() });
+            startRunStream(activeRun.id);
+          }
+        } else if (runStreamState.runId) {
+          stopRunStream();
+        }
       } catch (err) {
         activeRuns.innerHTML = '';
         activeRunsEmpty.style.display = 'none';
@@ -2089,6 +2139,122 @@
       return 'ok';
     }
 
+    function buildResultsRowCells(item) {
+      const profitableLabel = item.is_profitable === true ? 'tak' : item.is_profitable === false ? 'nie' : '—';
+      const scrapeStatus = item.scrape_status || 'ok';
+      const statusLabelText = scrapeStatusLabel(scrapeStatus);
+      return `
+        <td>${item.ean || '—'}</td>
+        <td>${item.name || '—'}</td>
+        <td>${item.original_currency || 'PLN'}</td>
+        <td>${formatMoneyWithCurrency(item.original_purchase_price, item.original_currency)}</td>
+        <td>${formatMoney(item.allegro_price_pln)}</td>
+        <td>${formatMoney(item.margin_pln)}</td>
+        <td>${formatPercent(item.margin_percent)}</td>
+        <td>${profitableLabel}</td>
+        <td>${item.source ? `<span class="source-chip">${item.source}</span>` : '—'}</td>
+        <td>${formatDateTime(item.last_checked_at)}</td>
+        <td><span class="status-chip ${scrapeStatus}">${statusLabelText}</span></td>
+      `;
+    }
+
+    function buildResultsDetailCells(item) {
+      const scrapeStatus = item.scrape_status || 'ok';
+      const statusLabelText = scrapeStatusLabel(scrapeStatus);
+      return `
+        <td colspan="11">
+          <div class="detail-grid">
+            <div><strong>Źródło:</strong> ${item.source || '—'}</div>
+            <div><strong>Status scrapingu:</strong> ${statusLabelText}</div>
+            <div><strong>Ostatnio sprawdzono:</strong> ${formatDateTime(item.last_checked_at)}</div>
+            <div><strong>Błąd scrapingu:</strong> ${item.scrape_error_message || '—'}</div>
+            <div><strong>Oryginalna waluta:</strong> ${item.original_currency || 'PLN'}</div>
+            <div><strong>Oryginalna cena:</strong> ${item.original_purchase_price !== null && item.original_purchase_price !== undefined ? item.original_purchase_price + ' ' + (item.original_currency || '') : '—'}</div>
+            <div><strong>Liczba sprzedanych:</strong> ${item.sold_count ?? '—'}</div>
+          </div>
+        </td>
+      `;
+    }
+
+    function ensureResultsTableStructure() {
+      if (!resultsTable.querySelector('table')) {
+        resultsTable.innerHTML = `
+          <div class="results-table__inner">
+            <table>
+              <thead>
+                <tr>
+                  <th>EAN</th>
+                  <th>Nazwa</th>
+                  <th>Waluta</th>
+                  <th>Cena zakupu</th>
+                  <th>Cena Allegro</th>
+                  <th>Marża</th>
+                  <th>Marża %</th>
+                  <th>Opłacalny</th>
+                  <th>Źródło</th>
+                  <th>Ostatnio sprawdzono</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        `;
+      }
+      return resultsTable.querySelector('tbody');
+    }
+
+    function toggleResultsDetail(id) {
+      const detail = resultsTable.querySelector(`tr[data-detail-id="${id}"]`);
+      if (!detail) return;
+      const isVisible = detail.style.display === 'table-row';
+      detail.style.display = isVisible ? 'none' : 'table-row';
+    }
+
+    function upsertResultsRow(item) {
+      if (!resultsTable || !item || !item.id) return;
+      const tbody = ensureResultsTableStructure();
+      const rowId = String(item.id);
+      const rowNumber = Number(item.row_number || 0);
+
+      let row = tbody.querySelector(`tr[data-id="${rowId}"]`);
+      let detail = tbody.querySelector(`tr[data-detail-id="${rowId}"]`);
+      if (row) {
+        row.innerHTML = buildResultsRowCells(item);
+      } else {
+        row = document.createElement('tr');
+        row.dataset.id = rowId;
+        if (rowNumber) row.dataset.rowNumber = String(rowNumber);
+        row.innerHTML = buildResultsRowCells(item);
+        row.addEventListener('click', () => toggleResultsDetail(rowId));
+      }
+
+      if (detail) {
+        detail.innerHTML = buildResultsDetailCells(item);
+      } else {
+        detail = document.createElement('tr');
+        detail.className = 'results-detail';
+        detail.dataset.detailId = rowId;
+        detail.style.display = 'none';
+        detail.innerHTML = buildResultsDetailCells(item);
+      }
+
+      if (!row.parentElement) {
+        const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+        const insertBefore = rows.find((existing) => {
+          const existingNumber = Number(existing.dataset.rowNumber || 0);
+          return rowNumber && existingNumber && existingNumber > rowNumber;
+        });
+        if (insertBefore) {
+          tbody.insertBefore(row, insertBefore);
+          tbody.insertBefore(detail, insertBefore);
+        } else {
+          tbody.appendChild(row);
+          tbody.appendChild(detail);
+        }
+      }
+    }
+
     function renderResultsTable(data) {
       resultsError.textContent = data.error_message || '';
       const metaParts = [`Run #${data.run_id}`, `Status: ${statusLabel(data.status)}`];
@@ -2114,70 +2280,11 @@
         }
       } else {
         resultsEmpty.style.display = 'none';
-        const rows = data.items.map((item, idx) => {
-          const profitableLabel = item.is_profitable === true ? 'tak' : item.is_profitable === false ? 'nie' : '—';
-          const scrapeStatus = item.scrape_status || 'ok';
-          const statusLabel = scrapeStatusLabel(scrapeStatus);
-          return `
-            <tr data-row="${idx}">
-              <td>${item.ean || '—'}</td>
-              <td>${item.name || '—'}</td>
-              <td>${item.original_currency || 'PLN'}</td>
-              <td>${formatMoneyWithCurrency(item.original_purchase_price, item.original_currency)}</td>
-              <td>${formatMoney(item.allegro_price_pln)}</td>
-              <td>${formatMoney(item.margin_pln)}</td>
-              <td>${formatPercent(item.margin_percent)}</td>
-              <td>${profitableLabel}</td>
-              <td>${item.source ? `<span class="source-chip">${item.source}</span>` : '—'}</td>
-              <td>${formatDateTime(item.last_checked_at)}</td>
-              <td><span class="status-chip ${scrapeStatus}">${statusLabel}</span></td>
-            </tr>
-            <tr class="results-detail" data-detail="${idx}" style="display:none;">
-              <td colspan="11">
-                <div class="detail-grid">
-                  <div><strong>Źródło:</strong> ${item.source || '—'}</div>
-                  <div><strong>Status scrapingu:</strong> ${statusLabel}</div>
-                  <div><strong>Ostatnio sprawdzono:</strong> ${formatDateTime(item.last_checked_at)}</div>
-                  <div><strong>Błąd scrapingu:</strong> ${item.scrape_error_message || '—'}</div>
-                  <div><strong>Oryginalna waluta:</strong> ${item.original_currency || 'PLN'}</div>
-                  <div><strong>Oryginalna cena:</strong> ${item.original_purchase_price !== null && item.original_purchase_price !== undefined ? item.original_purchase_price + ' ' + (item.original_currency || '') : '—'}</div>
-                  <div><strong>Liczba sprzedanych:</strong> ${item.sold_count ?? '—'}</div>
-                </div>
-              </td>
-            </tr>
-          `;
-        }).join('');
-        resultsTable.innerHTML = `
-          <div class="results-table__inner">
-            <table>
-              <thead>
-                <tr>
-                  <th>EAN</th>
-                  <th>Nazwa</th>
-                  <th>Waluta</th>
-                  <th>Cena zakupu</th>
-                  <th>Cena Allegro</th>
-                  <th>Marża</th>
-                  <th>Marża %</th>
-                  <th>Opłacalny</th>
-                  <th>Źródło</th>
-                  <th>Ostatnio sprawdzono</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        `;
-        resultsTable.querySelectorAll('tr[data-row]').forEach((row) => {
-          row.addEventListener('click', () => {
-            const idx = row.getAttribute('data-row');
-            const detail = resultsTable.querySelector(`tr[data-detail="${idx}"]`);
-            if (detail) {
-              const isVisible = detail.style.display === 'table-row';
-              detail.style.display = isVisible ? 'none' : 'table-row';
-            }
-          });
+        ensureResultsTableStructure();
+        const tbody = resultsTable.querySelector('tbody');
+        tbody.innerHTML = '';
+        data.items.forEach((item) => {
+          upsertResultsRow(item);
         });
       }
 
@@ -2219,6 +2326,7 @@
     function openResultsModal(runId) {
       if (!runId) return;
       resultsModal.style.display = 'flex';
+      previewState.runId = runId;
       loadResults(runId, 0);
     }
 
@@ -2365,6 +2473,41 @@
       }
     }
 
+    function setLastUpdated(value) {
+      if (!runUpdatedEl) return;
+      if (!value) {
+        runUpdatedEl.textContent = '—';
+        return;
+      }
+      runUpdatedEl.textContent = formatDateTime(value);
+    }
+
+    function setSpinner(status) {
+      if (!statusSpinner) return;
+      const active = status === 'pending' || status === 'running';
+      statusSpinner.classList.toggle('is-active', active);
+    }
+
+    function appendStatusLog(message, level = 'info') {
+      if (!statusLog || !message) return;
+      const entry = document.createElement('div');
+      entry.className = `status-log__item${level === 'error' ? ' status-log__item--error' : ''}`;
+      entry.textContent = message;
+      statusLog.appendChild(entry);
+      const maxEntries = 200;
+      while (statusLog.children.length > maxEntries) {
+        statusLog.removeChild(statusLog.firstChild);
+      }
+      statusLog.style.display = 'grid';
+      statusLog.scrollTop = statusLog.scrollHeight;
+    }
+
+    function clearStatusLog() {
+      if (!statusLog) return;
+      statusLog.innerHTML = '';
+      statusLog.style.display = 'none';
+    }
+
     function setStatus(data) {
       if (statusEmpty) statusEmpty.style.display = 'none';
       if (statusDetails) statusDetails.style.display = 'grid';
@@ -2376,6 +2519,8 @@
       progressBar.style.width = `${pct}%`;
       const errorFallback = data.status === 'canceled' ? 'Analiza została anulowana.' : '';
       runErrorEl.textContent = data.error_message || errorFallback;
+      setLastUpdated(data.updated_at || new Date().toISOString());
+      setSpinner(data.status);
       const showDownload = data.status === 'completed';
       const showPreview = Boolean(data.id) && (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled' || processed > 0);
       if (showDownload) {
@@ -2396,6 +2541,19 @@
     function stopPolling() {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = null;
+    }
+
+    function stopResultsPolling() {
+      if (resultsPollTimer) clearInterval(resultsPollTimer);
+      resultsPollTimer = null;
+    }
+
+    function stopRunStream() {
+      if (runStream) {
+        runStream.close();
+      }
+      runStream = null;
+      runStreamState = { runId: null, since: null, sinceId: null, lastStatus: null };
     }
 
     function stopAutoRefresh() {
@@ -2426,6 +2584,157 @@
       refreshTimer = setInterval(runAutoRefresh, intervalMs);
     }
 
+    function updateResultsMetaFromStatus(payload) {
+      if (!previewState.runId || !resultsMeta) return;
+      if (String(previewState.runId) !== String(payload.id)) return;
+      previewState.total = payload.total_products ?? previewState.total;
+      const metaParts = [`Run #${payload.id}`, `Status: ${statusLabel(payload.status)}`];
+      if (typeof previewState.total === 'number') metaParts.push(`Wiersze: ${previewState.total}`);
+      resultsMeta.textContent = metaParts.join(' · ');
+      if (resultsPageInfo && typeof previewState.total === 'number') {
+        const start = previewState.total ? Math.min(previewState.total, previewState.offset + 1) : 0;
+        const end = previewState.total ? Math.min(previewState.total, previewState.offset + previewState.limit) : 0;
+        resultsPageInfo.textContent = previewState.total ? `${start}-${end} z ${previewState.total}` : '';
+      }
+      if (payload.status === 'canceled') {
+        resultsBanner.textContent = payload.error_message || 'Analiza została anulowana.';
+        resultsBanner.style.display = 'block';
+      } else if (payload.status === 'failed') {
+        resultsBanner.textContent = payload.error_message || 'Analiza przerwana.';
+        resultsBanner.style.display = 'block';
+      } else {
+        resultsBanner.textContent = '';
+        resultsBanner.style.display = 'none';
+      }
+    }
+
+    function handleStreamRow(item) {
+      if (!item || !item.id) return;
+      const showInTable = resultsModal.style.display === 'flex'
+        && String(previewState.runId || '') === String(runStreamState.runId || '');
+
+      if (showInTable) {
+        const rowNumber = Number(item.row_number || 0);
+        const start = previewState.offset + 1;
+        const end = previewState.offset + previewState.limit;
+        if (rowNumber && (rowNumber < start || rowNumber > end)) {
+          return;
+        }
+        resultsEmpty.style.display = 'none';
+        upsertResultsRow(item);
+      }
+
+      if (
+        item.scrape_status === 'error'
+        || item.scrape_status === 'network_error'
+        || item.scrape_status === 'blocked'
+        || item.scrape_error_message
+      ) {
+        const message = item.scrape_error_message
+          ? `EAN ${item.ean}: ${item.scrape_error_message}`
+          : `EAN ${item.ean}: ${scrapeStatusLabel(item.scrape_status)}`;
+        appendStatusLog(message, 'error');
+      }
+    }
+
+    async function fetchResultsUpdates(runId) {
+      if (!runId) return;
+      const params = new URLSearchParams();
+      if (runStreamState.since) params.set('since', runStreamState.since);
+      if (runStreamState.sinceId) params.set('since_id', runStreamState.sinceId);
+      try {
+        const res = await fetch(`/api/v1/analysis/${runId}/results/updates?${params.toString()}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać wyników.'));
+        }
+        if (data.next_since) {
+          runStreamState.since = data.next_since;
+        } else if (!runStreamState.since) {
+          runStreamState.since = new Date().toISOString();
+        }
+        if (data.next_since_id) {
+          runStreamState.sinceId = data.next_since_id;
+        } else if (!runStreamState.sinceId && runStreamState.since) {
+          runStreamState.sinceId = 0;
+        }
+        (data.items || []).forEach(handleStreamRow);
+      } catch (err) {
+        appendStatusLog(formatNetworkError(err, 'Błąd odświeżania wyników.'), 'error');
+      }
+    }
+
+    function startResultsPolling(runId) {
+      stopResultsPolling();
+      resultsPollTimer = setInterval(() => {
+        fetchResultsUpdates(runId);
+      }, 3000);
+    }
+
+    function startFallbackPolling(runId) {
+      stopRunStream();
+      runStreamState = { runId, since: null, sinceId: null, lastStatus: null };
+      pollStatus(runId);
+      startResultsPolling(runId);
+    }
+
+    function startRunStream(runId) {
+      if (!runId) return;
+      stopPolling();
+      stopResultsPolling();
+      clearStatusLog();
+      runStreamState = { runId, since: null, sinceId: null, lastStatus: null };
+
+      if (!window.EventSource) {
+        startFallbackPolling(runId);
+        return;
+      }
+
+      runStream = new EventSource(`/api/v1/analysis/${runId}/stream`);
+      runStream.addEventListener('status', (event) => {
+        const data = JSON.parse(event.data);
+        setStatus(data);
+        updateResultsMetaFromStatus(data);
+        if (data.error_message) appendStatusLog(data.error_message, 'error');
+        if (runStreamState.lastStatus !== data.status) {
+          appendStatusLog(`Status: ${statusLabel(data.status)}`);
+          runStreamState.lastStatus = data.status;
+        }
+      });
+      runStream.addEventListener('progress', (event) => {
+        const data = JSON.parse(event.data);
+        setStatus(data);
+        updateResultsMetaFromStatus(data);
+      });
+      runStream.addEventListener('row', (event) => {
+        const data = JSON.parse(event.data);
+        handleStreamRow(data);
+      });
+      runStream.addEventListener('error', (event) => {
+        if (!event.data) return;
+        try {
+          const payload = JSON.parse(event.data);
+          appendStatusLog(payload.message || 'Błąd analizy.', 'error');
+        } catch (err) {
+          appendStatusLog('Błąd analizy.', 'error');
+        }
+      });
+      runStream.addEventListener('done', async (event) => {
+        const data = JSON.parse(event.data);
+        setStatus(data);
+        updateResultsMetaFromStatus(data);
+        stopRunStream();
+        stopResultsPolling();
+        await loadHistory();
+        await loadActiveRuns();
+      });
+      runStream.onerror = () => {
+        if (runStream && runStream.readyState === EventSource.CLOSED) {
+          startFallbackPolling(runId);
+        }
+      };
+    }
+
     async function pollStatus(runId) {
       stopPolling();
       const fetchStatus = async () => {
@@ -2434,6 +2743,11 @@
           if (!res.ok) throw new Error('Nie udało się pobrać statusu.');
           const data = await res.json();
           setStatus(data);
+          updateResultsMetaFromStatus(data);
+          if (runStreamState.lastStatus !== data.status) {
+            appendStatusLog(`Status: ${statusLabel(data.status)}`);
+            runStreamState.lastStatus = data.status;
+          }
 
           if (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled') {
             if (data.status === 'failed') {
@@ -2443,6 +2757,7 @@
               runErrorEl.textContent = data.error_message || 'Analiza została anulowana.';
             }
             stopPolling();
+            stopResultsPolling();
             await loadHistory();
             await loadActiveRuns();
           }
@@ -2751,9 +3066,9 @@
           return;
         }
         runIdEl.textContent = data.analysis_run_id;
-        setStatus({ status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+        setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
         scrollToResults();
-        await pollStatus(data.analysis_run_id);
+        startRunStream(data.analysis_run_id);
         await loadHistory();
         await loadActiveRuns();
         await loadActiveRuns();
@@ -2780,6 +3095,8 @@
         if (isCurrent) {
           setStatus(data);
           stopPolling();
+          stopResultsPolling();
+          stopRunStream();
         }
         await loadHistory();
         await loadActiveRuns();
@@ -2802,7 +3119,7 @@
         }
         await loadHistory();
         if (Number(runId) === Number(runIdEl.textContent)) {
-          await pollStatus(runId);
+          startRunStream(runId);
         }
       } catch (err) {
         historyError.textContent = formatNetworkError(err, 'Błąd retry.');
@@ -2839,9 +3156,9 @@
           return;
         }
         runIdEl.textContent = data.analysis_run_id;
-        setStatus({ status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+        setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
         scrollToResults();
-        await pollStatus(data.analysis_run_id);
+        startRunStream(data.analysis_run_id);
         await loadHistory();
       } catch (err) {
         setMessage(formatNetworkError(err, 'Wystąpił błąd.'), errorBox);

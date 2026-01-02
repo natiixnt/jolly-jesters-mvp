@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Callable, Iterable, List, Tuple
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
@@ -794,6 +794,7 @@ def serialize_analysis_item(
 
     return AnalysisResultItem(
         id=item.id,
+        row_number=item.row_number,
         ean=item.ean,
         name=name,
         original_currency=item.original_currency,
@@ -808,6 +809,43 @@ def serialize_analysis_item(
         scrape_status=_resolve_scrape_status(item),
         scrape_error_message=item.error_message,
         last_checked_at=last_checked_at,
+        updated_at=getattr(item, "updated_at", None),
+    )
+
+
+def list_run_items_updated_since(
+    db: Session,
+    run_id: int,
+    since: datetime | None = None,
+    since_id: int | None = None,
+    limit: int = 200,
+) -> list[AnalysisRunItem]:
+    query = (
+        db.query(AnalysisRunItem)
+        .options(
+            selectinload(AnalysisRunItem.product)
+            .selectinload(Product.effective_state)
+            .selectinload(ProductEffectiveState.last_market_data)
+        )
+        .filter(AnalysisRunItem.analysis_run_id == run_id)
+        .filter(AnalysisRunItem.scrape_status != ScrapeStatus.pending)
+    )
+
+    if since:
+        if since_id:
+            query = query.filter(
+                or_(
+                    AnalysisRunItem.updated_at > since,
+                    and_(AnalysisRunItem.updated_at == since, AnalysisRunItem.id > since_id),
+                )
+            )
+        else:
+            query = query.filter(AnalysisRunItem.updated_at > since)
+
+    return (
+        query.order_by(AnalysisRunItem.updated_at.asc(), AnalysisRunItem.id.asc())
+        .limit(max(1, min(limit, 500)))
+        .all()
     )
 
 
@@ -853,4 +891,56 @@ def get_run_results(db: Session, run_id: int, offset: int = 0, limit: int = 100)
         total=total,
         error_message=run.error_message,
         items=results,
+        next_since=None,
+        next_since_id=None,
+    )
+
+
+def get_run_results_since(
+    db: Session,
+    run_id: int,
+    since: datetime | None = None,
+    since_id: int | None = None,
+    limit: int = 200,
+) -> AnalysisResultsResponse | None:
+    run = (
+        db.query(AnalysisRun)
+        .options(selectinload(AnalysisRun.category))
+        .filter(AnalysisRun.id == run_id)
+        .first()
+    )
+    if not run:
+        return None
+
+    items = list_run_items_updated_since(db, run_id=run_id, since=since, since_id=since_id, limit=limit)
+
+    total = (
+        db.query(func.count(AnalysisRunItem.id))
+        .filter(AnalysisRunItem.analysis_run_id == run_id)
+        .scalar()
+        or 0
+    )
+
+    commission_rate = Decimal(run.category.commission_rate or 0) if run.category else Decimal(0)
+    results: list[AnalysisResultItem] = []
+    next_since = since
+    next_since_id = since_id
+    for item in items:
+        results.append(serialize_analysis_item(item, run.category, commission_rate))
+        item_updated = getattr(item, "updated_at", None)
+        if item_updated:
+            if not next_since or item_updated > next_since:
+                next_since = item_updated
+                next_since_id = item.id
+            elif item_updated == next_since and (next_since_id is None or item.id > next_since_id):
+                next_since_id = item.id
+
+    return AnalysisResultsResponse(
+        run_id=run.id,
+        status=run.status,
+        total=total,
+        error_message=run.error_message,
+        items=results,
+        next_since=next_since,
+        next_since_id=next_since_id,
     )

@@ -1,12 +1,16 @@
+import asyncio
+import json
 import uuid
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.category import Category
-from app.models.enums import AnalysisStatus
+from app.models.enums import AnalysisStatus, ScrapeStatus
 from app.schemas.analysis import (
     AnalysisResultsResponse,
     AnalysisRetryResponse,
@@ -25,6 +29,14 @@ from app.utils.local_scraper_client import check_local_scraper_health
 from app.workers.tasks import celery_app, run_analysis_task, scrape_one_cloud, scrape_one_local
 
 router = APIRouter(tags=["analysis"])
+
+STREAM_POLL_INTERVAL = 2.0
+STREAM_HEARTBEAT_INTERVAL = 5.0
+
+
+def _sse_event(event_type: str, payload: dict) -> str:
+    data = json.dumps(jsonable_encoder(payload), ensure_ascii=False)
+    return f"event: {event_type}\ndata: {data}\n\n"
 
 
 def _validate_strategy(use_cloud_http: bool, use_local_scraper: bool):
@@ -271,6 +283,132 @@ def get_analysis_results(
     if not results:
         raise HTTPException(status_code=404, detail="Analysis not found")
     return results
+
+
+@router.get("/{run_id}/results/updates", response_model=AnalysisResultsResponse)
+def get_analysis_results_updates(
+    run_id: int,
+    since: datetime | None = None,
+    since_id: int | None = None,
+    limit: int = 200,
+    db: Session = Depends(get_db),
+):
+    results = analysis_service.get_run_results_since(
+        db,
+        run_id=run_id,
+        since=since,
+        since_id=since_id,
+        limit=limit,
+    )
+    if not results:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return results
+
+
+@router.get("/{run_id}/stream")
+async def stream_analysis(run_id: int, request: Request):
+    async def event_generator():
+        last_status = None
+        last_processed = None
+        last_total = None
+        last_error = None
+        last_heartbeat = datetime.now(timezone.utc)
+        since = None
+        since_id = None
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            now = datetime.now(timezone.utc)
+            with SessionLocal() as db:
+                run = analysis_service.get_run_status(db, run_id)
+                if not run:
+                    yield _sse_event("error", {"message": "Analysis not found"})
+                    break
+
+                status_payload = {
+                    "id": run.id,
+                    "status": run.status,
+                    "processed_products": run.processed_products,
+                    "total_products": run.total_products,
+                    "error_message": run.error_message,
+                    "updated_at": now.isoformat(),
+                }
+
+                status_changed = last_status != run.status or last_error != run.error_message
+                progress_changed = (
+                    last_processed != run.processed_products
+                    or last_total != run.total_products
+                )
+
+                if status_changed:
+                    yield _sse_event("status", status_payload)
+                if progress_changed:
+                    yield _sse_event("progress", status_payload)
+
+                if status_changed:
+                    last_status = run.status
+                    last_error = run.error_message
+                if progress_changed:
+                    last_processed = run.processed_products
+                    last_total = run.total_products
+
+                updates = analysis_service.get_run_results_since(
+                    db,
+                    run_id=run_id,
+                    since=since,
+                    since_id=since_id,
+                    limit=200,
+                )
+                if updates:
+                    if updates.items:
+                        since = updates.next_since or since
+                        since_id = updates.next_since_id or since_id
+                        for item in updates.items:
+                            yield _sse_event("row", item.dict())
+                            if (
+                                item.scrape_status in {ScrapeStatus.error, ScrapeStatus.network_error, ScrapeStatus.blocked}
+                                or item.scrape_error_message
+                            ):
+                                yield _sse_event(
+                                    "error",
+                                    {
+                                        "message": item.scrape_error_message or "Błąd scrapingu",
+                                        "item_id": item.id,
+                                        "ean": item.ean,
+                                    },
+                                )
+                    elif since is None:
+                        since = now
+                        since_id = 0
+
+                if run.status in {AnalysisStatus.completed, AnalysisStatus.failed, AnalysisStatus.canceled}:
+                    yield _sse_event(
+                        "done",
+                        {
+                            "id": run.id,
+                            "status": run.status,
+                            "processed_products": run.processed_products,
+                            "total_products": run.total_products,
+                            "error_message": run.error_message,
+                            "updated_at": now.isoformat(),
+                        },
+                    )
+                    break
+
+            if (now - last_heartbeat).total_seconds() >= STREAM_HEARTBEAT_INTERVAL:
+                yield _sse_event("heartbeat", {"ts": now.isoformat()})
+                last_heartbeat = now
+
+            await asyncio.sleep(STREAM_POLL_INTERVAL)
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
 
 
 @router.post("/{run_id}/cancel", response_model=AnalysisStatusResponse)

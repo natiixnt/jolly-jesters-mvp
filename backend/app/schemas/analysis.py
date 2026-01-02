@@ -79,6 +79,7 @@ class AnalysisRunListResponse(BaseModel):
 
 class AnalysisResultItem(BaseModel):
     id: int
+    row_number: Optional[int] = None
     ean: str
     name: Optional[str]
     original_currency: Optional[str]
@@ -93,6 +94,7 @@ class AnalysisResultItem(BaseModel):
     scrape_status: Optional[ScrapeStatus]
     scrape_error_message: Optional[str]
     last_checked_at: Optional[datetime]
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -104,6 +106,8 @@ class AnalysisResultsResponse(BaseModel):
     total: int
     error_message: Optional[str]
     items: List[AnalysisResultItem]
+    next_since: Optional[datetime] = None
+    next_since_id: Optional[int] = None
 
 
 class AnalysisStartFromDbRequest(BaseModel):

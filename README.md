@@ -54,6 +54,17 @@ POST /api/v1/analysis/{id}/retry_failed?strategy=cloud|local
 GET /api/v1/analysis/active
 ```
 
+## Live updates (SSE)
+
+- Frontend otwiera `EventSource` na `GET /api/v1/analysis/{id}/stream`.
+- Strumien wysyla eventy `status`, `progress`, `row`, `error`, `done` + `heartbeat` co ~5s.
+- Fallback (gdy SSE niedostepne): polling co ~3s
+  `GET /api/v1/analysis/{id}` i `GET /api/v1/analysis/{id}/results/updates?since=...`.
+
+Test (manual):
+- uruchom analize, obserwuj status/postep i pojawiajace sie wiersze bez refreshu strony.
+- odswiez strone w trakcie runu i sprawdz czy UI wznawia aktualizacje.
+
 ## Kolejki Celery (architektura)
 
 - `analysis`: uruchamia `run_analysis_task` i planuje per-item scraping.
