@@ -390,7 +390,15 @@
       background: rgba(15,23,42,0.45);
     }
     .checkboxes { display: grid; gap: 10px; padding: 12px; }
-    .checkboxes label { text-transform: none; color: var(--text); font-size: 15px; letter-spacing: 0; }
+    .checkboxes label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: none;
+      color: var(--text);
+      font-size: 15px;
+      letter-spacing: 0;
+    }
     .toggle-group { display: grid; gap: 10px; }
     .toggle {
       display: flex;
@@ -809,7 +817,7 @@
       overflow: auto;
     }
     .market-table table {
-      min-width: 980px;
+      min-width: 760px;
       width: 100%;
       table-layout: auto;
       font-size: 12px;
@@ -843,21 +851,25 @@
       color: var(--muted);
     }
     .market-table .cell-name { min-width: 220px; max-width: 360px; }
+    .market-table.is-compact table { min-width: 680px; }
+    .market-table.is-compact th,
+    .market-table.is-compact td {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    .market-table.is-compact [data-col="ean"] {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+    }
+    .market-table.is-compact [data-col="name"] {
+      max-width: 240px;
+      width: 240px;
+    }
     @media (max-width: 900px) {
       .market-filters { grid-template-columns: 1fr; }
-      .market-table table th:nth-child(8),
-      .market-table table td:nth-child(8),
-      .market-table table th:nth-child(9),
-      .market-table table td:nth-child(9) {
-        display: none;
-      }
     }
     @media (max-width: 640px) {
       .market-filters { grid-template-columns: 1fr; }
-      .market-table table th:nth-child(7),
-      .market-table table td:nth-child(7) {
-        display: none;
-      }
     }
     .table-wrap {
       width: 100%;
@@ -865,6 +877,7 @@
       max-width: 100%;
       -webkit-overflow-scrolling: touch;
     }
+    [data-col].is-hidden { display: none; }
     .table-wrap > div {
       display: inline-block;
       min-width: 100%;
@@ -888,7 +901,7 @@
       border-radius: 12px;
       overflow: visible;
     }
-    .results-table table { min-width: 980px; width: 100%; border-collapse: collapse; }
+    .results-table table { min-width: 720px; width: 100%; border-collapse: collapse; }
     .results-table th,
     .results-table td {
       padding: 10px 12px;
@@ -898,6 +911,20 @@
       overflow: hidden;
       text-overflow: ellipsis;
       vertical-align: top;
+    }
+    .results-table.is-compact table { min-width: 640px; }
+    .results-table.is-compact th,
+    .results-table.is-compact td {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    .results-table.is-compact [data-col="ean"] {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+    }
+    .results-table.is-compact [data-col="name"] {
+      max-width: 260px;
+      width: 260px;
     }
     .results-table tbody tr:hover { background: rgba(255,255,255,0.02); cursor: pointer; }
     .results-detail { background: #0b152b; color: var(--muted); cursor: default; }
@@ -996,7 +1023,10 @@
       flex-direction: column;
       overflow: hidden;
     }
-    .modal-content.modal-lg { width: min(100vw - 32px, 1100px); }
+    .modal-content.modal-lg { width: min(calc(98vw - 32px), 1400px); }
+    @media (max-width: 992px) {
+      .modal-content.modal-lg { width: min(calc(100vw - 24px), 980px); }
+    }
     .modal-content.modal-md { width: min(100vw - 32px, 720px); }
     .modal-header {
       display: flex;
@@ -1051,6 +1081,15 @@
       flex-wrap: wrap;
     }
     .settings-header > * { min-width: 0; }
+    .column-picker {
+      display: grid;
+      gap: 12px;
+    }
+    .column-picker__actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .settings-panel {
       display: grid;
       gap: 16px;
@@ -1336,6 +1375,35 @@
                     <button type="button" id="start-db-btn" class="action-btn cta-btn">Start analizy z bazy</button>
                   </div>
                   <div class="error" id="db-error"></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h3 class="section-title">Widok tabel</h3>
+                <div class="column-picker">
+                  <div>
+                    <div class="form-section-title">Tryb kompaktowy</div>
+                    <label class="toggle">
+                      <input type="checkbox" id="compact-table-toggle" />
+                      <span class="toggle__track"></span>
+                      <span class="toggle__label">Tryb kompaktowy tabel</span>
+                    </label>
+                    <div class="helper">Zmniejsza padding i szerokości kolumn EAN/Nazwa.</div>
+                  </div>
+                  <div>
+                    <div class="form-section-title">Kolumny - Wyniki analizy</div>
+                    <div class="checkboxes" id="results-columns"></div>
+                    <div class="column-picker__actions">
+                      <button type="button" class="ghost-btn ghost-btn--small" id="results-columns-reset">Przywróć domyślne</button>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="form-section-title">Kolumny - Baza Allegro</div>
+                    <div class="checkboxes" id="market-columns"></div>
+                    <div class="column-picker__actions">
+                      <button type="button" class="ghost-btn ghost-btn--small" id="market-columns-reset">Przywróć domyślne</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1716,6 +1784,11 @@
     const resultsPageInfo = document.getElementById('results-page-info');
     const resultsPrev = document.getElementById('results-prev');
     const resultsNext = document.getElementById('results-next');
+    const compactTableToggle = document.getElementById('compact-table-toggle');
+    const resultsColumnsEl = document.getElementById('results-columns');
+    const marketColumnsEl = document.getElementById('market-columns');
+    const resultsColumnsReset = document.getElementById('results-columns-reset');
+    const marketColumnsReset = document.getElementById('market-columns-reset');
     const runUpdatedEl = document.getElementById('run-updated');
     const statusSpinner = document.getElementById('status-spinner');
     const statusLog = document.getElementById('status-log');
@@ -1754,6 +1827,33 @@
       db_source: 'any',
       db_ean_contains: '',
     };
+    const RESULTS_COLUMNS = [
+      { id: 'ean', label: 'EAN', default: true },
+      { id: 'name', label: 'Nazwa', default: true },
+      { id: 'currency', label: 'Waluta', default: false },
+      { id: 'purchase_price', label: 'Cena zakupu', default: true },
+      { id: 'allegro_price', label: 'Cena Allegro', default: true },
+      { id: 'margin', label: 'Marża', default: true },
+      { id: 'margin_percent', label: 'Marża %', default: true },
+      { id: 'profitable', label: 'Opłacalny', default: true },
+      { id: 'source', label: 'Źródło', default: false },
+      { id: 'last_checked_at', label: 'Ostatnio sprawdzono', default: false },
+      { id: 'scrape_status', label: 'Status scrapingu', default: true },
+    ];
+    const MARKET_COLUMNS = [
+      { id: 'ean', label: 'EAN', default: true },
+      { id: 'name', label: 'Nazwa', default: true },
+      { id: 'category', label: 'Kategoria', default: false },
+      { id: 'purchase_price', label: 'Cena zakupu (PLN)', default: false },
+      { id: 'allegro_price', label: 'Cena Allegro', default: true },
+      { id: 'sold_count', label: 'Sprzedanych', default: true },
+      { id: 'source', label: 'Źródło', default: false },
+      { id: 'last_checked_at', label: 'Ostatnio sprawdz.', default: true },
+      { id: 'last_run_at', label: 'Ostatni run', default: false },
+    ];
+    const RESULTS_COLUMNS_KEY = 'ui.columns.results';
+    const MARKET_COLUMNS_KEY = 'ui.columns.market';
+    const COMPACT_TABLE_KEY = 'ui.table.compact';
     let settingsDefaults = { ...DEFAULT_SETTINGS };
 
     function normalizeMessage(msg) {
@@ -2089,15 +2189,15 @@
       } else {
         const rows = data.items.map((item) => `
           <tr>
-            <td class="cell-ean">${item.ean || '—'}</td>
-            <td class="cell-name">${item.name || '—'}</td>
-            <td>${item.category_name || '—'}</td>
-            <td class="cell-num">${formatMoney(item.purchase_price_pln)}</td>
-            <td class="cell-num">${formatMoney(item.allegro_price_pln)}</td>
-            <td class="cell-num">${item.sold_count ?? '—'}</td>
-            <td class="cell-source">${item.source || '—'}</td>
-            <td class="cell-date">${formatDateShort(item.last_checked_at)}</td>
-            <td class="cell-date" title="${item.last_run_id ? `run #${item.last_run_id}` : ''}">${formatDateShort(item.last_run_at)}</td>
+            <td class="cell-ean" data-col="ean">${item.ean || '—'}</td>
+            <td class="cell-name" data-col="name">${item.name || '—'}</td>
+            <td data-col="category">${item.category_name || '—'}</td>
+            <td class="cell-num" data-col="purchase_price">${formatMoney(item.purchase_price_pln)}</td>
+            <td class="cell-num" data-col="allegro_price">${formatMoney(item.allegro_price_pln)}</td>
+            <td class="cell-num" data-col="sold_count">${item.sold_count ?? '—'}</td>
+            <td class="cell-source" data-col="source">${item.source || '—'}</td>
+            <td class="cell-date" data-col="last_checked_at">${formatDateShort(item.last_checked_at)}</td>
+            <td class="cell-date" data-col="last_run_at" title="${item.last_run_id ? `run #${item.last_run_id}` : ''}">${formatDateShort(item.last_run_at)}</td>
           </tr>
         `).join('');
         marketTable.innerHTML = `
@@ -2105,21 +2205,22 @@
             <table>
               <thead>
                 <tr>
-                  <th class="cell-ean">EAN</th>
-                  <th>Nazwa</th>
-                  <th>Kategoria</th>
-                  <th class="cell-num">Cena zakupu (PLN)</th>
-                  <th class="cell-num">Cena Allegro</th>
-                  <th class="cell-num">Sprzedanych</th>
-                  <th class="cell-source">Źródło</th>
-                  <th class="cell-date">Ostatnio sprawdz.</th>
-                  <th class="cell-date">Ostatni run</th>
+                  <th class="cell-ean" data-col="ean">EAN</th>
+                  <th data-col="name">Nazwa</th>
+                  <th data-col="category">Kategoria</th>
+                  <th class="cell-num" data-col="purchase_price">Cena zakupu (PLN)</th>
+                  <th class="cell-num" data-col="allegro_price">Cena Allegro</th>
+                  <th class="cell-num" data-col="sold_count">Sprzedanych</th>
+                  <th class="cell-source" data-col="source">Źródło</th>
+                  <th class="cell-date" data-col="last_checked_at">Ostatnio sprawdz.</th>
+                  <th class="cell-date" data-col="last_run_at">Ostatni run</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
             </table>
           </div>
         `;
+        applyMarketColumns();
       }
 
       const start = data.total ? Math.min(data.total, marketState.offset + 1) : 0;
@@ -2144,25 +2245,25 @@
       const scrapeStatus = item.scrape_status || 'ok';
       const statusLabelText = scrapeStatusLabel(scrapeStatus);
       return `
-        <td>${item.ean || '—'}</td>
-        <td>${item.name || '—'}</td>
-        <td>${item.original_currency || 'PLN'}</td>
-        <td>${formatMoneyWithCurrency(item.original_purchase_price, item.original_currency)}</td>
-        <td>${formatMoney(item.allegro_price_pln)}</td>
-        <td>${formatMoney(item.margin_pln)}</td>
-        <td>${formatPercent(item.margin_percent)}</td>
-        <td>${profitableLabel}</td>
-        <td>${item.source ? `<span class="source-chip">${item.source}</span>` : '—'}</td>
-        <td>${formatDateTime(item.last_checked_at)}</td>
-        <td><span class="status-chip ${scrapeStatus}">${statusLabelText}</span></td>
+        <td data-col="ean">${item.ean || '—'}</td>
+        <td data-col="name">${item.name || '—'}</td>
+        <td data-col="currency">${item.original_currency || 'PLN'}</td>
+        <td data-col="purchase_price">${formatMoneyWithCurrency(item.original_purchase_price, item.original_currency)}</td>
+        <td data-col="allegro_price">${formatMoney(item.allegro_price_pln)}</td>
+        <td data-col="margin">${formatMoney(item.margin_pln)}</td>
+        <td data-col="margin_percent">${formatPercent(item.margin_percent)}</td>
+        <td data-col="profitable">${profitableLabel}</td>
+        <td data-col="source">${item.source ? `<span class="source-chip">${item.source}</span>` : '—'}</td>
+        <td data-col="last_checked_at">${formatDateTime(item.last_checked_at)}</td>
+        <td data-col="scrape_status"><span class="status-chip ${scrapeStatus}">${statusLabelText}</span></td>
       `;
     }
 
-    function buildResultsDetailCells(item) {
+    function buildResultsDetailCells(item, colspan) {
       const scrapeStatus = item.scrape_status || 'ok';
       const statusLabelText = scrapeStatusLabel(scrapeStatus);
       return `
-        <td colspan="11">
+        <td colspan="${colspan}">
           <div class="detail-grid">
             <div><strong>Źródło:</strong> ${item.source || '—'}</div>
             <div><strong>Status scrapingu:</strong> ${statusLabelText}</div>
@@ -2183,17 +2284,17 @@
             <table>
               <thead>
                 <tr>
-                  <th>EAN</th>
-                  <th>Nazwa</th>
-                  <th>Waluta</th>
-                  <th>Cena zakupu</th>
-                  <th>Cena Allegro</th>
-                  <th>Marża</th>
-                  <th>Marża %</th>
-                  <th>Opłacalny</th>
-                  <th>Źródło</th>
-                  <th>Ostatnio sprawdzono</th>
-                  <th>Status</th>
+                  <th data-col="ean">EAN</th>
+                  <th data-col="name">Nazwa</th>
+                  <th data-col="currency">Waluta</th>
+                  <th data-col="purchase_price">Cena zakupu</th>
+                  <th data-col="allegro_price">Cena Allegro</th>
+                  <th data-col="margin">Marża</th>
+                  <th data-col="margin_percent">Marża %</th>
+                  <th data-col="profitable">Opłacalny</th>
+                  <th data-col="source">Źródło</th>
+                  <th data-col="last_checked_at">Ostatnio sprawdzono</th>
+                  <th data-col="scrape_status">Status</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -2216,6 +2317,7 @@
       const tbody = ensureResultsTableStructure();
       const rowId = String(item.id);
       const rowNumber = Number(item.row_number || 0);
+      const visibleCount = getResultsVisibleCount();
 
       let row = tbody.querySelector(`tr[data-id="${rowId}"]`);
       let detail = tbody.querySelector(`tr[data-detail-id="${rowId}"]`);
@@ -2230,13 +2332,13 @@
       }
 
       if (detail) {
-        detail.innerHTML = buildResultsDetailCells(item);
+        detail.innerHTML = buildResultsDetailCells(item, visibleCount);
       } else {
         detail = document.createElement('tr');
         detail.className = 'results-detail';
         detail.dataset.detailId = rowId;
         detail.style.display = 'none';
-        detail.innerHTML = buildResultsDetailCells(item);
+        detail.innerHTML = buildResultsDetailCells(item, visibleCount);
       }
 
       if (!row.parentElement) {
@@ -2253,6 +2355,7 @@
           tbody.appendChild(detail);
         }
       }
+      applyResultsColumns();
     }
 
     function renderResultsTable(data) {
@@ -2286,6 +2389,7 @@
         data.items.forEach((item) => {
           upsertResultsRow(item);
         });
+        applyResultsColumns();
       }
 
       const start = previewState.total ? Math.min(previewState.total, previewState.offset + 1) : 0;
@@ -2471,6 +2575,135 @@
       if (allCached) {
         dbLastDaysInput.value = dbLastDaysInput.value || settingsDefaults.db_last_days;
       }
+    }
+
+    function defaultColumnSet(columns) {
+      return new Set(columns.filter(col => col.default).map(col => col.id));
+    }
+
+    function loadColumnSet(key, columns) {
+      const raw = localStorage.getItem(key);
+      if (!raw) return defaultColumnSet(columns);
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return defaultColumnSet(columns);
+        const allowed = new Set(columns.map(col => col.id));
+        const filtered = parsed.filter((id) => allowed.has(id));
+        if (!filtered.length) return defaultColumnSet(columns);
+        return new Set(filtered);
+      } catch (err) {
+        return defaultColumnSet(columns);
+      }
+    }
+
+    function saveColumnSet(key, set) {
+      localStorage.setItem(key, JSON.stringify(Array.from(set)));
+    }
+
+    function collectColumnSelection(container) {
+      return new Set(
+        Array.from(container.querySelectorAll('input[type="checkbox"]'))
+          .filter((input) => input.checked)
+          .map((input) => input.value),
+      );
+    }
+
+    function renderColumnPicker(container, columns, key, onApply) {
+      if (!container) return;
+      const enabled = loadColumnSet(key, columns);
+      container.innerHTML = '';
+      columns.forEach((col) => {
+        const label = document.createElement('label');
+        label.innerHTML = `
+          <input type="checkbox" value="${col.id}" ${enabled.has(col.id) ? 'checked' : ''} />
+          <span>${col.label}</span>
+        `;
+        container.appendChild(label);
+      });
+      container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        input.addEventListener('change', () => {
+          let nextSet = collectColumnSelection(container);
+          if (!nextSet.size) {
+            nextSet = defaultColumnSet(columns);
+            saveColumnSet(key, nextSet);
+            renderColumnPicker(container, columns, key, onApply);
+            onApply();
+            return;
+          }
+          saveColumnSet(key, nextSet);
+          onApply();
+        });
+      });
+    }
+
+    function applyColumnVisibility(rootEl, columns, enabledSet) {
+      if (!rootEl) return;
+      columns.forEach((col) => {
+        rootEl.querySelectorAll(`[data-col="${col.id}"]`).forEach((el) => {
+          el.classList.toggle('is-hidden', !enabledSet.has(col.id));
+        });
+      });
+    }
+
+    function getResultsVisibleCount() {
+      const enabled = loadColumnSet(RESULTS_COLUMNS_KEY, RESULTS_COLUMNS);
+      return Math.max(1, enabled.size);
+    }
+
+    function applyResultsColumns() {
+      if (!resultsTable) return;
+      const enabled = loadColumnSet(RESULTS_COLUMNS_KEY, RESULTS_COLUMNS);
+      applyColumnVisibility(resultsTable, RESULTS_COLUMNS, enabled);
+      resultsTable.querySelectorAll('.results-detail td').forEach((cell) => {
+        cell.colSpan = Math.max(1, enabled.size);
+      });
+    }
+
+    function applyMarketColumns() {
+      if (!marketTable) return;
+      const enabled = loadColumnSet(MARKET_COLUMNS_KEY, MARKET_COLUMNS);
+      applyColumnVisibility(marketTable, MARKET_COLUMNS, enabled);
+    }
+
+    function applyCompactMode() {
+      const enabled = localStorage.getItem(COMPACT_TABLE_KEY) === '1';
+      if (resultsTable) resultsTable.classList.toggle('is-compact', enabled);
+      if (marketTable) marketTable.classList.toggle('is-compact', enabled);
+      if (compactTableToggle) compactTableToggle.checked = enabled;
+    }
+
+    function initTablePreferences() {
+      renderColumnPicker(resultsColumnsEl, RESULTS_COLUMNS, RESULTS_COLUMNS_KEY, () => {
+        applyResultsColumns();
+      });
+      renderColumnPicker(marketColumnsEl, MARKET_COLUMNS, MARKET_COLUMNS_KEY, () => {
+        applyMarketColumns();
+      });
+      if (resultsColumnsReset) {
+        resultsColumnsReset.addEventListener('click', () => {
+          const defaults = defaultColumnSet(RESULTS_COLUMNS);
+          saveColumnSet(RESULTS_COLUMNS_KEY, defaults);
+          renderColumnPicker(resultsColumnsEl, RESULTS_COLUMNS, RESULTS_COLUMNS_KEY, applyResultsColumns);
+          applyResultsColumns();
+        });
+      }
+      if (marketColumnsReset) {
+        marketColumnsReset.addEventListener('click', () => {
+          const defaults = defaultColumnSet(MARKET_COLUMNS);
+          saveColumnSet(MARKET_COLUMNS_KEY, defaults);
+          renderColumnPicker(marketColumnsEl, MARKET_COLUMNS, MARKET_COLUMNS_KEY, applyMarketColumns);
+          applyMarketColumns();
+        });
+      }
+      if (compactTableToggle) {
+        compactTableToggle.addEventListener('change', () => {
+          localStorage.setItem(COMPACT_TABLE_KEY, compactTableToggle.checked ? '1' : '0');
+          applyCompactMode();
+        });
+      }
+      applyCompactMode();
+      applyResultsColumns();
+      applyMarketColumns();
     }
 
     function setLastUpdated(value) {
@@ -3188,6 +3421,7 @@
       });
     }
     initSettingsTabs();
+    initTablePreferences();
     startDbBtn.addEventListener('click', startFromDb);
     cancelRunBtn.addEventListener('click', () => {
       const runId = cancelRunBtn.dataset.runId || runIdEl.textContent;
