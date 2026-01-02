@@ -21,6 +21,8 @@
       --success: #34d399;
     }
     *, *::before, *::after { box-sizing: border-box; }
+    html, body { max-width: 100%; }
+    img, video, canvas { max-width: 100%; height: auto; }
     body {
       margin: 0;
       font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -49,6 +51,7 @@
       align-items: flex-start;
       flex-wrap: wrap;
     }
+    .top > * { min-width: 0; }
     h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; }
     p.lead { color: var(--muted); margin: 6px 0 0; }
     .ghost-btn {
@@ -95,6 +98,7 @@
       box-shadow: none;
     }
     .button-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .button-row > * { min-width: 0; }
     .layout {
       margin-top: 20px;
       display: grid;
@@ -140,6 +144,7 @@
       justify-content: space-between;
       gap: 12px;
     }
+    .step-header > * { min-width: 0; }
     .step-title {
       display: flex;
       align-items: center;
@@ -189,6 +194,10 @@
       max-width: 100%;
       min-width: 0;
     }
+    .form-grid button:not(.icon-btn):not(.ghost-btn):not(.action-btn):not(.primary-btn):not(.tab-btn) {
+      width: 100%;
+      max-width: 100%;
+    }
     .form-grid .button-row { flex-wrap: wrap; }
     .form-cta {
       display: flex;
@@ -203,7 +212,8 @@
       width: auto;
       min-width: 220px;
       max-width: 100%;
-      white-space: nowrap;
+      white-space: normal;
+      text-align: center;
     }
     .btn--block {
       width: 100%;
@@ -326,10 +336,14 @@
       color: var(--text);
       background: rgba(34,211,238,0.15);
     }
+    @media (max-width: 520px) {
+      .segmented { grid-template-columns: 1fr; }
+    }
     .tabs {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 8px;
+      max-width: 100%;
     }
     .tabs.tabs-scroll {
       display: flex;
@@ -338,11 +352,13 @@
       -webkit-overflow-scrolling: touch;
       gap: 8px;
       padding-bottom: 4px;
+      scroll-snap-type: x proximity;
     }
     .tabs.tabs-scroll .tab-btn { flex: 0 0 auto; }
     .tab-panel {
       display: none;
       gap: 12px;
+      min-width: 0;
     }
     .tab-panel.is-active { display: grid; }
     .tab-btn {
@@ -357,6 +373,7 @@
       letter-spacing: 0.06em;
       cursor: pointer;
       transition: border-color 0.2s, color 0.2s, transform 0.2s;
+      scroll-snap-align: start;
     }
     .tab-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
     .tab-btn.is-active {
@@ -456,6 +473,7 @@
       justify-content: space-between;
       gap: 8px;
     }
+    .active-run__top > * { min-width: 0; }
     .active-run__title { font-weight: 700; font-size: 14px; }
     .active-run__meta { color: var(--muted); font-size: 12px; }
     .active-run__actions {
@@ -510,7 +528,8 @@
       width: auto;
       min-width: 220px;
       max-width: 100%;
-      white-space: nowrap;
+      white-space: normal;
+      text-align: center;
       background: linear-gradient(120deg, var(--accent-2), var(--accent));
       color: #fff;
       border: none;
@@ -535,6 +554,7 @@
     .status-empty { color: var(--muted); }
     .status-details { display: grid; gap: 6px; }
     .status-row { display: flex; gap: 8px; margin-top: 6px; color: var(--muted); font-size: 14px; align-items: center; }
+    .status-row > * { min-width: 0; }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -623,6 +643,7 @@
       align-items: center;
       cursor: pointer;
     }
+    .history-header > * { min-width: 0; }
     .history-list {
       margin-top: 10px;
       display: grid;
@@ -637,7 +658,12 @@
     .history-row {
       padding: 10px;
       display: grid;
-      grid-template-columns: 1.4fr 1.1fr 1fr 0.9fr 1fr;
+      grid-template-columns:
+        minmax(0, 1.4fr)
+        minmax(0, 1.1fr)
+        minmax(0, 1fr)
+        minmax(0, 0.9fr)
+        minmax(0, 1fr);
       gap: 10px;
       align-items: center;
       cursor: pointer;
@@ -663,7 +689,12 @@
     }
     @media (max-width: 900px) {
       .form-grid { grid-template-columns: 1fr; }
-      .history-row { grid-template-columns: 1fr 1fr; }
+      .history-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .history-row { grid-template-columns: minmax(0, 1fr); }
+      .history-row .history-actions { justify-items: start; }
+      .history-buttons { max-width: none; }
     }
     .history-row small { color: var(--muted); display: block; }
     .history-detail {
@@ -804,6 +835,7 @@
       width: 100%;
       overflow-x: auto;
       max-width: 100%;
+      -webkit-overflow-scrolling: touch;
     }
     .table-wrap > div {
       display: inline-block;
@@ -817,6 +849,10 @@
     .table-scroll {
       overflow: auto;
       max-height: 60vh;
+    }
+    .results-modal .table-scroll {
+      max-height: none;
+      overflow: visible;
     }
     .results-table {
       margin-top: 12px;
@@ -844,6 +880,7 @@
       justify-content: space-between;
       flex-wrap: wrap;
     }
+    .results-pagination > * { min-width: 0; }
     .results-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
     .status-chip {
       padding: 4px 8px;
@@ -908,22 +945,36 @@
       align-items: center;
       justify-content: center;
       background: rgba(0,0,0,0.55);
-      padding: 20px;
+      padding: 16px;
       z-index: 1100;
-    }
-    .results-modal .modal-content {
-      max-width: 1100px;
-      width: 100%;
-      max-height: 90vh;
-      overflow: hidden;
     }
     .modal-content {
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 12px;
-      max-width: 480px;
-      width: 100%;
-      padding: 20px;
+      width: min(100vw - 32px, 520px);
+      max-height: min(100vh - 32px, 900px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-content.modal-lg { width: min(100vw - 32px, 1100px); }
+    .modal-content.modal-md { width: min(100vw - 32px, 720px); }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px 20px 0;
+      flex-wrap: wrap;
+    }
+    .modal-header > * { min-width: 0; }
+    .modal-body {
+      padding: 16px 20px 20px;
+      overflow: auto;
+      min-height: 0;
+      display: grid;
+      gap: 12px;
     }
     .modal-actions {
       display: flex;
@@ -932,6 +983,7 @@
       justify-content: flex-end;
       flex-wrap: wrap;
     }
+    .modal-header .modal-actions { margin-top: 0; }
     .close-btn {
       background: transparent;
       border: 1px solid var(--border);
@@ -940,26 +992,7 @@
       border-radius: 10px;
       cursor: pointer;
     }
-    .faq-modal {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.55);
-      padding: 20px;
-      z-index: 1000;
-    }
-    .faq-content {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      max-width: 720px;
-      width: 100%;
-      padding: 20px;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
+    .faq-modal { z-index: 1000; }
     .faq-content h2 { margin-top: 0; }
     .faq-item { margin-top: 12px; }
     .faq-item strong { display: block; margin-bottom: 4px; }
@@ -979,6 +1012,7 @@
       gap: 12px;
       flex-wrap: wrap;
     }
+    .settings-header > * { min-width: 0; }
     .settings-panel {
       display: grid;
       gap: 16px;
@@ -1402,128 +1436,142 @@
   </div>
 
   <div class="modal results-modal" id="results-modal">
-    <div class="modal-content">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div class="minw-0">
           <h3 style="margin:0;">Podgląd wyników analizy</h3>
           <div class="results-meta" id="results-meta"></div>
           <div class="results-banner" id="results-banner" style="display:none;"></div>
         </div>
-        <div class="modal-actions" style="margin-top:0;">
+        <div class="modal-actions">
           <button class="close-btn" id="results-close">Zamknij</button>
         </div>
       </div>
-      <div class="error" id="results-error"></div>
-      <div class="results-empty" id="results-empty" style="display:none;"></div>
-      <div class="table-wrap">
-        <div class="results-table" id="results-table"></div>
-      </div>
-      <div class="results-pagination">
-        <button class="ghost-btn ghost-btn--small" id="results-prev" type="button">◀ Wstecz</button>
-        <span class="muted" id="results-page-info"></span>
-        <button class="ghost-btn ghost-btn--small" id="results-next" type="button">Dalej ▶</button>
+      <div class="modal-body">
+        <div class="error" id="results-error"></div>
+        <div class="results-empty" id="results-empty" style="display:none;"></div>
+        <div class="table-wrap">
+          <div class="results-table" id="results-table"></div>
+        </div>
+        <div class="results-pagination">
+          <button class="ghost-btn ghost-btn--small" id="results-prev" type="button">◀ Wstecz</button>
+          <span class="muted" id="results-page-info"></span>
+          <button class="ghost-btn ghost-btn--small" id="results-next" type="button">Dalej ▶</button>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="modal" id="category-modal">
     <div class="modal-content">
-      <h3 style="margin-top:0;">Dodaj nową kategorię</h3>
-      <form id="category-modal-form">
-        <div class="form-grid single">
-          <div class="form-filters">
-            <div class="form-section-title">Zakres / filtry danych</div>
-            <div>
-              <label for="modal-cat-name">Nazwa kategorii</label>
-              <input type="text" id="modal-cat-name" name="name" required />
-            </div>
-            <div>
-              <label for="modal-cat-multiplier">Mnożnik opłacalności</label>
-              <input type="number" id="modal-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" value="1.5" required />
-            </div>
-            <div>
-              <label for="modal-cat-commission">Prowizja Allegro (%)</label>
-              <input type="number" id="modal-cat-commission" name="commission_rate" step="0.01" min="0" value="0" />
+      <div class="modal-header">
+        <h3 style="margin:0;">Dodaj nową kategorię</h3>
+      </div>
+      <div class="modal-body">
+        <form id="category-modal-form">
+          <div class="form-grid single">
+            <div class="form-filters">
+              <div class="form-section-title">Zakres / filtry danych</div>
+              <div>
+                <label for="modal-cat-name">Nazwa kategorii</label>
+                <input type="text" id="modal-cat-name" name="name" required />
+              </div>
+              <div>
+                <label for="modal-cat-multiplier">Mnożnik opłacalności</label>
+                <input type="number" id="modal-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" value="1.5" required />
+              </div>
+              <div>
+                <label for="modal-cat-commission">Prowizja Allegro (%)</label>
+                <input type="number" id="modal-cat-commission" name="commission_rate" step="0.01" min="0" value="0" />
+              </div>
             </div>
           </div>
-        </div>
-        <div class="form-footer">
-          <div class="error" id="category-modal-error"></div>
-          <div class="modal-actions">
-            <button type="button" class="close-btn" id="category-cancel">Anuluj</button>
-            <button type="submit" class="primary-btn">Dodaj kategorię</button>
+          <div class="form-footer">
+            <div class="error" id="category-modal-error"></div>
+            <div class="modal-actions">
+              <button type="button" class="close-btn" id="category-cancel">Anuluj</button>
+              <button type="submit" class="primary-btn">Dodaj kategorię</button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 
   <div class="modal" id="category-detail-modal">
     <div class="modal-content">
-      <h3 style="margin-top:0;">Szczegóły kategorii</h3>
-      <form id="category-detail-form">
-        <div class="form-grid single">
-          <div class="form-filters">
-            <div class="form-section-title">Zakres / filtry danych</div>
-            <div>
-              <label for="detail-cat-name">Nazwa kategorii</label>
-              <input type="text" id="detail-cat-name" name="name" required />
-            </div>
-            <div>
-              <label for="detail-cat-multiplier">Mnożnik opłacalności</label>
-              <input type="number" id="detail-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" required />
-            </div>
-            <div>
-              <label for="detail-cat-commission">Prowizja Allegro (%)</label>
-              <input type="number" id="detail-cat-commission" name="commission_rate" step="0.01" min="0" />
+      <div class="modal-header">
+        <h3 style="margin:0;">Szczegóły kategorii</h3>
+      </div>
+      <div class="modal-body">
+        <form id="category-detail-form">
+          <div class="form-grid single">
+            <div class="form-filters">
+              <div class="form-section-title">Zakres / filtry danych</div>
+              <div>
+                <label for="detail-cat-name">Nazwa kategorii</label>
+                <input type="text" id="detail-cat-name" name="name" required />
+              </div>
+              <div>
+                <label for="detail-cat-multiplier">Mnożnik opłacalności</label>
+                <input type="number" id="detail-cat-multiplier" name="profitability_multiplier" step="0.01" min="0" required />
+              </div>
+              <div>
+                <label for="detail-cat-commission">Prowizja Allegro (%)</label>
+                <input type="number" id="detail-cat-commission" name="commission_rate" step="0.01" min="0" />
+              </div>
             </div>
           </div>
-        </div>
-        <div class="form-footer">
-          <div class="error" id="category-detail-error"></div>
-          <div class="success" id="category-detail-success"></div>
-          <div class="modal-actions">
-            <button type="button" class="close-btn" id="category-detail-cancel">Anuluj</button>
-            <button type="submit" class="action-btn">Zapisz</button>
+          <div class="form-footer">
+            <div class="error" id="category-detail-error"></div>
+            <div class="success" id="category-detail-success"></div>
+            <div class="modal-actions">
+              <button type="button" class="close-btn" id="category-detail-cancel">Anuluj</button>
+              <button type="submit" class="action-btn">Zapisz</button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 
-  <div class="faq-modal" id="faq-modal">
-    <div class="faq-content">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <h2>FAQ - jak korzystać z systemu</h2>
-        <button class="close-btn" id="faq-close">Zamknij</button>
+  <div class="modal faq-modal" id="faq-modal">
+    <div class="modal-content modal-md faq-content">
+      <div class="modal-header">
+        <h2 style="margin:0;">FAQ - jak korzystać z systemu</h2>
+        <div class="modal-actions">
+          <button class="close-btn" id="faq-close">Zamknij</button>
+        </div>
       </div>
-      <div class="faq-item">
-        <strong>Różnice między trybami Standard, Tylko baza, Zawsze online</strong>
-        <div>Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.</div>
-      </div>
-      <div class="faq-item">
-        <strong>Źródła danych (Proxy / Cloud, Local Selenium)</strong>
-        <div>Proxy / Cloud – scraping przez proxy w chmurze. Local Selenium – lokalny fallback z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.</div>
-      </div>
-      <div class="faq-item">
-        <strong>Jak dodać nową kategorię</strong>
-        <div>Użyj przycisku „+” w sekcji Kategorie i wypełnij formularz.</div>
-      </div>
-      <div class="faq-item">
-        <strong>Jakie pliki są obsługiwane</strong>
-        <div>CSV, XLS, XLSX. Wymagane kolumny: EAN, Name, PurchasePrice.</div>
-      </div>
-      <div class="faq-item">
-        <strong>Co zrobić, gdy analiza kończy się błędem</strong>
-        <div>Sprawdź komunikat w sekcji statusu. Upewnij się, że kategoria jest aktywna oraz że w Ustawieniach masz wybrane źródła danych (jeśli tryb nie jest „Tylko baza”).</div>
-      </div>
-      <div class="faq-item">
-        <strong>Co oznaczają pola kategorii: nazwa, mnożnik opłacalności i prowizja Allegro?</strong>
-        <div>
-          <div><em>Nazwa kategorii</em> – dowolna nazwa, która pozwala Ci rozpoznać grupę produktów, np. „Perfumy”, „Chemia gospodarcza”, „Zabawki”.</div>
-          <div><em>Mnożnik opłacalności</em> – minimalny docelowy zwrot z inwestycji (marża względem ceny zakupu). Przykład: jeżeli ustawisz mnożnik 1,5, to system oznaczy produkt jako „opłacalny” tylko wtedy, gdy po odjęciu prowizji Allegro zarobek będzie co najmniej 50% ceny zakupu.</div>
-          <div><em>Prowizja Allegro (%)</em> – szacowany procent prowizji Allegro w danej kategorii. System odejmuje tę prowizję od ceny sprzedaży i dopiero z tej „netto” ceny liczy marżę.</div>
-          <div>Dzięki temu opłacalność jest liczona dla każdej kategorii inaczej – np. jeśli w jednej kategorii prowizja jest wyższa, próg opłacalności jest automatycznie bardziej wymagający. Każda analiza jest powiązana z jedną kategorią, a każda kategoria ma własne parametry, więc możesz osobno ustawić logikę dla „Perfum” vs „Chemii” itp.</div>
+      <div class="modal-body">
+        <div class="faq-item">
+          <strong>Różnice między trybami Standard, Tylko baza, Zawsze online</strong>
+          <div>Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.</div>
+        </div>
+        <div class="faq-item">
+          <strong>Źródła danych (Proxy / Cloud, Local Selenium)</strong>
+          <div>Proxy / Cloud – scraping przez proxy w chmurze. Local Selenium – lokalny fallback z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.</div>
+        </div>
+        <div class="faq-item">
+          <strong>Jak dodać nową kategorię</strong>
+          <div>Użyj przycisku „+” w sekcji Kategorie i wypełnij formularz.</div>
+        </div>
+        <div class="faq-item">
+          <strong>Jakie pliki są obsługiwane</strong>
+          <div>CSV, XLS, XLSX. Wymagane kolumny: EAN, Name, PurchasePrice.</div>
+        </div>
+        <div class="faq-item">
+          <strong>Co zrobić, gdy analiza kończy się błędem</strong>
+          <div>Sprawdź komunikat w sekcji statusu. Upewnij się, że kategoria jest aktywna oraz że w Ustawieniach masz wybrane źródła danych (jeśli tryb nie jest „Tylko baza”).</div>
+        </div>
+        <div class="faq-item">
+          <strong>Co oznaczają pola kategorii: nazwa, mnożnik opłacalności i prowizja Allegro?</strong>
+          <div>
+            <div><em>Nazwa kategorii</em> – dowolna nazwa, która pozwala Ci rozpoznać grupę produktów, np. „Perfumy”, „Chemia gospodarcza”, „Zabawki”.</div>
+            <div><em>Mnożnik opłacalności</em> – minimalny docelowy zwrot z inwestycji (marża względem ceny zakupu). Przykład: jeżeli ustawisz mnożnik 1,5, to system oznaczy produkt jako „opłacalny” tylko wtedy, gdy po odjęciu prowizji Allegro zarobek będzie co najmniej 50% ceny zakupu.</div>
+            <div><em>Prowizja Allegro (%)</em> – szacowany procent prowizji Allegro w danej kategorii. System odejmuje tę prowizję od ceny sprzedaży i dopiero z tej „netto” ceny liczy marżę.</div>
+            <div>Dzięki temu opłacalność jest liczona dla każdej kategorii inaczej – np. jeśli w jednej kategorii prowizja jest wyższa, próg opłacalności jest automatycznie bardziej wymagający. Każda analiza jest powiązana z jedną kategorią, a każda kategoria ma własne parametry, więc możesz osobno ustawić logikę dla „Perfum” vs „Chemii” itp.</div>
+          </div>
         </div>
       </div>
     </div>

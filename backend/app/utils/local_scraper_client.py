@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -11,6 +12,24 @@ from app.core.config import settings
 from app.services.schemas import AllegroResult
 
 logger = logging.getLogger(__name__)
+
+
+def _local_scraper_timeout() -> httpx.Timeout:
+    timeout_seconds = max(5.0, float(settings.local_scraper_timeout or 0))
+    connect_timeout = min(10.0, timeout_seconds)
+    return httpx.Timeout(timeout_seconds, connect=connect_timeout)
+
+
+def _local_scraper_attempts() -> int:
+    try:
+        retries = int(settings.scraping_retries)
+    except Exception:
+        retries = 0
+    return max(1, retries + 1)
+
+
+def _local_scraper_backoff(attempt: int) -> float:
+    return min(0.2 * (2 ** (attempt - 1)), 1.0)
 
 
 def _local_scraper_base_url() -> Optional[str]:
@@ -108,11 +127,28 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
 
     try:
         logger.info("Local scraper request ean=%s url=%s", ean, url)
-        async with httpx.AsyncClient(timeout=settings.local_scraper_timeout) as client:
-            resp = await client.post(url, json={"ean": ean})
-    except httpx.ConnectError as exc:
+        timeout = _local_scraper_timeout()
+        attempts = _local_scraper_attempts()
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            for attempt in range(1, attempts + 1):
+                try:
+                    resp = await client.post(url, json={"ean": ean})
+                    break
+                except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                    if attempt >= attempts:
+                        raise
+                    logger.warning(
+                        "Local scraper retry ean=%s attempt=%s/%s type=%s err=%r",
+                        ean,
+                        attempt,
+                        attempts,
+                        type(exc).__name__,
+                        exc,
+                    )
+                    await asyncio.sleep(_local_scraper_backoff(attempt))
+    except (httpx.TimeoutException, httpx.ConnectError) as exc:
         logger.warning(
-            "Local scraper connect error for ean=%s type=%s err=%r",
+            "Local scraper network error for ean=%s type=%s err=%r",
             ean,
             type(exc).__name__,
             exc,

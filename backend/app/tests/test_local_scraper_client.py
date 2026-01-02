@@ -34,6 +34,7 @@ async def test_fetch_local_scraper_success(monkeypatch):
 @pytest.mark.anyio
 async def test_fetch_local_scraper_connect_error(monkeypatch):
     monkeypatch.setattr(settings, "local_scraper_url", "http://host.docker.internal:5050")
+    monkeypatch.setattr(settings, "scraping_retries", 0)
 
     async def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom", request=request)
@@ -76,6 +77,30 @@ async def test_fetch_local_scraper_http_error(monkeypatch):
     assert result.price is None
     assert result.raw_payload.get("status_code") == 502
     assert result.raw_payload.get("error") == "http_502"
+
+
+@pytest.mark.anyio
+async def test_fetch_local_scraper_read_timeout(monkeypatch):
+    monkeypatch.setattr(settings, "local_scraper_url", "http://host.docker.internal:5050")
+    monkeypatch.setattr(settings, "scraping_retries", 0)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("boom", request=request)
+
+    transport = httpx.MockTransport(handler)
+
+    orig_async_client = httpx.AsyncClient
+
+    def client_factory(**kwargs):
+        return orig_async_client(transport=transport, **kwargs)
+
+    monkeypatch.setattr(local_scraper_client.httpx, "AsyncClient", client_factory)
+
+    result = await fetch_via_local_scraper("5901234567890")
+    assert result.is_temporary_error is True
+    assert result.error == "network_error"
+    assert result.raw_payload.get("error") == "network_error"
+    assert result.raw_payload.get("error_type") == "ReadTimeout"
 
 
 def test_health_check_success(monkeypatch):
