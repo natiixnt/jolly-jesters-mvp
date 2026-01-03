@@ -44,6 +44,9 @@
       padding: 24px;
       box-shadow: 0 20px 80px rgba(0,0,0,0.35);
     }
+    .shell.is-settings-wide {
+      max-width: 1400px;
+    }
     .top {
       display: flex;
       justify-content: space-between;
@@ -105,6 +108,16 @@
       grid-template-columns: 2fr 1fr;
       gap: 16px;
       align-items: start;
+    }
+    .layout.is-settings-wide {
+      grid-template-columns: 1fr;
+    }
+    .layout.is-settings-wide .sidebar {
+      display: none;
+    }
+    .layout.is-settings-wide .main-card {
+      width: 100%;
+      max-width: 100%;
     }
     .layout.sidebar-collapsed {
       grid-template-columns: 1fr;
@@ -1081,6 +1094,7 @@
       flex-wrap: wrap;
     }
     .settings-header > * { min-width: 0; }
+    .settings-header .ghost-btn--small { margin-top: 8px; }
     .column-picker {
       display: grid;
       gap: 12px;
@@ -1228,6 +1242,7 @@
             <div>
               <h3 class="section-title">Ustawienia</h3>
               <div class="helper">Opcje rzadziej używane. W trybie prostym ukryte.</div>
+              <button type="button" class="ghost-btn ghost-btn--small is-hidden" id="close-settings-btn">Zamknij ustawienia</button>
             </div>
             <label class="toggle">
               <input type="checkbox" id="advanced-mode-toggle" />
@@ -1708,6 +1723,7 @@
     const modeHelper = document.getElementById('mode-helper');
     const advancedModeToggle = document.getElementById('advanced-mode-toggle');
     const settingsPanel = document.getElementById('settings-panel');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
     const settingsTabs = document.getElementById('settings-tabs');
     const resetSettingsBtn = document.getElementById('reset-settings-btn');
     const settingsResetSuccess = document.getElementById('settings-reset-success');
@@ -1768,6 +1784,7 @@
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebarRestore = document.getElementById('sidebar-restore');
     const layout = document.getElementById('layout');
+    const shell = document.querySelector('.shell');
     const historyList = document.getElementById('history-list');
     const historyEmpty = document.getElementById('history-empty');
     const historyError = document.getElementById('history-error');
@@ -1943,6 +1960,13 @@
       settingsPanel.classList.toggle('is-hidden', !enabled);
       advancedModeToggle.checked = enabled;
       localStorage.setItem('ui.advancedMode', enabled ? '1' : '0');
+      updateSettingsWideMode(enabled);
+    }
+
+    function updateSettingsWideMode(enabled) {
+      if (layout) layout.classList.toggle('is-settings-wide', enabled);
+      if (shell) shell.classList.toggle('is-settings-wide', enabled);
+      if (closeSettingsBtn) closeSettingsBtn.classList.toggle('is-hidden', !enabled);
     }
 
     function setActiveSettingsTab(tabId) {
@@ -3412,6 +3436,11 @@
     if (advancedModeToggle) {
       advancedModeToggle.addEventListener('change', () => {
         setAdvancedMode(advancedModeToggle.checked);
+      });
+    }
+    if (closeSettingsBtn) {
+      closeSettingsBtn.addEventListener('click', () => {
+        setAdvancedMode(false);
       });
     }
     if (resetSettingsBtn) {
