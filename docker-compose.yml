@@ -146,7 +146,7 @@ services:
       - PROXY_LIST=${PROXY_LIST:-}
       - WORKSPACE=/workspace
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_cloud --concurrency=${SCRAPER_CLOUD_CONCURRENCY:-8} --prefetch-multiplier=1 --max-tasks-per-child=20"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_cloud --concurrency=${SCRAPER_CLOUD_CONCURRENCY:-4} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - workspace_data:/workspace
     depends_on:
@@ -170,7 +170,7 @@ services:
       - PROXY_LIST=${PROXY_LIST:-}
       - WORKSPACE=/workspace
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-5} --prefetch-multiplier=1 --max-tasks-per-child=20"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-2} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - workspace_data:/workspace
     shm_size: 2gb # potrzebne dla selenium/chrome

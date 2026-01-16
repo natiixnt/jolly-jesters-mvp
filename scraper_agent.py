@@ -1,6 +1,6 @@
 """
 Lokalny agent do zarządzania liczbą okien scrapera.
-- Odczytuje z Redis klucz "scraper:desired_instances" (domyślnie 1, max 20).
+- Odczytuje z Redis klucz "scraper:desired_instances" (domyslnie 1, max z SCRAPER_AGENT_MAX_INSTANCES, domyslnie 5).
 - Uruchamia/zamyka procesy `run_scraper_local.bat`, każde to jedno widoczne okno.
 """
 
@@ -12,8 +12,17 @@ import signal
 import redis
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-MAX_INSTANCES = 20
 CHECK_INTERVAL = int(os.getenv("AGENT_INTERVAL_SECONDS", "5"))
+
+
+def _max_instances() -> int:
+    try:
+        return max(1, int(os.getenv("SCRAPER_AGENT_MAX_INSTANCES", "5")))
+    except Exception:
+        return 5
+
+
+MAX_INSTANCES = _max_instances()
 
 
 def clamp_instances(val: int) -> int:

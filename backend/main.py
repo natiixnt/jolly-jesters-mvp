@@ -10,7 +10,7 @@ from pathlib import Path
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from seleniumwire import webdriver
 from selenium.common.exceptions import SessionNotCreatedException, TimeoutException, WebDriverException
@@ -377,16 +377,26 @@ def _create_driver() -> WebDriver:
                 pass
             log_output = str(chromedriver_log_file)
         service = Service(executable_path=driver_path, log_output=log_output)
-        proxy_list = os.getenv("SELENIUM_PROXY")
-        proxy_url = f"socks5://{proxy_list}"
-        proxy_config = {
-            'proxy': {
-                'http': proxy_url,
-                'https': proxy_url,
-                'no_roxy': 'localhost,127.0.0.1'
-            },
-            'verify_ssl': False
-        } 
+        seleniumwire_options = None
+        proxy_raw = (os.getenv("SELENIUM_PROXY") or "").strip()
+        if proxy_raw:
+            proxy_url = proxy_raw if "://" in proxy_raw else f"socks5://{proxy_raw}"
+            parsed = urlparse(proxy_url)
+            if not parsed.hostname or parsed.port is None:
+                raise RuntimeError(
+                    "SELENIUM_PROXY must include host and port, e.g. user:pass@host:port or "
+                    "socks5://user:pass@host:port"
+                )
+            seleniumwire_options = {
+                "proxy": {
+                    "http": proxy_url,
+                    "https": proxy_url,
+                    "no_proxy": "localhost,127.0.0.1",
+                },
+                "verify_ssl": False,
+            }
+        if seleniumwire_options:
+            return webdriver.Chrome(service=service, options=options, seleniumwire_options=seleniumwire_options)
         return webdriver.Chrome(service=service, options=options)
 
     last_exc: Optional[Exception] = None

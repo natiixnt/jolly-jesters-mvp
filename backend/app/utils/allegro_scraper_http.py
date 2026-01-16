@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import re
+import threading
+import time
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, Optional
@@ -28,6 +31,88 @@ _BLOCKED_MARKERS = (
     "attention required",
     "access denied",
 )
+_RATE_LOCK = threading.Lock()
+_NEXT_ALLOWED_AT = 0.0
+_COOLDOWN_LOCK = threading.Lock()
+_BLOCKED_UNTIL = 0.0
+_CAPTCHA_LOCK = threading.Lock()
+_CAPTCHA_STREAK = 0
+
+
+def _min_interval_seconds() -> float:
+    try:
+        return max(0.0, float(os.getenv("CLOUD_SCRAPER_MIN_INTERVAL_SECONDS", "1.0")))
+    except Exception:
+        return 1.0
+
+
+def _cooldown_seconds() -> float:
+    try:
+        return max(0.0, float(os.getenv("CLOUD_SCRAPER_COOLDOWN_SECONDS", "60")))
+    except Exception:
+        return 60.0
+
+
+def _wait_for_rate_limit() -> None:
+    global _NEXT_ALLOWED_AT
+    min_interval = _min_interval_seconds()
+    if min_interval <= 0:
+        return
+    with _RATE_LOCK:
+        now = time.monotonic()
+        wait_for = _NEXT_ALLOWED_AT - now
+        if wait_for > 0:
+            time.sleep(wait_for)
+            now = time.monotonic()
+        _NEXT_ALLOWED_AT = now + min_interval
+
+
+def _cooldown_remaining() -> float:
+    now = time.monotonic()
+    with _COOLDOWN_LOCK:
+        remaining = _BLOCKED_UNTIL - now
+    return max(0.0, remaining)
+
+
+def _mark_blocked(cooldown_override: Optional[float] = None) -> None:
+    global _BLOCKED_UNTIL
+    cooldown = cooldown_override if cooldown_override is not None else _cooldown_seconds()
+    if cooldown <= 0:
+        return
+    now = time.monotonic()
+    with _COOLDOWN_LOCK:
+        _BLOCKED_UNTIL = max(_BLOCKED_UNTIL, now + cooldown)
+
+
+def _captcha_threshold() -> int:
+    try:
+        return max(1, int(os.getenv("CLOUD_SCRAPER_CAPTCHA_THRESHOLD", "3")))
+    except Exception:
+        return 3
+
+
+def _captcha_cooldown_seconds() -> float:
+    try:
+        return max(0.0, float(os.getenv("CLOUD_SCRAPER_CAPTCHA_COOLDOWN_SECONDS", "300")))
+    except Exception:
+        return 300.0
+
+
+def _record_captcha() -> bool:
+    global _CAPTCHA_STREAK
+    threshold = _captcha_threshold()
+    with _CAPTCHA_LOCK:
+        _CAPTCHA_STREAK += 1
+        if _CAPTCHA_STREAK >= threshold:
+            _CAPTCHA_STREAK = 0
+            return True
+    return False
+
+
+def _reset_captcha_streak() -> None:
+    global _CAPTCHA_STREAK
+    with _CAPTCHA_LOCK:
+        _CAPTCHA_STREAK = 0
 
 
 def _extract_listing_state(html: str) -> Optional[dict]:
@@ -76,6 +161,23 @@ def _detect_block_reason(html: str) -> Optional[str]:
 
 async def fetch_via_http_scraper(ean: str) -> AllegroResult:
     now = datetime.now(timezone.utc)
+    remaining = _cooldown_remaining()
+    if remaining > 0:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={
+                "error": "cooldown",
+                "retry_after_seconds": round(remaining, 2),
+                "source": "cloud_http",
+            },
+            source="cloud_http",
+            last_checked_at=now,
+            blocked=True,
+        )
+    _wait_for_rate_limit()
     url = "https://allegro.pl/listing"
     params = {"string": ean}
 
@@ -91,6 +193,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
         async with httpx.AsyncClient(timeout=settings.proxy_timeout, proxies=proxies) as client:
             resp = await client.get(url, params=params)
     except httpx.ConnectError as exc:
+        _reset_captcha_streak()
         return AllegroResult(
             price=None,
             sold_count=None,
@@ -107,6 +210,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             last_checked_at=now,
         )
     except Exception as exc:
+        _reset_captcha_streak()
         return AllegroResult(
             price=None,
             sold_count=None,
@@ -124,6 +228,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
         pass
 
     if resp.status_code == 404:
+        _reset_captcha_streak()
         return AllegroResult(
             price=None,
             sold_count=None,
@@ -135,6 +240,9 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
         )
 
     if resp.status_code in (403, 429) or resp.status_code >= 500:
+        _reset_captcha_streak()
+        if resp.status_code in (403, 429):
+            _mark_blocked()
         return AllegroResult(
             price=None,
             sold_count=None,
@@ -150,6 +258,15 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
         html = resp.text or ""
         block_reason = _detect_block_reason(html)
         if block_reason:
+            if block_reason == "captcha":
+                triggered = _record_captcha()
+                if triggered:
+                    _mark_blocked(cooldown_override=_captcha_cooldown_seconds())
+                else:
+                    _mark_blocked()
+            else:
+                _reset_captcha_streak()
+                _mark_blocked()
             return AllegroResult(
                 price=None,
                 sold_count=None,
@@ -170,6 +287,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             elements_count = _listing_elements_count(state)
             payload["listing_elements_count"] = elements_count
             if elements_count == 0:
+                _reset_captcha_streak()
                 return AllegroResult(
                     price=None,
                     sold_count=None,
@@ -180,6 +298,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
                     last_checked_at=now,
                 )
         elif html and _html_has_no_results(html):
+            _reset_captcha_streak()
             return AllegroResult(
                 price=None,
                 sold_count=None,
@@ -191,6 +310,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             )
 
     # No HTML parsing of offers - treat as temporary to allow local scraper fallback
+    _reset_captcha_streak()
     return AllegroResult(
         price=None,
         sold_count=None,
