@@ -295,6 +295,7 @@ def scrape(req: ScrapeRequest):
                 triggered = _record_captcha()
                 if triggered:
                     cooldown = _captcha_cooldown_seconds()
+                    detail["retry_after_seconds"] = cooldown
                     logger.warning(
                         "Local scraper captcha threshold reached ean=%s cooldown=%ss",
                         req.ean,

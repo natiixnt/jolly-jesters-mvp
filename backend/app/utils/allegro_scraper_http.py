@@ -258,10 +258,12 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
         html = resp.text or ""
         block_reason = _detect_block_reason(html)
         if block_reason:
+            retry_after = None
             if block_reason == "captcha":
                 triggered = _record_captcha()
                 if triggered:
-                    _mark_blocked(cooldown_override=_captcha_cooldown_seconds())
+                    retry_after = _captcha_cooldown_seconds()
+                    _mark_blocked(cooldown_override=retry_after)
                 else:
                     _mark_blocked()
             else:
@@ -277,6 +279,7 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
                     "note": "blocked",
                     "block_reason": block_reason,
                     "source": "cloud_http",
+                    "retry_after_seconds": retry_after,
                 },
                 source="cloud_http",
                 last_checked_at=now,

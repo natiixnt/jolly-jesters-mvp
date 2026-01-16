@@ -1,8 +1,10 @@
 import asyncio
 import json
 import logging
+import math
 import os
 import socket
+import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -10,6 +12,7 @@ from urllib.parse import urlparse
 from celery import Celery
 from celery.exceptions import Retry
 from celery.signals import worker_init, worker_process_init
+import redis
 
 from app.core.celery_constants import ANALYSIS_QUEUE, SCRAPER_CLOUD_QUEUE, SCRAPER_LOCAL_QUEUE
 from app.core.config import settings
@@ -32,6 +35,7 @@ from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import check_local_scraper_health, fetch_via_local_scraper
 
 logger = logging.getLogger(__name__)
+_REDIS_CLIENT = None
 
 TERMINAL_STATUSES = {
     ScrapeStatus.ok,
@@ -48,6 +52,112 @@ def _env_flag_enabled(name: str, default: bool = False) -> bool:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
+
+def _redis_client():
+    global _REDIS_CLIENT
+    if _REDIS_CLIENT is None:
+        _REDIS_CLIENT = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+    return _REDIS_CLIENT
+
+
+def _blocked_key(run_id: int) -> str:
+    return f"scraper:blocked:{run_id}"
+
+
+def _blocked_pause_buffer_seconds() -> int:
+    try:
+        value = int(os.getenv("SCRAPER_BLOCKED_PAUSE_BUFFER_SECONDS", "5"))
+    except Exception:
+        value = 5
+    return max(0, value)
+
+
+def _get_blocked_state(run_id: int) -> dict | None:
+    key = _blocked_key(run_id)
+    try:
+        raw = _redis_client().get(key)
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        item_id = int(data.get("item_id") or 0)
+        until = float(data.get("until") or 0.0)
+        source = data.get("source")
+    except Exception:
+        return None
+    if not item_id or until <= time.time():
+        _clear_blocked_state(run_id, item_id or None)
+        return None
+    return {"item_id": item_id, "until": until, "source": source}
+
+
+def _set_blocked_state(run_id: int, item_id: int, delay_seconds: int, source: str | None) -> None:
+    if delay_seconds <= 0:
+        return
+    key = _blocked_key(run_id)
+    until = time.time() + delay_seconds
+    payload = {"item_id": item_id, "until": until, "source": source}
+    try:
+        _redis_client().set(key, json.dumps(payload), ex=max(1, int(math.ceil(delay_seconds))))
+    except Exception:
+        return
+
+
+def _clear_blocked_state(run_id: int, item_id: int | None) -> None:
+    key = _blocked_key(run_id)
+    try:
+        if item_id is None:
+            _redis_client().delete(key)
+            return
+        raw = _redis_client().get(key)
+        if not raw:
+            return
+        data = json.loads(raw)
+        if int(data.get("item_id") or 0) == item_id:
+            _redis_client().delete(key)
+    except Exception:
+        return
+
+
+def _maybe_pause_for_blocked_item(
+    task,
+    task_func,
+    run: AnalysisRun,
+    item: AnalysisRunItem,
+    strategy_snapshot: dict | None,
+    label: str,
+) -> bool:
+    state = _get_blocked_state(run.id)
+    if not state:
+        return False
+    remaining = int(math.ceil(state["until"] - time.time()))
+    if remaining <= 0:
+        _clear_blocked_state(run.id, state.get("item_id"))
+        return False
+    blocked_item_id = int(state.get("item_id") or 0)
+    if blocked_item_id == item.id:
+        logger.warning(
+            "%s cooldown active for blocked item item_id=%s ean=%s remaining=%ss",
+            label,
+            item.id,
+            item.ean,
+            remaining,
+        )
+        task_func.apply_async(args=[item.ean, item.id, strategy_snapshot], countdown=remaining)
+        return True
+    buffer_seconds = _blocked_pause_buffer_seconds()
+    delay = remaining + buffer_seconds
+    logger.warning(
+        "%s blocked item active item_id=%s blocking item_id=%s delay=%ss",
+        label,
+        item.id,
+        blocked_item_id,
+        delay,
+    )
+    task_func.apply_async(args=[item.ean, item.id, strategy_snapshot], countdown=delay)
+    return True
 
 def _error_message_from_result(result) -> str | None:
     if getattr(result, "error", None):
@@ -95,6 +205,84 @@ def _timeout_retry_delay(attempt: int) -> int:
     except Exception:
         base = 5
     return min(60, max(1, base) * max(1, attempt))
+
+
+def _blocked_retry_limit() -> int:
+    try:
+        value = int(os.getenv("SCRAPER_BLOCKED_RETRIES", "5"))
+    except Exception:
+        value = 5
+    return max(0, value)
+
+
+def _captcha_cooldown_seconds(source: str | None) -> int:
+    key = "LOCAL_SCRAPER_CAPTCHA_COOLDOWN_SECONDS"
+    if source and "cloud" in source:
+        key = "CLOUD_SCRAPER_CAPTCHA_COOLDOWN_SECONDS"
+    try:
+        value = int(os.getenv(key, "300"))
+    except Exception:
+        value = 300
+    return max(1, value)
+
+
+def _blocked_retry_delay(result, attempt: int) -> int:
+    payload = getattr(result, "raw_payload", {}) or {}
+    if isinstance(payload, dict):
+        retry_after = payload.get("retry_after_seconds") or payload.get("retry_after")
+        if retry_after is not None:
+            try:
+                return max(1, int(math.ceil(float(retry_after))))
+            except Exception:
+                pass
+    error_message = _error_message_from_result(result) or ""
+    if "captcha" in error_message.lower():
+        return _captcha_cooldown_seconds(getattr(result, "source", None))
+    try:
+        base = int(os.getenv("SCRAPER_BLOCKED_RETRY_DELAY", "60"))
+    except Exception:
+        base = 60
+    return max(1, base) * max(1, attempt)
+
+
+def _maybe_retry_blocked(
+    task,
+    db: SessionLocal,
+    run: AnalysisRun,
+    item: AnalysisRunItem,
+    result,
+    label: str,
+) -> None:
+    if not task:
+        return
+    if not getattr(result, "blocked", False):
+        return
+    limit = _blocked_retry_limit()
+    if limit <= 0:
+        return
+    current_attempt = (task.request.retries or 0) + 1
+    if current_attempt >= limit:
+        return
+    delay = _blocked_retry_delay(result, current_attempt)
+    _set_blocked_state(run.id, item.id, delay, getattr(result, "source", None))
+    retry_note = f"blocked_retry:{current_attempt}/{limit}"
+    error_message = _error_message_from_result(result)
+    if error_message:
+        retry_note = f"{retry_note}:{error_message}"
+    item.source = AnalysisItemSource.scraping
+    item.scrape_status = ScrapeStatus.in_progress
+    item.error_message = retry_note
+    db.commit()
+    logger.warning(
+        "%s blocked retry scheduled item_id=%s ean=%s attempt=%s/%s delay=%ss",
+        label,
+        item.id,
+        item.ean,
+        current_attempt,
+        limit,
+        delay,
+    )
+    raise task.retry(countdown=delay, max_retries=limit - 1)
 
 
 def _is_timeout_error(error_message: str | None, payload: dict | None) -> bool:
@@ -377,6 +565,9 @@ def scrape_one_local(
             )
             return
 
+        if _maybe_pause_for_blocked_item(self, scrape_one_local, run, item, strategy_snapshot, "LOCAL_SCRAPER_TASK"):
+            return
+
         category = db.query(Category).filter(Category.id == run.category_id).first()
         if not category:
             item.source = AnalysisItemSource.error
@@ -399,6 +590,7 @@ def scrape_one_local(
         db.commit()
         result = asyncio.run(fetch_via_local_scraper(item.ean))
         if result.is_temporary_error or getattr(result, "blocked", False):
+            _maybe_retry_blocked(self, db, run, item, result, "LOCAL_SCRAPER_TASK")
             _maybe_retry_timeout(self, db, item, result, "LOCAL_SCRAPER_TASK")
             status, error_message = _status_and_error(result)
             _log_scrape_outcome("LOCAL_SCRAPER_RESULT", item, result, status, error_message)
@@ -411,12 +603,14 @@ def scrape_one_local(
             item.error_message = error_message or _serialize_payload(result.raw_payload)
             if status == ScrapeStatus.blocked:
                 _maybe_fail_run_on_blocked(run, item.error_message)
+            _clear_blocked_state(run.id, item.id)
             _finalize_item(db, run, item, prev_status)
             return
 
         status = ScrapeStatus.not_found if result.is_not_found else ScrapeStatus.ok
         _log_scrape_outcome("LOCAL_SCRAPER_RESULT", item, result, status, None)
         _apply_scrape_result(db, item, product, category, state, result)
+        _clear_blocked_state(run.id, item.id)
         _finalize_item(db, run, item, prev_status)
     except Retry:
         raise
@@ -455,6 +649,9 @@ def scrape_one_cloud(
             logger.info("CLOUD_SCRAPER_TASK skip run_status=%s item_id=%s", run.status, item.id)
             return
 
+        if _maybe_pause_for_blocked_item(self, scrape_one_cloud, run, item, strategy_snapshot, "CLOUD_SCRAPER_TASK"):
+            return
+
         category = db.query(Category).filter(Category.id == run.category_id).first()
         if not category:
             item.source = AnalysisItemSource.error
@@ -486,6 +683,7 @@ def scrape_one_cloud(
                 scrape_one_local.delay(item.ean, item.id, strategy_snapshot)
                 return
 
+            _maybe_retry_blocked(self, db, run, item, result, "CLOUD_SCRAPER_TASK")
             _maybe_retry_timeout(self, db, item, result, "CLOUD_SCRAPER_TASK")
             status, error_message = _status_and_error(result)
             _log_scrape_outcome("CLOUD_SCRAPER_RESULT", item, result, status, error_message)
@@ -496,12 +694,14 @@ def scrape_one_cloud(
             item.profitability_score = None
             item.profitability_label = None
             item.error_message = error_message or _serialize_payload(result.raw_payload)
+            _clear_blocked_state(run.id, item.id)
             _finalize_item(db, run, item, prev_status)
             return
 
         status = ScrapeStatus.not_found if result.is_not_found else ScrapeStatus.ok
         _log_scrape_outcome("CLOUD_SCRAPER_RESULT", item, result, status, None)
         _apply_scrape_result(db, item, product, category, state, result)
+        _clear_blocked_state(run.id, item.id)
         _finalize_item(db, run, item, prev_status)
     except Retry:
         raise
