@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from celery import Celery
+from celery.exceptions import Retry
 from celery.signals import worker_init, worker_process_init
 
 from app.core.celery_constants import ANALYSIS_QUEUE, SCRAPER_CLOUD_QUEUE, SCRAPER_LOCAL_QUEUE
@@ -76,8 +77,106 @@ def _status_and_error(result) -> tuple[ScrapeStatus, str | None]:
         if error_message == "network_error" or "network_error" in lowered or "connecterror" in lowered:
             return ScrapeStatus.network_error, error_message
     if result.is_temporary_error:
-        return ScrapeStatus.error, error_message or "temporary_error"
+        return ScrapeStatus.network_error, error_message or "temporary_error"
     return ScrapeStatus.ok, None
+
+
+def _timeout_retry_limit() -> int:
+    try:
+        value = int(os.getenv("SCRAPER_TIMEOUT_RETRIES", "3"))
+    except Exception:
+        value = 3
+    return max(1, value)
+
+
+def _timeout_retry_delay(attempt: int) -> int:
+    try:
+        base = int(os.getenv("SCRAPER_TIMEOUT_RETRY_DELAY", "5"))
+    except Exception:
+        base = 5
+    return min(60, max(1, base) * max(1, attempt))
+
+
+def _is_timeout_error(error_message: str | None, payload: dict | None) -> bool:
+    if error_message:
+        lowered = str(error_message).lower()
+        if "timeout" in lowered or "timed out" in lowered:
+            return True
+    if isinstance(payload, dict):
+        error_type = str(payload.get("error_type") or "").lower()
+        if "timeout" in error_type:
+            return True
+    return False
+
+
+def _maybe_retry_timeout(task, db: SessionLocal, item: AnalysisRunItem, result, label: str) -> None:
+    if not task:
+        return
+    if getattr(result, "blocked", False):
+        return
+    payload = getattr(result, "raw_payload", {}) or {}
+    error_message = _error_message_from_result(result)
+    if not _is_timeout_error(error_message, payload if isinstance(payload, dict) else None):
+        return
+    limit = _timeout_retry_limit()
+    current_attempt = (task.request.retries or 0) + 1
+    if current_attempt >= limit:
+        return
+    delay = _timeout_retry_delay(current_attempt)
+    retry_note = f"timeout_retry:{current_attempt}/{limit}"
+    if error_message:
+        retry_note = f"{retry_note}:{error_message}"
+    item.source = AnalysisItemSource.scraping
+    item.scrape_status = ScrapeStatus.in_progress
+    item.error_message = retry_note
+    db.commit()
+    logger.warning(
+        "%s timeout retry scheduled item_id=%s ean=%s attempt=%s/%s delay=%ss",
+        label,
+        item.id,
+        item.ean,
+        current_attempt,
+        limit,
+        delay,
+    )
+    raise task.retry(countdown=delay, max_retries=limit - 1)
+
+
+def _log_scrape_outcome(label: str, item: AnalysisRunItem, result, status: ScrapeStatus, error_message: str | None) -> None:
+    payload = getattr(result, "raw_payload", {}) or {}
+    logger.info(
+        "%s item_id=%s ean=%s status=%s not_found=%s blocked=%s temp_error=%s error=%s http_status=%s source=%s",
+        label,
+        item.id,
+        item.ean,
+        status,
+        bool(getattr(result, "is_not_found", False)),
+        bool(getattr(result, "blocked", False)),
+        bool(getattr(result, "is_temporary_error", False)),
+        error_message,
+        payload.get("status_code"),
+        getattr(result, "source", None),
+    )
+
+
+def _handle_unexpected_exception(
+    db: SessionLocal,
+    run: AnalysisRun | None,
+    item: AnalysisRunItem | None,
+    prev_status: ScrapeStatus | None,
+    label: str,
+    exc: Exception,
+) -> None:
+    logger.exception("%s unexpected error item_id=%s ean=%s", label, getattr(item, "id", None), getattr(item, "ean", None))
+    if not run or not item:
+        return
+    if run.status in {AnalysisStatus.failed, AnalysisStatus.canceled, AnalysisStatus.completed}:
+        db.commit()
+        return
+    item.source = AnalysisItemSource.error
+    item.scrape_status = ScrapeStatus.error
+    item.error_message = f"unexpected_error:{type(exc).__name__}"
+    _finalize_item(db, run, item, prev_status)
 
 
 def _maybe_fail_run_on_blocked(run: AnalysisRun, error_message: str | None) -> None:
@@ -245,13 +344,17 @@ def run_analysis_task(run_id: int, mode: str = "mixed"):
         db.close()
 
 
-@celery_app.task(acks_late=True)
+@celery_app.task(acks_late=True, bind=True)
 def scrape_one_local(
+    self,
     ean: str,
     run_item_id: int,
     strategy_snapshot: dict | None = None,
 ) -> None:
     db = SessionLocal()
+    item = None
+    run = None
+    prev_status = None
     try:
         item = db.query(AnalysisRunItem).filter(AnalysisRunItem.id == run_item_id).first()
         if not item:
@@ -296,7 +399,9 @@ def scrape_one_local(
         db.commit()
         result = asyncio.run(fetch_via_local_scraper(item.ean))
         if result.is_temporary_error or getattr(result, "blocked", False):
+            _maybe_retry_timeout(self, db, item, result, "LOCAL_SCRAPER_TASK")
             status, error_message = _status_and_error(result)
+            _log_scrape_outcome("LOCAL_SCRAPER_RESULT", item, result, status, error_message)
             item.source = AnalysisItemSource.error
             item.scrape_status = status
             item.allegro_price = None
@@ -309,19 +414,29 @@ def scrape_one_local(
             _finalize_item(db, run, item, prev_status)
             return
 
+        status = ScrapeStatus.not_found if result.is_not_found else ScrapeStatus.ok
+        _log_scrape_outcome("LOCAL_SCRAPER_RESULT", item, result, status, None)
         _apply_scrape_result(db, item, product, category, state, result)
         _finalize_item(db, run, item, prev_status)
+    except Retry:
+        raise
+    except Exception as exc:
+        _handle_unexpected_exception(db, run, item, prev_status, "LOCAL_SCRAPER_TASK", exc)
     finally:
         db.close()
 
 
-@celery_app.task(acks_late=True)
+@celery_app.task(acks_late=True, bind=True)
 def scrape_one_cloud(
+    self,
     ean: str,
     run_item_id: int,
     strategy_snapshot: dict | None = None,
 ) -> None:
     db = SessionLocal()
+    item = None
+    run = None
+    prev_status = None
     try:
         item = db.query(AnalysisRunItem).filter(AnalysisRunItem.id == run_item_id).first()
         if not item:
@@ -371,7 +486,9 @@ def scrape_one_cloud(
                 scrape_one_local.delay(item.ean, item.id, strategy_snapshot)
                 return
 
+            _maybe_retry_timeout(self, db, item, result, "CLOUD_SCRAPER_TASK")
             status, error_message = _status_and_error(result)
+            _log_scrape_outcome("CLOUD_SCRAPER_RESULT", item, result, status, error_message)
             item.source = AnalysisItemSource.error
             item.scrape_status = status
             item.allegro_price = None
@@ -382,7 +499,13 @@ def scrape_one_cloud(
             _finalize_item(db, run, item, prev_status)
             return
 
+        status = ScrapeStatus.not_found if result.is_not_found else ScrapeStatus.ok
+        _log_scrape_outcome("CLOUD_SCRAPER_RESULT", item, result, status, None)
         _apply_scrape_result(db, item, product, category, state, result)
         _finalize_item(db, run, item, prev_status)
+    except Retry:
+        raise
+    except Exception as exc:
+        _handle_unexpected_exception(db, run, item, prev_status, "CLOUD_SCRAPER_TASK", exc)
     finally:
         db.close()

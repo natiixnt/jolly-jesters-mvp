@@ -1,6 +1,6 @@
 FROM python:3.11-slim-bookworm
 
-ARG WITH_VNC=0
+ARG WITH_VNC=1
 ENV DEBIAN_FRONTEND=noninteractive
 
 # System dependencies + Chromium (works on amd64/arm64)

@@ -2,3 +2,6 @@ fastapi
 uvicorn[standard]
 pydantic<2
 selenium
+selenium-wire
+blinker==1.6.3
+packaging

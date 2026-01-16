@@ -10,8 +10,9 @@ from pathlib import Path
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urljoin
 
-from selenium import webdriver
+from seleniumwire import webdriver
 from selenium.common.exceptions import SessionNotCreatedException, TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -23,6 +24,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 logger = logging.getLogger(__name__)
 _LAST_DRIVER_DEBUG: Dict[str, Any] = {}
 _FORCED_PROFILE_DIR: Optional[str] = None
+_ALLEGRO_BASE_URL = "https://allegro.pl"
 
 
 def _env_flag_enabled(value: Optional[str]) -> bool:
@@ -174,6 +176,7 @@ def _build_chrome_options(
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-infobars")
     options.add_argument("--lang=pl-PL")
+    options.add_argument("--ignore-certificate-errors")
     user_agent = os.getenv("SELENIUM_USER_AGENT")
     if user_agent:
         options.add_argument(f"--user-agent={user_agent}")
@@ -217,13 +220,25 @@ def _listing_state_from_scripts(driver: WebDriver) -> Optional[Dict]:
     return None
 
 
+def _listing_elements_count(state: Optional[Dict]) -> Optional[int]:
+    if not state or not isinstance(state, dict):
+        return None
+    try:
+        elements = state.get("__listing_StoreState", {}).get("items", {}).get("elements", [])
+    except Exception:
+        return None
+    if not isinstance(elements, list):
+        return None
+    return len(elements)
+
+
 def _detect_block_reason(driver: WebDriver) -> Optional[str]:
     try:
         source = driver.page_source or ""
     except Exception:
         return None
     lowered = source.lower()
-    if "captcha-delivery.com" in lowered or "geo.captcha-delivery.com" in lowered:
+    if "captcha" in lowered or "captcha-delivery.com" in lowered or "geo.captcha-delivery.com" in lowered:
         return "captcha"
     if "cloudflare" in lowered or "attention required" in lowered:
         return "cloudflare"
@@ -231,6 +246,44 @@ def _detect_block_reason(driver: WebDriver) -> Optional[str]:
         return "access_denied"
     if "<title>allegro.pl</title>" in lowered and "data-serialize-box-id" not in lowered:
         return "blocked_minimal_page"
+    return None
+
+
+def _detect_no_results_text(driver: WebDriver) -> bool:
+    try:
+        source = driver.page_source or ""
+    except Exception:
+        return False
+    lowered = source.lower()
+    markers = (
+        "brak wynik\u00f3w",
+        "nie znale\u017ali\u015bmy",
+        "0 wynik\u00f3w",
+        "no results",
+        "no items found",
+    )
+    return any(marker in lowered for marker in markers)
+
+
+def _normalize_offer_url(url: Optional[str]) -> Optional[str]:
+    if not url:
+        return None
+    return urljoin(_ALLEGRO_BASE_URL, url)
+
+
+def _offer_link_from_dom(driver: WebDriver) -> Optional[str]:
+    selectors = (
+        'a[href*="/oferta/"]',
+        'a[href*="allegro.pl/oferta/"]',
+    )
+    for selector in selectors:
+        try:
+            link = driver.find_element(By.CSS_SELECTOR, selector)
+        except Exception:
+            continue
+        href = link.get_attribute("href")
+        if href:
+            return href
     return None
 
 
@@ -324,6 +377,16 @@ def _create_driver() -> WebDriver:
                 pass
             log_output = str(chromedriver_log_file)
         service = Service(executable_path=driver_path, log_output=log_output)
+        proxy_list = os.getenv("SELENIUM_PROXY")
+        proxy_url = f"socks5://{proxy_list}"
+        proxy_config = {
+            'proxy': {
+                'http': proxy_url,
+                'https': proxy_url,
+                'no_roxy': 'localhost,127.0.0.1'
+            },
+            'verify_ssl': False
+        } 
         return webdriver.Chrome(service=service, options=options)
 
     last_exc: Optional[Exception] = None
@@ -502,7 +565,19 @@ def _validate_ean(driver: WebDriver, product_url: Optional[str]) -> Optional[str
     if not product_url:
         return None
     try:
-        driver.get(product_url)
+        driver.get(_normalize_offer_url(product_url))
+        _accept_cookies(driver)
+        meta_tag = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[itemprop="gtin"]'))
+        )
+        return meta_tag.get_attribute("content")
+    except Exception:
+        pass
+    try:
+        offer_url = _offer_link_from_dom(driver)
+        if not offer_url:
+            return None
+        driver.get(_normalize_offer_url(offer_url))
         _accept_cookies(driver)
         meta_tag = WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[itemprop="gtin"]'))
@@ -526,10 +601,40 @@ def scrape_single_ean(ean: str) -> dict:
         driver.get(f"https://allegro.pl/listing?string={ean}")
         _accept_cookies(driver)
         # Wait for listing data before deciding about blocks to avoid false positives.
-        data = _wait_for_listing_data(driver)
+        try:
+            data = _wait_for_listing_data(driver)
+        except TimeoutException:
+            block_reason = _detect_block_reason(driver) if driver else None
+            if not block_reason:
+                state = _listing_state_from_scripts(driver) if driver else None
+                elements_count = _listing_elements_count(state)
+                if elements_count == 0 or _detect_no_results_text(driver):
+                    return {
+                        "ean": str(ean),
+                        "product_title": None,
+                        "product_url": None,
+                        "category_sold_count": None,
+                        "offers_total_sold_count": None,
+                        "lowest_price": None,
+                        "second_lowest_price": None,
+                        "offers": [],
+                        "not_found": True,
+                        "blocked": False,
+                        "scraped_at": scraped_at,
+                        "source": "local_scraper",
+                        "error": None,
+                        # Legacy compatibility keys
+                        "price": None,
+                        "sold_count": None,
+                        "original_ean": None,
+                    }
+            raise
         elements = data.get("__listing_StoreState", {}).get("items", {}).get("elements", []) or []
 
         offers, product_title, product_url, category_sold_count = _extract_offers(elements)
+        if not product_url:
+            product_url = _offer_link_from_dom(driver)
+        product_url = _normalize_offer_url(product_url)
         original_ean = _validate_ean(driver, product_url)
 
         prices = [o["price"] for o in offers if o.get("price") is not None]
@@ -582,7 +687,7 @@ def scrape_single_ean(ean: str) -> dict:
             "second_lowest_price": None,
             "offers": [],
             "not_found": False,
-            "blocked": True,
+            "blocked": bool(block_reason),
             "scraped_at": scraped_at,
             "source": "local_scraper",
             "error": error_msg,

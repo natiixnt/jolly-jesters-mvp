@@ -1,14 +1,77 @@
 from __future__ import annotations
 
+import json
 import random
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Optional
 
 import httpx
 
 from app.core.config import settings
 from app.services.schemas import AllegroResult
+
+_NO_RESULTS_MARKERS = (
+    "brak wynik\u00f3w",
+    "nie znale\u017ali\u015bmy",
+    "0 wynik\u00f3w",
+    "no results",
+    "no items found",
+)
+
+_BLOCKED_MARKERS = (
+    "captcha",
+    "captcha-delivery.com",
+    "geo.captcha-delivery.com",
+    "cloudflare",
+    "attention required",
+    "access denied",
+)
+
+
+def _extract_listing_state(html: str) -> Optional[dict]:
+    if "__listing_StoreState" not in html:
+        return None
+    for match in re.finditer(r"<script[^>]*data-serialize-box-id[^>]*>(.*?)</script>", html, re.DOTALL):
+        raw = match.group(1).strip()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except Exception:
+            continue
+        if isinstance(data, dict) and data.get("__listing_StoreState"):
+            return data
+    return None
+
+
+def _listing_elements_count(state: dict) -> Optional[int]:
+    try:
+        elements = state.get("__listing_StoreState", {}).get("items", {}).get("elements", [])
+    except Exception:
+        return None
+    if not isinstance(elements, list):
+        return None
+    return len(elements)
+
+
+def _html_has_no_results(html: str) -> bool:
+    lowered = html.lower()
+    return any(marker in lowered for marker in _NO_RESULTS_MARKERS)
+
+
+def _detect_block_reason(html: str) -> Optional[str]:
+    lowered = html.lower()
+    if any(marker in lowered for marker in _BLOCKED_MARKERS):
+        if "captcha" in lowered:
+            return "captcha"
+        if "cloudflare" in lowered or "attention required" in lowered:
+            return "cloudflare"
+        return "access_denied"
+    if "<title>allegro.pl</title>" in lowered and "data-serialize-box-id" not in lowered:
+        return "blocked_minimal_page"
+    return None
 
 
 async def fetch_via_http_scraper(ean: str) -> AllegroResult:
@@ -83,7 +146,51 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
             blocked=resp.status_code in (403, 429),
         )
 
-    # No HTML parsing yet - treat as temporary to allow local scraper fallback
+    if resp.status_code == 200:
+        html = resp.text or ""
+        block_reason = _detect_block_reason(html)
+        if block_reason:
+            return AllegroResult(
+                price=None,
+                sold_count=None,
+                is_not_found=False,
+                is_temporary_error=True,
+                raw_payload=payload
+                | {
+                    "note": "blocked",
+                    "block_reason": block_reason,
+                    "source": "cloud_http",
+                },
+                source="cloud_http",
+                last_checked_at=now,
+                blocked=True,
+            )
+        state = _extract_listing_state(html)
+        if state:
+            elements_count = _listing_elements_count(state)
+            payload["listing_elements_count"] = elements_count
+            if elements_count == 0:
+                return AllegroResult(
+                    price=None,
+                    sold_count=None,
+                    is_not_found=True,
+                    is_temporary_error=False,
+                    raw_payload=payload | {"note": "no_results", "source": "cloud_http"},
+                    source="cloud_http",
+                    last_checked_at=now,
+                )
+        elif html and _html_has_no_results(html):
+            return AllegroResult(
+                price=None,
+                sold_count=None,
+                is_not_found=True,
+                is_temporary_error=False,
+                raw_payload=payload | {"note": "no_results_text", "source": "cloud_http"},
+                source="cloud_http",
+                last_checked_at=now,
+            )
+
+    # No HTML parsing of offers - treat as temporary to allow local scraper fallback
     return AllegroResult(
         price=None,
         sold_count=None,
