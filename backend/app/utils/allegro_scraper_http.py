@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import random
 import re
@@ -14,6 +15,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.schemas import AllegroResult
+from app.utils.fingerprint import get_http_header_preset
 
 _NO_RESULTS_MARKERS = (
     "brak wynik\u00f3w",
@@ -37,6 +39,7 @@ _COOLDOWN_LOCK = threading.Lock()
 _BLOCKED_UNTIL = 0.0
 _CAPTCHA_LOCK = threading.Lock()
 _CAPTCHA_STREAK = 0
+logger = logging.getLogger(__name__)
 
 
 def _min_interval_seconds() -> float:
@@ -190,7 +193,18 @@ async def fetch_via_http_scraper(ean: str) -> AllegroResult:
         proxies = {"http": proxy, "https": proxy}
 
     try:
-        async with httpx.AsyncClient(timeout=settings.proxy_timeout, proxies=proxies) as client:
+        header_preset = get_http_header_preset()
+        client_kwargs = {"timeout": settings.proxy_timeout, "proxies": proxies}
+        if header_preset:
+            client_kwargs["headers"] = header_preset.headers
+            logger.info(
+                "cloud_http fingerprint preset_id=%s ua_hash=%s ua_version=%s rotated=%s",
+                header_preset.preset_id,
+                header_preset.ua_hash,
+                header_preset.ua_version,
+                header_preset.rotated,
+            )
+        async with httpx.AsyncClient(**client_kwargs) as client:
             resp = await client.get(url, params=params)
     except httpx.ConnectError as exc:
         _reset_captcha_streak()

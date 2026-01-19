@@ -1273,22 +1273,14 @@
                     <div class="toggle-group" id="strategy-boxes">
                       <div>
                         <label class="toggle">
-                          <input type="checkbox" name="use_cloud_http" value="true" checked />
-                          <span class="toggle__track"></span>
-                          <span class="toggle__label">Proxy / Cloud</span>
-                        </label>
-                        <div class="helper">Scraping przez proxy/HTTP w chmurze.</div>
-                      </div>
-                      <div>
-                        <label class="toggle">
                           <input type="checkbox" name="use_local_scraper" value="true" checked />
                           <span class="toggle__track"></span>
                           <span class="toggle__label">Local Selenium</span>
                         </label>
-                        <div class="helper">Selenium lokalnie w kontenerze (fallback).</div>
+                        <div class="helper">Selenium lokalnie w kontenerze.</div>
                       </div>
                     </div>
-                    <div class="helper">Jeśli oba źródła są wyłączone, analiza korzysta tylko z danych z bazy i cache.</div>
+                    <div class="helper">Jeśli źródło jest wyłączone, analiza korzysta tylko z danych z bazy i cache.</div>
                     <div class="helper" id="strategy-offline-hint"></div>
                     <div class="error" id="strategy-error"></div>
                   </div>
@@ -1351,7 +1343,6 @@
                       <label for="db-source">Źródło danych</label>
                       <select id="db-source">
                         <option value="any">Dowolne</option>
-                        <option value="cloud">Proxy / Cloud</option>
                         <option value="local_scraper">Local Selenium</option>
                       </select>
                       <div class="helper">Filtruj po źródle pozyskanych danych.</div>
@@ -1457,7 +1448,6 @@
                           <label for="market-source">Źródło danych</label>
                           <select id="market-source">
                             <option value="">Dowolne</option>
-                            <option value="cloud_http">Proxy / Cloud</option>
                             <option value="local">Local Selenium</option>
                             <option value="scraping">Scraping (inne)</option>
                           </select>
@@ -1676,8 +1666,8 @@
           <div>Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.</div>
         </div>
         <div class="faq-item">
-          <strong>Źródła danych (Proxy / Cloud, Local Selenium)</strong>
-          <div>Proxy / Cloud – scraping przez proxy w chmurze. Local Selenium – lokalny fallback z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.</div>
+          <strong>Źródła danych (Local Selenium)</strong>
+          <div>Local Selenium – lokalny scraper z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.</div>
         </div>
         <div class="faq-item">
           <strong>Jak dodać nową kategorię</strong>
@@ -1833,7 +1823,7 @@
     let marketState = { offset: 0, limit: 50, total: 0 };
     let startTouched = false;
     const DEFAULT_SETTINGS = {
-      use_cloud_http: true,
+      use_cloud_http: false,
       use_local_scraper: true,
       local_scraper_windows: 1,
       cache_ttl_days: 30,
@@ -1939,9 +1929,7 @@
     }
 
     function applyDefaults() {
-      const useCloudInput = document.querySelector('input[name="use_cloud_http"]');
       const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
-      if (useCloudInput) useCloudInput.checked = settingsDefaults.use_cloud_http;
       if (useLocalInput) useLocalInput.checked = settingsDefaults.use_local_scraper;
       if (localWindowsInput) localWindowsInput.value = settingsDefaults.local_scraper_windows;
       if (cacheTtlInput) cacheTtlInput.value = settingsDefaults.cache_ttl_days;
@@ -2130,7 +2118,6 @@
 
     function renderStrategies(run) {
       const strategies = [];
-      if (run.use_cloud_http) strategies.push('Proxy / Cloud');
       if (run.use_local_scraper) strategies.push('Local Selenium');
       return strategies.length ? strategies.join(' · ') : 'Brak';
     }
@@ -3140,7 +3127,6 @@
         const ops = actionsEl.querySelector('.history-ops');
         const menuItems = [];
         if (run.status !== 'canceled') {
-          menuItems.push('<button type="button" data-op="retry-cloud">Retry: Cloud</button>');
           menuItems.push('<button type="button" data-op="retry-local">Retry: Local</button>');
         }
         if (run.status === 'pending' || run.status === 'running') {
@@ -3165,9 +3151,6 @@
               if (run.status === 'pending' || run.status === 'running') {
                 cancelRun(run.id);
               }
-            }
-            if (action === 'retry-cloud') {
-              if (run.status !== 'canceled') retryFailed(run.id, 'cloud');
             }
             if (action === 'retry-local') {
               if (run.status !== 'canceled') retryFailed(run.id, 'local');
@@ -3267,13 +3250,12 @@
 
     function getStrategyFlags() {
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const useCloudInput = document.querySelector('input[name="use_cloud_http"]');
       const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
       if (mode === 'offline') {
         return { use_cloud_http: false, use_local_scraper: false };
       }
       return {
-        use_cloud_http: useCloudInput?.checked || false,
+        use_cloud_http: false,
         use_local_scraper: useLocalInput?.checked || false,
       };
     }

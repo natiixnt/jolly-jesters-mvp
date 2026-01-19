@@ -21,6 +21,14 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from app.utils.fingerprint import (
+    SeleniumFingerprint,
+    get_selenium_fingerprint,
+    get_selenium_proxy,
+    ua_hash,
+    ua_version,
+)
+
 logger = logging.getLogger(__name__)
 _LAST_DRIVER_DEBUG: Dict[str, Any] = {}
 _FORCED_PROFILE_DIR: Optional[str] = None
@@ -157,6 +165,7 @@ def _get_forced_profile_dir() -> str:
 def _build_chrome_options(
     user_data_dir_override: Optional[str] = None,
     headless_override: Optional[bool] = None,
+    fingerprint: Optional[SeleniumFingerprint] = None,
 ) -> Options:
     headless = is_headless_mode() if headless_override is None else headless_override
     chrome_path = _resolve_chrome_binary()
@@ -171,15 +180,30 @@ def _build_chrome_options(
     options.add_argument("--no-first-run")
     options.add_argument("--no-default-browser-check")
     options.add_argument("--disable-software-rasterizer")
-    options.add_argument("--window-size=1280,800")
+    if fingerprint:
+        width, height = fingerprint.viewport
+        options.add_argument(f"--window-size={width},{height}")
+    else:
+        options.add_argument("--window-size=1280,800")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-infobars")
-    options.add_argument("--lang=pl-PL")
+    if fingerprint:
+        options.add_argument(f"--lang={fingerprint.lang}")
+    else:
+        options.add_argument("--lang=pl-PL")
     options.add_argument("--ignore-certificate-errors")
-    user_agent = os.getenv("SELENIUM_USER_AGENT")
-    if user_agent:
-        options.add_argument(f"--user-agent={user_agent}")
+    prefs: Dict[str, str] = {}
+    if fingerprint:
+        options.add_argument(f"--user-agent={fingerprint.user_agent}")
+        if fingerprint.accept_language:
+            prefs["intl.accept_languages"] = fingerprint.accept_language
+    else:
+        user_agent = os.getenv("SELENIUM_USER_AGENT")
+        if user_agent:
+            options.add_argument(f"--user-agent={user_agent}")
+    if prefs:
+        options.add_experimental_option("prefs", prefs)
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
     user_data_dir = user_data_dir_override or os.getenv("SELENIUM_USER_DATA_DIR")
@@ -348,13 +372,17 @@ def _update_driver_debug(driver: WebDriver, options: Options) -> None:
 
     _LAST_DRIVER_DEBUG.clear()
     _LAST_DRIVER_DEBUG.update(debug)
+    user_agent = debug.get("user_agent")
+    user_agent_hash = ua_hash(user_agent)
+    user_agent_version = ua_version(user_agent)
     logger.info(
-        "local_scraper driver debug mode=%s user_data_dir=%s profile_dir=%s chrome_args=%s user_agent=%s webdriver=%s browser_version=%s",
+        "local_scraper driver debug mode=%s user_data_dir=%s profile_dir=%s chrome_args=%s ua_hash=%s ua_version=%s webdriver=%s browser_version=%s",
         debug.get("scraper_mode"),
         debug.get("user_data_dir"),
         debug.get("profile_dir"),
         debug.get("chrome_args"),
-        debug.get("user_agent"),
+        user_agent_hash,
+        user_agent_version,
         debug.get("navigator_webdriver"),
         debug.get("browser_version"),
     )
@@ -364,6 +392,28 @@ def _create_driver() -> WebDriver:
     driver_path = _resolve_chromedriver_path()
     if not driver_path:
         raise RuntimeError("chromedriver_not_found")
+    fingerprint = get_selenium_fingerprint()
+    if fingerprint:
+        logger.info(
+            "local_scraper fingerprint fingerprint_id=%s ua_hash=%s ua_version=%s viewport=%sx%s lang=%s profile_mode=%s rotated=%s ua_source=%s",
+            fingerprint.preset_id,
+            fingerprint.ua_hash,
+            fingerprint.ua_version,
+            fingerprint.viewport[0],
+            fingerprint.viewport[1],
+            fingerprint.lang,
+            fingerprint.profile_mode,
+            fingerprint.rotated,
+            fingerprint.ua_source,
+        )
+    proxy_config = get_selenium_proxy(fingerprint)
+    if proxy_config:
+        logger.info(
+            "local_scraper proxy source=%s proxy_id=%s rotated=%s",
+            proxy_config.source,
+            proxy_config.proxy_id,
+            proxy_config.rotated,
+        )
 
     def _start_driver(options: Options) -> WebDriver:
         chromedriver_log_path = os.getenv("SELENIUM_CHROMEDRIVER_LOG_PATH")
@@ -378,7 +428,7 @@ def _create_driver() -> WebDriver:
             log_output = str(chromedriver_log_file)
         service = Service(executable_path=driver_path, log_output=log_output)
         seleniumwire_options = None
-        proxy_raw = (os.getenv("SELENIUM_PROXY") or "").strip()
+        proxy_raw = proxy_config.proxy_url if proxy_config else ""
         if proxy_raw:
             proxy_url = proxy_raw if "://" in proxy_raw else f"socks5://{proxy_raw}"
             parsed = urlparse(proxy_url)
@@ -411,20 +461,23 @@ def _create_driver() -> WebDriver:
             return None
 
     forced_profile_dir: Optional[str] = None
-    if _env_flag_enabled(os.getenv("SELENIUM_FORCE_TEMP_PROFILE")):
+    if fingerprint and fingerprint.profile_dir:
+        forced_profile_dir = fingerprint.profile_dir
+        logger.warning("Using rotating profile dir=%s", forced_profile_dir)
+    elif _env_flag_enabled(os.getenv("SELENIUM_FORCE_TEMP_PROFILE")):
         forced_profile_dir = _get_forced_profile_dir()
         logger.warning("Using forced profile dir=%s", forced_profile_dir)
     elif _FORCED_PROFILE_DIR:
         forced_profile_dir = _FORCED_PROFILE_DIR
         logger.warning("Using fallback profile dir=%s", forced_profile_dir)
 
-    options = _build_chrome_options(user_data_dir_override=forced_profile_dir)
+    options = _build_chrome_options(user_data_dir_override=forced_profile_dir, fingerprint=fingerprint)
     driver = _try_start("forced_profile" if forced_profile_dir else "default", options)
 
     if driver is None and forced_profile_dir is not None:
         fallback_dir = _new_temp_profile_dir()
         logger.warning("Retrying with new forced profile dir=%s", fallback_dir)
-        options = _build_chrome_options(user_data_dir_override=fallback_dir)
+        options = _build_chrome_options(user_data_dir_override=fallback_dir, fingerprint=fingerprint)
         driver = _try_start("forced_profile_retry", options)
         if driver is not None:
             _FORCED_PROFILE_DIR = fallback_dir
@@ -432,7 +485,7 @@ def _create_driver() -> WebDriver:
     if driver is None and forced_profile_dir is None and _env_flag_enabled(os.getenv("SELENIUM_PROFILE_FALLBACK")):
         fallback_dir = _new_temp_profile_dir()
         logger.warning("Retrying with fallback profile dir=%s", fallback_dir)
-        options = _build_chrome_options(user_data_dir_override=fallback_dir)
+        options = _build_chrome_options(user_data_dir_override=fallback_dir, fingerprint=fingerprint)
         driver = _try_start("fallback_profile", options)
         if driver is not None:
             _FORCED_PROFILE_DIR = fallback_dir
@@ -440,7 +493,11 @@ def _create_driver() -> WebDriver:
     if driver is None and not is_headless_mode():
         fallback_dir = _FORCED_PROFILE_DIR or _new_temp_profile_dir()
         logger.warning("Retrying in headless mode with profile dir=%s", fallback_dir)
-        options = _build_chrome_options(user_data_dir_override=fallback_dir, headless_override=True)
+        options = _build_chrome_options(
+            user_data_dir_override=fallback_dir,
+            headless_override=True,
+            fingerprint=fingerprint,
+        )
         driver = _try_start("fallback_headless", options)
 
     if driver is None:
@@ -453,9 +510,17 @@ def _create_driver() -> WebDriver:
     except Exception:
         pass
     try:
-        driver.maximize_window()
+        if fingerprint:
+            driver.set_window_size(fingerprint.viewport[0], fingerprint.viewport[1])
+        else:
+            driver.maximize_window()
     except Exception:
         pass
+    if fingerprint and fingerprint.timezone:
+        try:
+            driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": fingerprint.timezone})
+        except Exception:
+            pass
     _update_driver_debug(driver, options)
     return driver
 

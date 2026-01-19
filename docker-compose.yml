@@ -55,6 +55,10 @@ services:
       - ./backend/.env
     environment:
       - PROXY_LIST=${PROXY_LIST:-}
+      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
+      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
+      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
+      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
@@ -98,6 +102,10 @@ services:
       - LOCAL_SCRAPER_PAGELOAD_TIMEOUT=45
       - LOCAL_SCRAPER_REQUEST_DELAY=${LOCAL_SCRAPER_REQUEST_DELAY:-3}
       - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
+      - FINGERPRINT_ROTATION_ENABLED=${FINGERPRINT_ROTATION_ENABLED:-1}
+      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
+      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
+      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     ports:
       - "5050:5050"
       # noVNC (secure via SSH tunnel or firewall on VPS)
@@ -122,6 +130,10 @@ services:
       - ./backend/.env
     environment:
       - PROXY_LIST=${PROXY_LIST:-}
+      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
+      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
+      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
+      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=2 --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
@@ -145,6 +157,10 @@ services:
     environment:
       - PROXY_LIST=${PROXY_LIST:-}
       - WORKSPACE=/workspace
+      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
+      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
+      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
+      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_cloud --concurrency=${SCRAPER_CLOUD_CONCURRENCY:-4} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
@@ -169,6 +185,10 @@ services:
     environment:
       - PROXY_LIST=${PROXY_LIST:-}
       - WORKSPACE=/workspace
+      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
+      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
+      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
+      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-2} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
