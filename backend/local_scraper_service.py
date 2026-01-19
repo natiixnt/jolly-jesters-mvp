@@ -256,6 +256,8 @@ class ScrapeResponse(BaseModel):
     price: Optional[float] = None
     sold_count: Optional[int] = None
     original_ean: Optional[str] = None
+    fingerprint_id: Optional[str] = None
+    vnc_active: Optional[bool] = None
 
 
 @app.get("/config", response_model=ScraperConfigResponse)
@@ -333,4 +335,6 @@ def scrape(req: ScrapeRequest):
         price=detail.get("price"),
         sold_count=detail.get("sold_count"),
         original_ean=detail.get("original_ean"),
+        fingerprint_id=detail.get("fingerprint_id"),
+        vnc_active=detail.get("vnc_active"),
     )

@@ -198,6 +198,14 @@ Notes:
   and set `LOCAL_SCRAPER_URL=http://host.docker.internal:5051` (or
   `LOCAL_SCRAPER_PORT=5051 ./scripts/dev_up.sh`).
 - The scraper script updates `backend/.env` only when you set
+
+## Timeouty i rotacja fingerprintów (domyślne)
+
+- Twarde limity tasków Celery: `SCRAPER_TASK_SOFT_TIME_LIMIT=150`, `SCRAPER_TASK_HARD_TIME_LIMIT=180` (sekundy).
+- Local scraper HTTP: `LOCAL_SCRAPER_TIMEOUT` (httpx total), `LOCAL_SCRAPER_MAX_REQUEST_SECONDS=120`.
+- Cloud HTTP: `CLOUD_SCRAPER_REQUEST_TIMEOUT=25`, `CLOUD_SCRAPER_CONNECT_TIMEOUT=10`, `CLOUD_SCRAPER_MAX_RETRIES=3`, `CLOUD_SCRAPER_RETRY_BACKOFF=1.5`.
+- Watchdog runu: `RUN_STALE_ITEM_TIMEOUT_MINUTES=8`, pojedynczy retry po watchdogu steruje `RUN_STALE_ITEM_RETRY_ONCE` (domyślnie włączony).
+- Rotacja fingerprintu: losowo co `SELENIUM_ROTATE_MIN_REQUESTS=2`–`SELENIUM_ROTATE_MAX_REQUESTS=3`, profile tymczasowe (`SELENIUM_FORCE_TEMP_PROFILE=1` w docker-compose), te same progi używane dla nagłówków HTTP.
   `LOCAL_SCRAPER_UPDATE_ENV=1` explicitly.
   The compose wrapper does the same if you pass `LOCAL_SCRAPER_PORT` or
   `LOCAL_SCRAPER_URL` and set `LOCAL_SCRAPER_UPDATE_ENV=1`.

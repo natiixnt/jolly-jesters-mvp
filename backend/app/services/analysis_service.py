@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Callable, Iterable, List, Tuple
@@ -25,6 +26,21 @@ from app.services.schemas import ScrapingStrategyConfig
 from app.services import settings_service
 
 logger = logging.getLogger(__name__)
+
+
+def _stale_item_timeout_minutes() -> int:
+    try:
+        value = int(os.getenv("RUN_STALE_ITEM_TIMEOUT_MINUTES", "8"))
+    except Exception:
+        value = 8
+    return max(1, value)
+
+
+def _watchdog_retry_enabled() -> bool:
+    raw = os.getenv("RUN_STALE_ITEM_RETRY_ONCE")
+    if raw is None:
+        return True
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _mark_run_failed(db: Session, run_id: int, message: str) -> None:
@@ -364,6 +380,50 @@ TERMINAL_STATUSES = {
 }
 
 
+def _fail_stale_items(db: Session, run: AnalysisRun) -> int:
+    if run.status in {AnalysisStatus.canceled, AnalysisStatus.failed, AnalysisStatus.completed}:
+        return 0
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=_stale_item_timeout_minutes())
+    stale_items = (
+        db.query(AnalysisRunItem)
+        .filter(
+            AnalysisRunItem.analysis_run_id == run.id,
+            AnalysisRunItem.scrape_status == ScrapeStatus.in_progress,
+            AnalysisRunItem.updated_at < cutoff,
+        )
+        .all()
+    )
+    if not stale_items:
+        return 0
+
+    count = 0
+    for item in stale_items:
+        prev_status = item.scrape_status
+        item.source = AnalysisItemSource.error
+        item.scrape_status = ScrapeStatus.network_error
+        item.error_message = "watchdog_timeout"
+        item.allegro_price = None
+        item.allegro_sold_count = None
+        item.profitability_score = None
+        item.profitability_label = None
+        if prev_status not in TERMINAL_STATUSES:
+            run.processed_products += 1
+        count += 1
+        logger.warning(
+            "RUN_WATCHDOG stale item item_id=%s ean=%s updated_at=%s cutoff=%s",
+            item.id,
+            item.ean,
+            getattr(item, "updated_at", None),
+            cutoff,
+        )
+
+    if run.processed_products >= run.total_products and run.status != AnalysisStatus.completed:
+        run.status = AnalysisStatus.completed
+        run.finished_at = datetime.now(timezone.utc)
+    db.commit()
+    return count
+
+
 def _normalize_scrape_status(item: AnalysisRunItem) -> ScrapeStatus | None:
     status = item.scrape_status
     if status is not None:
@@ -475,6 +535,39 @@ def process_analysis_run(
             use_cloud_http=run.use_cloud_http,
             use_local_scraper=run.use_local_scraper,
         )
+
+        stale_count = _fail_stale_items(db, run)
+        if stale_count and _watchdog_retry_enabled():
+            metadata = dict(run.run_metadata or {})
+            if not metadata.get("watchdog_timeout_retry_done"):
+                def _enqueue_retry(item: AnalysisRunItem) -> str | None:
+                    task_id: str | None = None
+                    if strategy.use_cloud_http and enqueue_cloud_scrape:
+                        result = enqueue_cloud_scrape(item, strategy)  # type: ignore[func-returns-value]
+                        task_id = getattr(result, "id", None)
+                    elif strategy.use_local_scraper and enqueue_local_scrape:
+                        result = enqueue_local_scrape(item, strategy)  # type: ignore[func-returns-value]
+                        task_id = getattr(result, "id", None)
+                    return task_id
+
+                scheduled = retry_failed_items(
+                    db,
+                    run.id,
+                    enqueue=_enqueue_retry,
+                    retry_statuses={ScrapeStatus.network_error},
+                )
+                metadata["watchdog_timeout_retry_done"] = True
+                run.run_metadata = metadata
+                db.commit()
+                logger.warning(
+                    "RUN_WATCHDOG retry scheduled=%s stale_count=%s run_id=%s",
+                    scheduled,
+                    stale_count,
+                    run.id,
+                )
+        if run.status == AnalysisStatus.completed:
+            logger.info("ANALYSIS_RUN completed after stale handling run_id=%s", run.id)
+            return
 
         batch_size = 10 if strategy.use_local_scraper else 0
         pending_items = 0

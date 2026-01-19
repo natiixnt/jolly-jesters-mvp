@@ -5,6 +5,7 @@ import os
 import random
 import re
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -24,6 +25,7 @@ class SeleniumFingerprint:
     ua_hash: str
     ua_version: Optional[str]
     ua_source: str
+    fingerprint_id: str
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,7 @@ class HttpHeaderPreset:
     rotated: bool
     ua_hash: str
     ua_version: Optional[str]
+    fingerprint_id: str
 
 
 @dataclass(frozen=True)
@@ -253,9 +256,33 @@ _PROXY_RNG: Optional[random.Random] = None
 def _rotating_profile_dir(preset_id: str) -> str:
     base = Path(os.getenv("SELENIUM_TEMP_PROFILE_DIR", "/tmp")) / "selenium_profiles"
     base.mkdir(parents=True, exist_ok=True)
-    profile_dir = base / preset_id
+    ts_suffix = int(time.time() * 1000)
+    rand_suffix = random.randint(1000, 9999)
+    profile_dir = base / f"{preset_id}-{ts_suffix}-{rand_suffix}"
     profile_dir.mkdir(parents=True, exist_ok=True)
     return str(profile_dir)
+
+
+def build_fingerprint_id(
+    preset_id: Optional[str],
+    user_agent: Optional[str],
+    accept_language: Optional[str],
+    lang: Optional[str],
+    viewport: Optional[Tuple[int, int]],
+    timezone: Optional[str],
+) -> str:
+    viewport_label = f"{viewport[0]}x{viewport[1]}" if viewport else "na"
+    raw = "|".join(
+        [
+            preset_id or "preset",
+            ua_hash(user_agent) or "ua",
+            accept_language or "accept_lang",
+            lang or "lang",
+            viewport_label,
+            timezone or "tz",
+        ]
+    )
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
 
 def _proxy_rotation_enabled() -> bool:
@@ -356,6 +383,14 @@ def get_selenium_fingerprint() -> Optional[SeleniumFingerprint]:
     else:
         user_agent = preset.user_agent
         ua_source = "preset"
+    fingerprint_id = build_fingerprint_id(
+        preset.preset_id,
+        user_agent,
+        preset.accept_language,
+        preset.lang,
+        preset.viewport,
+        preset.timezone,
+    )
     profile_dir = None
     profile_mode = "persistent"
     if _env_bool("SELENIUM_FORCE_TEMP_PROFILE", False):
@@ -378,6 +413,7 @@ def get_selenium_fingerprint() -> Optional[SeleniumFingerprint]:
         ua_hash=ua_hash(user_agent) or "unknown",
         ua_version=ua_version(user_agent),
         ua_source=ua_source,
+        fingerprint_id=fingerprint_id,
     )
 
 
@@ -406,6 +442,14 @@ def get_http_header_preset() -> Optional[HttpHeaderPreset]:
         return None
     preset, rotated, _, _ = _HTTP_ROTATOR.next_preset()
     headers = _http_headers_for_preset(preset)
+    fp_id = build_fingerprint_id(
+        preset.preset_id,
+        preset.user_agent,
+        preset.accept_language,
+        preset.lang,
+        preset.viewport,
+        preset.timezone,
+    )
     return HttpHeaderPreset(
         preset_id=preset.preset_id,
         headers=headers,
@@ -413,4 +457,5 @@ def get_http_header_preset() -> Optional[HttpHeaderPreset]:
         rotated=rotated,
         ua_hash=ua_hash(preset.user_agent) or "unknown",
         ua_version=ua_version(preset.user_agent),
+        fingerprint_id=fp_id,
     )

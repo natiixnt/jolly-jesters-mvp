@@ -126,6 +126,7 @@ services:
     build:
       context: ./backend
     container_name: pilot_worker
+    restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
@@ -152,6 +153,7 @@ services:
     build:
       context: ./backend
     container_name: pilot_scraper_cloud_worker
+    restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
@@ -179,6 +181,7 @@ services:
     build:
       context: ./backend
     container_name: pilot_scraper_worker
+    restart: unless-stopped
     # --- POPRAWKA: dodalem env_file zeby wczytac proxy ---
     env_file:
       - ./backend/.env

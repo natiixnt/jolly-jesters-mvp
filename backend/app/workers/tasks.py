@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from celery import Celery
-from celery.exceptions import Retry
+from celery.exceptions import Retry, SoftTimeLimitExceeded
 from celery.signals import worker_init, worker_process_init
 import redis
 
@@ -36,6 +36,22 @@ from app.utils.local_scraper_client import check_local_scraper_health, fetch_via
 
 logger = logging.getLogger(__name__)
 _REDIS_CLIENT = None
+
+
+def _task_soft_time_limit_seconds() -> int:
+    try:
+        value = int(os.getenv("SCRAPER_TASK_SOFT_TIME_LIMIT", "150"))
+    except Exception:
+        value = 150
+    return max(30, value)
+
+
+def _task_hard_time_limit_seconds() -> int:
+    try:
+        value = int(os.getenv("SCRAPER_TASK_HARD_TIME_LIMIT", "180"))
+    except Exception:
+        value = 180
+    return max(_task_soft_time_limit_seconds() + 10, value)
 
 TERMINAL_STATUSES = {
     ScrapeStatus.ok,
@@ -129,35 +145,11 @@ def _maybe_pause_for_blocked_item(
     strategy_snapshot: dict | None,
     label: str,
 ) -> bool:
+    # Do not block the whole run on a single blocked/captcha item; allow other items to proceed.
     state = _get_blocked_state(run.id)
-    if not state:
-        return False
-    remaining = int(math.ceil(state["until"] - time.time()))
-    if remaining <= 0:
+    if state:
         _clear_blocked_state(run.id, state.get("item_id"))
-        return False
-    blocked_item_id = int(state.get("item_id") or 0)
-    if blocked_item_id == item.id:
-        logger.warning(
-            "%s cooldown active for blocked item item_id=%s ean=%s remaining=%ss",
-            label,
-            item.id,
-            item.ean,
-            remaining,
-        )
-        task_func.apply_async(args=[item.ean, item.id, strategy_snapshot], countdown=remaining)
-        return True
-    buffer_seconds = _blocked_pause_buffer_seconds()
-    delay = remaining + buffer_seconds
-    logger.warning(
-        "%s blocked item active item_id=%s blocking item_id=%s delay=%ss",
-        label,
-        item.id,
-        blocked_item_id,
-        delay,
-    )
-    task_func.apply_async(args=[item.ean, item.id, strategy_snapshot], countdown=delay)
-    return True
+    return False
 
 def _error_message_from_result(result) -> str | None:
     if getattr(result, "error", None):
@@ -264,7 +256,6 @@ def _maybe_retry_blocked(
     if current_attempt >= limit:
         return
     delay = _blocked_retry_delay(result, current_attempt)
-    _set_blocked_state(run.id, item.id, delay, getattr(result, "source", None))
     retry_note = f"blocked_retry:{current_attempt}/{limit}"
     error_message = _error_message_from_result(result)
     if error_message:
@@ -332,8 +323,9 @@ def _maybe_retry_timeout(task, db: SessionLocal, item: AnalysisRunItem, result, 
 
 def _log_scrape_outcome(label: str, item: AnalysisRunItem, result, status: ScrapeStatus, error_message: str | None) -> None:
     payload = getattr(result, "raw_payload", {}) or {}
+    fingerprint_id = getattr(result, "fingerprint_id", None) or payload.get("fingerprint_id")
     logger.info(
-        "%s item_id=%s ean=%s status=%s not_found=%s blocked=%s temp_error=%s error=%s http_status=%s source=%s",
+        "%s item_id=%s ean=%s status=%s not_found=%s blocked=%s temp_error=%s error=%s http_status=%s source=%s fingerprint_id=%s",
         label,
         item.id,
         item.ean,
@@ -344,6 +336,7 @@ def _log_scrape_outcome(label: str, item: AnalysisRunItem, result, status: Scrap
         error_message,
         payload.get("status_code"),
         getattr(result, "source", None),
+        fingerprint_id,
     )
 
 
@@ -364,6 +357,41 @@ def _handle_unexpected_exception(
     item.source = AnalysisItemSource.error
     item.scrape_status = ScrapeStatus.error
     item.error_message = f"unexpected_error:{type(exc).__name__}"
+    _finalize_item(db, run, item, prev_status)
+
+
+def _handle_timeout(
+    db: SessionLocal,
+    run: AnalysisRun | None,
+    item: AnalysisRunItem | None,
+    prev_status: ScrapeStatus | None,
+    label: str,
+    stage: str,
+    duration_seconds: float | None = None,
+    fingerprint_id: str | None = None,
+) -> None:
+    if not run or not item:
+        return
+    message = stage if stage else "timeout"
+    if duration_seconds is not None:
+        message = f"{message}:{round(duration_seconds, 2)}s"
+    item.source = AnalysisItemSource.error
+    item.scrape_status = ScrapeStatus.network_error
+    item.error_message = message
+    item.allegro_price = None
+    item.allegro_sold_count = None
+    item.profitability_score = None
+    item.profitability_label = None
+    logger.warning(
+        "%s timeout item_id=%s ean=%s stage=%s duration=%s fingerprint_id=%s",
+        label,
+        getattr(item, "id", None),
+        getattr(item, "ean", None),
+        stage,
+        duration_seconds,
+        fingerprint_id,
+    )
+    _clear_blocked_state(run.id, item.id)
     _finalize_item(db, run, item, prev_status)
 
 
@@ -509,17 +537,21 @@ def run_analysis_task(run_id: int, mode: str = "mixed"):
         if not run:
             logger.warning("RUN_ANALYSIS_TASK missing_run run_id=%s", run_id)
             return
+        # Clear any lingering blocked/cooldown state for this run so new uploads start immediately.
+        _clear_blocked_state(run.id, None)
         if run.status == AnalysisStatus.canceled:
             logger.info("RUN_ANALYSIS_TASK canceled run_id=%s", run_id)
             return
 
-        def _enqueue_cloud_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig) -> None:
+        def _enqueue_cloud_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig):
             result = scrape_one_cloud.delay(item.ean, item.id, asdict(strategy))
             record_run_task(db, run, result.id, "cloud", item=item, ean=item.ean)
+            return result
 
-        def _enqueue_local_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig) -> None:
+        def _enqueue_local_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig):
             result = scrape_one_local.delay(item.ean, item.id, asdict(strategy))
             record_run_task(db, run, result.id, "local", item=item, ean=item.ean)
+            return result
 
         process_analysis_run(
             db,
@@ -532,7 +564,12 @@ def run_analysis_task(run_id: int, mode: str = "mixed"):
         db.close()
 
 
-@celery_app.task(acks_late=True, bind=True)
+@celery_app.task(
+    acks_late=True,
+    bind=True,
+    soft_time_limit=_task_soft_time_limit_seconds(),
+    time_limit=_task_hard_time_limit_seconds(),
+)
 def scrape_one_local(
     self,
     ean: str,
@@ -612,6 +649,8 @@ def scrape_one_local(
         _apply_scrape_result(db, item, product, category, state, result)
         _clear_blocked_state(run.id, item.id)
         _finalize_item(db, run, item, prev_status)
+    except SoftTimeLimitExceeded as exc:
+        _handle_timeout(db, run, item, prev_status, "LOCAL_SCRAPER_TASK", "celery_soft_timeout", fingerprint_id=None)
     except Retry:
         raise
     except Exception as exc:
@@ -620,7 +659,12 @@ def scrape_one_local(
         db.close()
 
 
-@celery_app.task(acks_late=True, bind=True)
+@celery_app.task(
+    acks_late=True,
+    bind=True,
+    soft_time_limit=_task_soft_time_limit_seconds(),
+    time_limit=_task_hard_time_limit_seconds(),
+)
 def scrape_one_cloud(
     self,
     ean: str,
@@ -703,6 +747,8 @@ def scrape_one_cloud(
         _apply_scrape_result(db, item, product, category, state, result)
         _clear_blocked_state(run.id, item.id)
         _finalize_item(db, run, item, prev_status)
+    except SoftTimeLimitExceeded as exc:
+        _handle_timeout(db, run, item, prev_status, "CLOUD_SCRAPER_TASK", "celery_soft_timeout", fingerprint_id=None)
     except Retry:
         raise
     except Exception as exc:

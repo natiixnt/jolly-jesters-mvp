@@ -6,6 +6,7 @@ import re
 import shutil
 import signal
 import subprocess
+import random
 from pathlib import Path
 import time
 from datetime import datetime, timezone
@@ -33,6 +34,8 @@ logger = logging.getLogger(__name__)
 _LAST_DRIVER_DEBUG: Dict[str, Any] = {}
 _FORCED_PROFILE_DIR: Optional[str] = None
 _ALLEGRO_BASE_URL = "https://allegro.pl"
+_FINGERPRINT_REQUESTS_SINCE_ROTATE = 0
+_FINGERPRINT_ROTATE_AFTER = 0
 
 
 def _env_flag_enabled(value: Optional[str]) -> bool:
@@ -45,6 +48,34 @@ def _env_flag_disabled(value: Optional[str]) -> bool:
     if value is None:
         return False
     return value.strip().lower() in {"0", "false", "no", "off"}
+
+
+def _rotation_bounds_requests() -> Tuple[int, int]:
+    try:
+        min_val = int(os.getenv("SELENIUM_ROTATE_MIN_REQUESTS", "2"))
+    except Exception:
+        min_val = 2
+    try:
+        max_val = int(os.getenv("SELENIUM_ROTATE_MAX_REQUESTS", "3"))
+    except Exception:
+        max_val = 3
+    min_val = max(1, min_val)
+    max_val = max(min_val, max_val)
+    return min_val, max_val
+
+
+def _bump_rotation_counter(rotated: bool) -> Tuple[int, int]:
+    global _FINGERPRINT_REQUESTS_SINCE_ROTATE, _FINGERPRINT_ROTATE_AFTER
+    min_val, max_val = _rotation_bounds_requests()
+    if rotated or _FINGERPRINT_ROTATE_AFTER <= 0:
+        _FINGERPRINT_REQUESTS_SINCE_ROTATE = 0
+        _FINGERPRINT_ROTATE_AFTER = random.randint(min_val, max_val)
+    _FINGERPRINT_REQUESTS_SINCE_ROTATE += 1
+    return _FINGERPRINT_REQUESTS_SINCE_ROTATE, _FINGERPRINT_ROTATE_AFTER
+
+
+def _vnc_enabled() -> bool:
+    return _env_flag_enabled(os.getenv("LOCAL_SCRAPER_ENABLE_VNC"))
 
 
 def is_headless_mode() -> bool:
@@ -388,15 +419,16 @@ def _update_driver_debug(driver: WebDriver, options: Options) -> None:
     )
 
 
-def _create_driver() -> WebDriver:
+def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
     driver_path = _resolve_chromedriver_path()
     if not driver_path:
         raise RuntimeError("chromedriver_not_found")
     fingerprint = get_selenium_fingerprint()
     if fingerprint:
+        count, threshold = _bump_rotation_counter(fingerprint.rotated)
         logger.info(
-            "local_scraper fingerprint fingerprint_id=%s ua_hash=%s ua_version=%s viewport=%sx%s lang=%s profile_mode=%s rotated=%s ua_source=%s",
-            fingerprint.preset_id,
+            "local_scraper fingerprint fingerprint_id=%s ua_hash=%s ua_version=%s viewport=%sx%s lang=%s profile_mode=%s rotated=%s ua_source=%s requests_since_rotate=%s rotate_after=%s",
+            fingerprint.fingerprint_id,
             fingerprint.ua_hash,
             fingerprint.ua_version,
             fingerprint.viewport[0],
@@ -405,6 +437,8 @@ def _create_driver() -> WebDriver:
             fingerprint.profile_mode,
             fingerprint.rotated,
             fingerprint.ua_source,
+            count,
+            threshold,
         )
     proxy_config = get_selenium_proxy(fingerprint)
     if proxy_config:
@@ -522,7 +556,7 @@ def _create_driver() -> WebDriver:
         except Exception:
             pass
     _update_driver_debug(driver, options)
-    return driver
+    return driver, fingerprint
 
 
 def _accept_cookies(driver: WebDriver) -> None:
@@ -669,15 +703,38 @@ def scrape_single_ean(ean: str) -> dict:
     """
     scraped_at = _now_iso()
     driver: Optional[WebDriver] = None
+    fingerprint: Optional[SeleniumFingerprint] = None
+    fingerprint_id: Optional[str] = None
+    vnc_active = _vnc_enabled()
+    page_load_started: Optional[float] = None
 
     try:
-        driver = _create_driver()
+        driver, fingerprint = _create_driver()
+        fingerprint_id = fingerprint.fingerprint_id if fingerprint else None
         driver.set_page_load_timeout(int(os.getenv("LOCAL_SCRAPER_PAGELOAD_TIMEOUT", "45")))
+        page_load_started = time.monotonic()
         driver.get(f"https://allegro.pl/listing?string={ean}")
+        page_load_duration = time.monotonic() - page_load_started
+        logger.info(
+            "local_scraper page_load ok ean=%s duration=%.2fs fingerprint_id=%s vnc=%s",
+            ean,
+            page_load_duration,
+            fingerprint_id,
+            vnc_active,
+        )
         _accept_cookies(driver)
         # Wait for listing data before deciding about blocks to avoid false positives.
         try:
+            wait_started = time.monotonic()
             data = _wait_for_listing_data(driver)
+            wait_duration = time.monotonic() - wait_started
+            logger.info(
+                "local_scraper wait_for_listing ok ean=%s duration=%.2fs fingerprint_id=%s vnc=%s",
+                ean,
+                wait_duration,
+                fingerprint_id,
+                vnc_active,
+            )
         except TimeoutException:
             block_reason = _detect_block_reason(driver) if driver else None
             if not block_reason:
@@ -702,7 +759,17 @@ def scrape_single_ean(ean: str) -> dict:
                         "price": None,
                         "sold_count": None,
                         "original_ean": None,
+                        "fingerprint_id": fingerprint_id,
+                        "vnc_active": vnc_active,
                     }
+            logger.warning(
+                "local_scraper wait timeout ean=%s duration=%.2fs stage=listing_wait fingerprint_id=%s vnc=%s block_reason=%s",
+                ean,
+                wait_started and (time.monotonic() - wait_started) or None,
+                fingerprint_id,
+                vnc_active,
+                block_reason,
+            )
             raise
         elements = data.get("__listing_StoreState", {}).get("items", {}).get("elements", []) or []
 
@@ -745,6 +812,8 @@ def scrape_single_ean(ean: str) -> dict:
             "price": lowest_price,
             "sold_count": offers_total_sold_count,
             "original_ean": original_ean,
+            "fingerprint_id": fingerprint_id,
+            "vnc_active": vnc_active,
         }
         return result
     except TimeoutException:
@@ -752,6 +821,14 @@ def scrape_single_ean(ean: str) -> dict:
         if driver:
             block_reason = _detect_block_reason(driver)
         error_msg = f"blocked:{block_reason}" if block_reason else "timeout"
+        logger.warning(
+            "local_scraper timeout ean=%s stage=page_load duration=%s fingerprint_id=%s vnc=%s block_reason=%s",
+            ean,
+            round(time.monotonic() - page_load_started, 2) if page_load_started else None,
+            fingerprint_id,
+            vnc_active,
+            block_reason,
+        )
         return {
             "ean": str(ean),
             "product_title": None,
@@ -766,6 +843,8 @@ def scrape_single_ean(ean: str) -> dict:
             "scraped_at": scraped_at,
             "source": "local_scraper",
             "error": error_msg,
+            "fingerprint_id": fingerprint_id,
+            "vnc_active": vnc_active,
         }
     except Exception as exc:
         logger.exception("Local scraper failed for ean=%s", ean)
@@ -783,6 +862,8 @@ def scrape_single_ean(ean: str) -> dict:
             "scraped_at": scraped_at,
             "source": "local_scraper",
             "error": str(exc),
+            "fingerprint_id": fingerprint_id,
+            "vnc_active": vnc_active,
         }
     finally:
         if driver:

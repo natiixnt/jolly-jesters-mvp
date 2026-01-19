@@ -18,6 +18,7 @@ class AllegroResult:
     product_url: Optional[str] = None
     offers: Optional[list[dict]] = None
     blocked: bool = False
+    fingerprint_id: Optional[str] = None
 
 
 @dataclass

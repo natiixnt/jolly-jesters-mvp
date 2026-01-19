@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import time
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, Optional
@@ -17,7 +19,21 @@ logger = logging.getLogger(__name__)
 def _local_scraper_timeout() -> httpx.Timeout:
     timeout_seconds = max(5.0, float(settings.local_scraper_timeout or 0))
     connect_timeout = min(10.0, timeout_seconds)
-    return httpx.Timeout(timeout_seconds, connect=connect_timeout)
+    read_timeout = min(timeout_seconds, max(5.0, timeout_seconds - 1.0))
+    return httpx.Timeout(
+        timeout_seconds,
+        connect=connect_timeout,
+        read=read_timeout,
+        write=read_timeout,
+        pool=connect_timeout,
+    )
+
+
+def _local_scraper_max_request_seconds() -> float:
+    try:
+        return max(10.0, float(os.getenv("LOCAL_SCRAPER_MAX_REQUEST_SECONDS", "120")))
+    except Exception:
+        return 120.0
 
 
 def _local_scraper_attempts() -> int:
@@ -123,8 +139,11 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
             is_temporary_error=True,
             raw_payload={"error": "local_scraper_disabled", "source": "local"},
             source="local",
+            fingerprint_id=None,
         )
 
+    start_ts = time.monotonic()
+    max_request_seconds = _local_scraper_max_request_seconds()
     try:
         logger.info("Local scraper request ean=%s url=%s", ean, url)
         timeout = _local_scraper_timeout()
@@ -132,26 +151,43 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
         async with httpx.AsyncClient(timeout=timeout) as client:
             for attempt in range(1, attempts + 1):
                 try:
-                    resp = await client.post(url, json={"ean": ean})
+                    resp = await client.post(url, json={"ean": ean}, timeout=max_request_seconds)
                     break
-                except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
+                    duration = time.monotonic() - start_ts
                     if attempt >= attempts:
                         raise
                     logger.warning(
-                        "Local scraper retry ean=%s attempt=%s/%s type=%s err=%r",
+                        "Local scraper retry ean=%s attempt=%s/%s type=%s stage=request_timeout duration=%.2fs",
                         ean,
                         attempt,
                         attempts,
                         type(exc).__name__,
-                        exc,
+                        duration,
+                    )
+                    await asyncio.sleep(_local_scraper_backoff(attempt))
+                except httpx.ConnectError as exc:
+                    duration = time.monotonic() - start_ts
+                    if attempt >= attempts:
+                        raise
+                    logger.warning(
+                        "Local scraper retry ean=%s attempt=%s/%s type=%s stage=connect duration=%.2fs",
+                        ean,
+                        attempt,
+                        attempts,
+                        type(exc).__name__,
+                        duration,
                     )
                     await asyncio.sleep(_local_scraper_backoff(attempt))
     except (httpx.TimeoutException, httpx.ConnectError) as exc:
+        duration = time.monotonic() - start_ts
         logger.warning(
-            "Local scraper network error for ean=%s type=%s err=%r",
+            "Local scraper network error for ean=%s type=%s err=%r duration=%.2fs stage=%s",
             ean,
             type(exc).__name__,
             exc,
+            duration,
+            "connect" if isinstance(exc, httpx.ConnectError) else "timeout",
             exc_info=True,
         )
         return AllegroResult(
@@ -160,21 +196,25 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
             is_not_found=False,
             is_temporary_error=True,
             raw_payload={
-                "error": "network_error",
+                "error": "timeout" if isinstance(exc, httpx.TimeoutException) else "network_error",
                 "error_type": type(exc).__name__,
                 "error_detail": repr(exc),
                 "source": "local",
                 "url": url,
+                "duration_seconds": round(duration, 2),
             },
-            error="network_error",
+            error="timeout" if isinstance(exc, httpx.TimeoutException) else "network_error",
             source="local",
+            fingerprint_id=None,
         )
     except Exception as exc:
+        duration = time.monotonic() - start_ts
         logger.warning(
-            "Local scraper network error for ean=%s type=%s err=%r",
+            "Local scraper network error for ean=%s type=%s err=%r duration=%.2fs stage=unknown",
             ean,
             type(exc).__name__,
             exc,
+            duration,
             exc_info=True,
         )
         return AllegroResult(
@@ -187,11 +227,14 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
                 "error_type": type(exc).__name__,
                 "source": "local",
                 "url": url,
+                "duration_seconds": round(duration, 2),
             },
             source="local",
+            fingerprint_id=None,
         )
 
-    logger.info("Local scraper response ean=%s status=%s", ean, resp.status_code)
+    duration = time.monotonic() - start_ts
+    logger.info("Local scraper response ean=%s status=%s duration=%.2fs", ean, resp.status_code, duration)
 
     try:
         payload: Dict[str, Any] = resp.json()
@@ -204,6 +247,7 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
     payload.setdefault("status_code", resp.status_code)
     payload.setdefault("url", url)
     payload["source"] = payload.get("source") or "local_scraper"
+    payload.setdefault("request_duration_seconds", round(duration, 2))
 
     if resp.status_code >= 400:
         payload.setdefault("error", f"http_{resp.status_code}")
@@ -231,6 +275,7 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
             source=source_label,
             last_checked_at=scraped_at,
             blocked=blocked,
+            fingerprint_id=payload.get("fingerprint_id"),
         )
 
     price_val = payload.get("lowest_price") if "lowest_price" in payload else payload.get("price")
@@ -265,6 +310,7 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
             source=source_label,
             last_checked_at=scraped_at,
             blocked=blocked,
+            fingerprint_id=payload.get("fingerprint_id"),
         )
 
     return AllegroResult(
@@ -279,4 +325,5 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
         product_url=payload.get("product_url"),
         offers=payload.get("offers"),
         blocked=blocked,
+        fingerprint_id=payload.get("fingerprint_id"),
     )

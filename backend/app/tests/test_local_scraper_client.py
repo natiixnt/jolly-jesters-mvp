@@ -98,8 +98,8 @@ async def test_fetch_local_scraper_read_timeout(monkeypatch):
 
     result = await fetch_via_local_scraper("5901234567890")
     assert result.is_temporary_error is True
-    assert result.error == "network_error"
-    assert result.raw_payload.get("error") == "network_error"
+    assert result.error == "timeout"
+    assert result.raw_payload.get("error") == "timeout"
     assert result.raw_payload.get("error_type") == "ReadTimeout"
 
 
