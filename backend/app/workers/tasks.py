@@ -249,6 +249,17 @@ def _maybe_retry_blocked(
         return
     if not getattr(result, "blocked", False):
         return
+    # Jeśli to tylko cooldown (np. retry_after) - nie zapętlaj ponownie.
+    payload = getattr(result, "raw_payload", {}) or {}
+    if isinstance(payload, dict) and str(payload.get("error") or "").lower() == "cooldown":
+        logger.warning(
+            "%s cooldown skip retry item_id=%s ean=%s retry_after=%s",
+            label,
+            item.id,
+            item.ean,
+            payload.get("retry_after_seconds"),
+        )
+        return
     limit = _blocked_retry_limit()
     if limit <= 0:
         return
