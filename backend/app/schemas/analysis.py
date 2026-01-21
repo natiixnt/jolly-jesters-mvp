@@ -113,7 +113,7 @@ class AnalysisResultsResponse(BaseModel):
 class AnalysisStartFromDbRequest(BaseModel):
     category_id: UUID
     mode: str = "mixed"
-    use_cloud_http: bool = True
+    use_cloud_http: bool = False
     use_local_scraper: bool = True
     cache_days: Optional[int] = 30
     include_all_cached: bool = False

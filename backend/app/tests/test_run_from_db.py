@@ -85,8 +85,8 @@ def test_run_from_cache_endpoint_creates_run(client, db_session, monkeypatch):
     payload = {
         "category_id": str(category.id),
         "mode": "mixed",
-        "use_cloud_http": True,
-        "use_local_scraper": False,
+        "use_cloud_http": False,
+        "use_local_scraper": True,
         "cache_days": 30,
         "only_with_data": False,
     }
@@ -119,8 +119,8 @@ def test_run_from_cache_empty_returns_400(client, db_session, monkeypatch):
     payload = {
         "category_id": str(category.id),
         "mode": "mixed",
-        "use_cloud_http": True,
-        "use_local_scraper": False,
+        "use_cloud_http": False,
+        "use_local_scraper": True,
         "cache_days": 30,
         "only_with_data": False,
     }

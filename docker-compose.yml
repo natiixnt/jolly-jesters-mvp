@@ -4,26 +4,24 @@
 services:
   postgres:
     image: postgres:15
-    container_name: pilot_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: pilot
-      POSTGRES_PASSWORD: pilot
-      POSTGRES_DB: pilotdb
+      POSTGRES_USER: mvp
+      POSTGRES_PASSWORD: mvp
+      POSTGRES_DB: mvpdb
       SELENIUM_HEADED: "true"
     ports:
       - "5433:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mvp_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pilot -d pilotdb"]
+      test: ["CMD-SHELL", "pg_isready -U mvp -d mvpdb"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7
-    container_name: pilot_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -36,7 +34,6 @@ services:
   migrations:
     build:
       context: ./backend
-    container_name: pilot_migrations
     working_dir: /app
     env_file:
       - ./backend/.env
@@ -49,16 +46,9 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: pilot_backend
     working_dir: /app
     env_file:
       - ./backend/.env
-    environment:
-      - PROXY_LIST=${PROXY_LIST:-}
-      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
-      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
-      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
-      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
@@ -125,16 +115,9 @@ services:
   worker:
     build:
       context: ./backend
-    container_name: pilot_worker
     restart: unless-stopped
     env_file:
       - ./backend/.env
-    environment:
-      - PROXY_LIST=${PROXY_LIST:-}
-      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
-      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
-      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
-      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=2 --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
@@ -142,6 +125,8 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
+      local_scraper:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -149,49 +134,13 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  scraper_cloud_worker:
-    build:
-      context: ./backend
-    container_name: pilot_scraper_cloud_worker
-    restart: unless-stopped
-    env_file:
-      - ./backend/.env
-    environment:
-      - PROXY_LIST=${PROXY_LIST:-}
-      - WORKSPACE=/workspace
-      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
-      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
-      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
-      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
-    command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_cloud --concurrency=${SCRAPER_CLOUD_CONCURRENCY:-4} --prefetch-multiplier=1 --max-tasks-per-child=20"
-    volumes:
-      - workspace_data:/workspace
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      
   scraper_worker:
     build:
       context: ./backend
-    container_name: pilot_scraper_worker
     restart: unless-stopped
     # --- POPRAWKA: dodalem env_file zeby wczytac proxy ---
     env_file:
       - ./backend/.env
-    environment:
-      - PROXY_LIST=${PROXY_LIST:-}
-      - WORKSPACE=/workspace
-      - HTTP_HEADER_ROTATION_ENABLED=${HTTP_HEADER_ROTATION_ENABLED:-1}
-      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-2}
-      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-3}
-      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-2} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
@@ -214,8 +163,9 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: pilot_frontend
     command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+    profiles:
+      - legacy-ui
     volumes:
       - ./frontend:/app
     ports:
@@ -224,6 +174,6 @@ services:
       - backend
 
 volumes:
-  pgdata:
+  mvp_pgdata:
   workspace_data: {}
   local_scraper_profile: {}

@@ -64,7 +64,7 @@ def test_cancel_run_endpoint_marks_canceled(client, db_session, monkeypatch):
         total_products=5,
         processed_products=1,
         mode="mixed",
-        use_cloud_http=True,
+        use_cloud_http=False,
         use_local_scraper=True,
         started_at=datetime.now(timezone.utc),
     )

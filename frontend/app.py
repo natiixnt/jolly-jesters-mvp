@@ -7,7 +7,7 @@ import os
 import redis
 from io import BytesIO
 
-API_BASE = "http://pilot_backend:8000/api" 
+API_BASE = "http://backend:8000/api"
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CACHE_TTL_DAYS = int(os.getenv("CACHE_TTL_DAYS", "30"))
 
@@ -15,7 +15,7 @@ def _get_redis():
     return redis.Redis.from_url(REDIS_URL)
 
 st.set_page_config(page_title="Import Allegro", layout="wide")
-st.title("Pilot: Import i analiza produktów")
+st.title("MVP (legacy): Import i analiza produktów")
 
 # ----------------------
 # Sterowanie liczb? okien scrapera

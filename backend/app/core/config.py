@@ -8,7 +8,7 @@ from pydantic import BaseSettings, Field, validator
 
 class Settings(BaseSettings):
     db_url: str = Field(
-        default="postgresql+psycopg2://pilot:pilot@postgres:5432/pilotdb",
+        default="postgresql+psycopg2://mvp:mvp@postgres:5432/mvpdb",
         env="DB_URL",
     )
     redis_url: str = Field(default="redis://redis:6379/0", env="REDIS_URL")

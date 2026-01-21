@@ -1118,14 +1118,17 @@
   </style>
 </head>
 <body>
-  <div class="shell">
+  <div class="shell" data-i18n-auto="1">
     <button class="sidebar-restore" id="sidebar-restore">Panel</button>
     <div class="top">
       <div>
-        <h1>MVP: import i analiza produktów</h1>
-        <p class="lead">Wgraj plik, wybierz kategorię i uruchom analizę. Zaawansowane opcje są w Ustawieniach.</p>
+        <h1 id="page-title" data-i18n="title-main">MVP: import i analiza produktów</h1>
+        <p id="page-lead" class="lead" data-i18n="lead-main">Wgraj plik, wybierz kategorię i uruchom analizę. Zaawansowane opcje są w Ustawieniach.</p>
       </div>
-        <button class="ghost-btn" id="faq-btn">FAQ / pomoc</button>
+        <div class="button-row">
+          <button class="ghost-btn" id="lang-toggle" type="button">EN / PL</button>
+          <button class="ghost-btn" id="faq-btn" data-i18n="faq-button">FAQ / pomoc</button>
+        </div>
     </div>
 
     <div class="layout" id="layout">
@@ -1133,7 +1136,7 @@
         <form id="upload-form">
           <div class="step">
             <div class="step-header">
-              <div class="step-title">
+              <div class="step-title" data-i18n="step-inputs">
                 <span class="step-badge">1</span>
                 Dane wejściowe
               </div>
@@ -1144,7 +1147,7 @@
                   <div class="form-section-title">Zakres / filtry danych</div>
                   <div>
                     <label for="category-select" style="display:flex; align-items:center; gap:8px;">
-                      <span>Kategoria</span>
+                      <span data-i18n="label-category">Kategoria</span>
                       <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
                     </label>
                     <select id="category-select" name="category_id" required></select>
@@ -1152,9 +1155,9 @@
                     <div class="error" id="category-select-error"></div>
                   </div>
                   <div>
-                    <label for="file-input">Plik (CSV/XLSX)</label>
+                    <label for="file-input" data-i18n="label-file">Plik (CSV/XLSX)</label>
                     <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" required />
-                    <div class="helper">Obsługiwane formaty: .xlsx, .xls, .csv</div>
+                    <div class="helper" data-i18n="helper-file">Obsługiwane formaty: .xlsx, .xls, .csv</div>
                     <div class="error" id="file-error"></div>
                   </div>
                 </div>
@@ -1164,7 +1167,7 @@
 
           <div class="step">
             <div class="step-header">
-              <div class="step-title">
+              <div class="step-title" data-i18n="step-launch">
                 <span class="step-badge">2</span>
                 Uruchomienie
               </div>
@@ -1174,28 +1177,28 @@
                 <div class="form-filters">
                   <div class="form-section-title">Zakres / filtry danych</div>
                   <div>
-                    <label>Tryb analizy</label>
+                    <label data-i18n="label-mode">Tryb analizy</label>
                     <div class="segmented" role="group" aria-label="Tryb analizy">
                       <label>
                         <input type="radio" name="mode" value="mixed" checked />
-                        <span>Standard</span>
+                        <span data-i18n="mode-standard">Standard</span>
                       </label>
                       <label>
                         <input type="radio" name="mode" value="offline" />
-                        <span>Tylko baza</span>
+                        <span data-i18n="mode-offline">Tylko baza</span>
                       </label>
                       <label>
                         <input type="radio" name="mode" value="online" />
-                        <span>Zawsze online</span>
+                        <span data-i18n="mode-online">Zawsze online</span>
                       </label>
                     </div>
-                    <div class="helper" id="mode-helper">Standard = cache + odświeżanie, Tylko baza = bez scrapowania, Zawsze online = zawsze dane na żywo.</div>
+                    <div class="helper" id="mode-helper" data-i18n="helper-mode">Standard = cache + odświeżanie, Tylko baza = bez scrapowania, Zawsze online = zawsze dane na żywo.</div>
                   </div>
                 </div>
               </div>
               <div class="form-footer">
                 <div class="form-cta">
-                  <button type="submit" id="submit-btn" class="primary-btn cta-btn">Start analizy</button>
+                  <button type="submit" id="submit-btn" class="primary-btn cta-btn" data-i18n="btn-start">Start analizy</button>
                 </div>
                 <div class="error" id="error"></div>
               </div>
@@ -1205,31 +1208,31 @@
 
         <div class="step results-step" id="results-step">
           <div class="step-header">
-            <div class="step-title">
+            <div class="step-title" data-i18n="step-results">
               <span class="step-badge">3</span>
               Wyniki
             </div>
           </div>
           <div class="step-body">
             <div class="status-panel" id="status-panel">
-              <div class="status-empty" id="status-empty">Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.</div>
+              <div class="status-empty" id="status-empty" data-i18n="status-empty">Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.</div>
               <div class="status-details" id="status-details" style="display:none;">
-                <div class="pill">Run ID: <span id="run-id"></span></div>
+                <div class="pill"><span data-i18n="label-run-id">Run ID:</span> <span id="run-id"></span></div>
                 <div class="status-row">
-                  <strong>Status:</strong>
+                  <strong data-i18n="label-status">Status:</strong>
                   <span id="run-status"></span>
                   <span class="status-spinner" id="status-spinner" aria-hidden="true"></span>
                 </div>
-                <div class="status-row"><strong>Postęp:</strong> <span id="run-progress"></span></div>
-                <div class="status-row"><strong>Ostatnia aktualizacja:</strong> <span id="run-updated">—</span></div>
+                <div class="status-row"><strong data-i18n="label-progress">Postęp:</strong> <span id="run-progress"></span></div>
+                <div class="status-row"><strong data-i18n="label-updated">Ostatnia aktualizacja:</strong> <span id="run-updated">—</span></div>
                 <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
-                <div class="status-row"><strong>Błąd:</strong> <span id="run-error" class="error"></span></div>
+                <div class="status-row"><strong data-i18n="label-error">Błąd:</strong> <span id="run-error" class="error"></span></div>
                 <div class="button-row" id="status-actions" style="margin-top:8px; display:none;">
-                  <button class="action-btn secondary" type="button" id="cancel-run-btn">Anuluj</button>
+                  <button class="action-btn secondary" type="button" id="cancel-run-btn" data-i18n="btn-cancel">Anuluj</button>
                 </div>
                 <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
-                  <button class="action-btn" id="preview-link" type="button">Podgląd wyników</button>
-                  <a class="action-btn secondary" id="download-link" href="#">⬇ Pobierz raport</a>
+                  <button class="action-btn" id="preview-link" type="button" data-i18n="btn-preview">Podgląd wyników</button>
+                  <a class="action-btn secondary" id="download-link" href="#" data-i18n="btn-download">⬇ Pobierz raport</a>
                 </div>
                 <div class="status-log" id="status-log" aria-live="polite"></div>
               </div>
@@ -1240,29 +1243,29 @@
         <div class="settings-block" id="settings-block">
           <div class="settings-header">
             <div>
-              <h3 class="section-title">Ustawienia</h3>
-              <div class="helper">Opcje rzadziej używane. W trybie prostym ukryte.</div>
-              <button type="button" class="ghost-btn ghost-btn--small is-hidden" id="close-settings-btn">Zamknij ustawienia</button>
+              <h3 class="section-title" data-i18n="settings-title">Ustawienia</h3>
+              <div class="helper" data-i18n="settings-helper">Opcje rzadziej używane. W trybie prostym ukryte.</div>
+              <button type="button" class="ghost-btn ghost-btn--small is-hidden" id="close-settings-btn" data-i18n="btn-close-settings">Zamknij ustawienia</button>
             </div>
             <label class="toggle">
               <input type="checkbox" id="advanced-mode-toggle" />
               <span class="toggle__track"></span>
-              <span class="toggle__label">Tryb zaawansowany</span>
+              <span class="toggle__label" data-i18n="label-advanced">Tryb zaawansowany</span>
             </label>
           </div>
           <div class="settings-panel is-hidden" id="settings-panel">
             <div class="settings-actions">
-              <button type="button" class="ghost-btn" id="reset-settings-btn">Przywróć domyślne</button>
+              <button type="button" class="ghost-btn" id="reset-settings-btn" data-i18n="btn-reset">Przywróć domyślne</button>
               <div class="success" id="settings-reset-success"></div>
             </div>
             <div class="helper" id="settings-info"></div>
             <div class="error" id="settings-error"></div>
-            <div class="helper">Kursy walut i Kategorie są dostępne w panelu bocznym po prawej.</div>
+            <div class="helper" data-i18n="settings-sidehint">Kursy walut i Kategorie są dostępne w panelu bocznym po prawej.</div>
             <div class="tabs tabs-scroll" id="settings-tabs">
-              <button type="button" class="tab-btn is-active" data-tab="sources">Źródło danych</button>
-              <button type="button" class="tab-btn" data-tab="performance">Wydajność</button>
-              <button type="button" class="tab-btn" data-tab="quality">Cache i jakość</button>
-              <button type="button" class="tab-btn" data-tab="history">Historia i dane</button>
+              <button type="button" class="tab-btn is-active" data-tab="sources" data-i18n="tab-sources">Źródło danych</button>
+              <button type="button" class="tab-btn" data-tab="performance" data-i18n="tab-performance">Wydajność</button>
+              <button type="button" class="tab-btn" data-tab="quality" data-i18n="tab-quality">Cache i jakość</button>
+              <button type="button" class="tab-btn" data-tab="history" data-i18n="tab-history">Historia i dane</button>
             </div>
             <div class="tab-panel is-active" data-tab-panel="sources">
               <div class="form-grid single">
@@ -1375,14 +1378,14 @@
                     </div>
                   </div>
                 </div>
-                <div class="form-footer">
-                  <div class="helper" id="db-info">Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w kroku 1.</div>
-                  <div class="form-cta">
-                    <button type="button" id="start-db-btn" class="action-btn cta-btn">Start analizy z bazy</button>
+                  <div class="form-footer">
+                    <div class="helper" id="db-info">Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w kroku 1.</div>
+                    <div class="form-cta">
+                    <button type="button" id="start-db-btn" class="action-btn cta-btn" data-i18n="btn-start-db">Start analizy z bazy</button>
+                    </div>
+                    <div class="error" id="db-error"></div>
                   </div>
-                  <div class="error" id="db-error"></div>
                 </div>
-              </div>
 
               <div class="card">
                 <h3 class="section-title">Widok tabel</h3>
@@ -1770,6 +1773,7 @@
     const faqModal = document.getElementById('faq-modal');
     const faqBtn = document.getElementById('faq-btn');
     const faqClose = document.getElementById('faq-close');
+    const langToggle = document.getElementById('lang-toggle');
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebarRestore = document.getElementById('sidebar-restore');
@@ -1862,6 +1866,345 @@
     const MARKET_COLUMNS_KEY = 'ui.columns.market';
     const COMPACT_TABLE_KEY = 'ui.table.compact';
     let settingsDefaults = { ...DEFAULT_SETTINGS };
+    const I18N_STRINGS = {
+      pl: {
+        'title-main': 'MVP: import i analiza produktów',
+        'lead-main': 'Wgraj plik, wybierz kategorię i uruchom analizę. Zaawansowane opcje są w Ustawieniach.',
+        'faq-button': 'FAQ / pomoc',
+        'step-inputs': 'Dane wejściowe',
+        'step-launch': 'Uruchomienie',
+        'step-results': 'Wyniki',
+        'label-category': 'Kategoria',
+        'label-file': 'Plik (CSV/XLSX)',
+        'helper-file': 'Obsługiwane formaty: .xlsx, .xls, .csv',
+        'label-mode': 'Tryb analizy',
+        'mode-standard': 'Standard',
+        'mode-offline': 'Tylko baza',
+        'mode-online': 'Zawsze online',
+        'helper-mode': 'Standard = cache + odświeżanie, Tylko baza = bez scrapowania, Zawsze online = zawsze dane na żywo.',
+        'btn-start': 'Start analizy',
+        'status-empty': 'Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.',
+        'label-run-id': 'Run ID:',
+        'label-status': 'Status:',
+        'label-progress': 'Postęp:',
+        'label-updated': 'Ostatnia aktualizacja:',
+        'label-error': 'Błąd:',
+        'btn-cancel': 'Anuluj',
+        'btn-preview': 'Podgląd wyników',
+        'btn-download': '⬇ Pobierz raport',
+        'settings-title': 'Ustawienia',
+        'settings-helper': 'Opcje rzadziej używane. W trybie prostym ukryte.',
+        'btn-close-settings': 'Zamknij ustawienia',
+        'label-advanced': 'Tryb zaawansowany',
+        'btn-reset': 'Przywróć domyślne',
+        'settings-sidehint': 'Kursy walut i Kategorie są dostępne w panelu bocznym po prawej.',
+        'tab-sources': 'Źródło danych',
+        'tab-performance': 'Wydajność',
+        'tab-quality': 'Cache i jakość',
+        'tab-history': 'Historia i dane',
+        'retry-local': 'Retry: lokalnie',
+        'history-ops': 'Operacje ▾',
+        'strategy-local': 'Local Selenium',
+        'strategies-none': 'Brak',
+        'history-empty-text': 'Brak wcześniejszych analiz.',
+        saved: 'Zapisano',
+        'strategy-required': 'Włącz lokalny scraper dla trybu Standard/Zawsze online.',
+        'hint-offline': 'W trybie Tylko baza scrapowanie jest wyłączone.',
+        'btn-starting': 'Wysyłanie...',
+        'btn-start-db': 'Start analizy z bazy',
+        'btn-starting-db': 'Uruchamianie...',
+        'loading': 'Ładowanie...',
+        'loading-results': 'Ładowanie wyników...',
+        'category-removed': 'Kategoria usunięta',
+        'mode_mixed_label': 'Standard',
+        'mode_offline_label': 'Tylko baza',
+        'mode_online_label': 'Zawsze online',
+        'analysis-canceled': 'Analiza została anulowana.',
+        'analysis-failed': 'Analiza przerwana.',
+        'no-data': 'Brak danych do wyświetlenia.',
+        'categories-empty': 'Brak aktywnych kategorii. Dodaj kategorię w sekcji „Kategorie” poniżej.',
+        status_pending: 'Oczekuje',
+        status_running: 'W toku',
+        status_completed: 'Zakończono',
+        status_failed: 'Błąd',
+        status_canceled: 'Anulowano',
+        scrape_pending: 'Oczekuje',
+        scrape_in_progress: 'Trwa pobieranie',
+        scrape_blocked: 'Zablokowany',
+        scrape_network_error: 'Błąd sieci',
+        scrape_error: 'Błąd',
+        scrape_not_found: 'Brak',
+        scrape_ok: 'OK',
+        profitable_yes: 'tak',
+        profitable_no: 'nie',
+        profitable_unknown: '—',
+      },
+      en: {
+        'title-main': 'MVP: product import & analysis',
+        'lead-main': 'Upload a file, pick a category, and start the analysis. Advanced options live in Settings.',
+        'faq-button': 'FAQ / help',
+        'step-inputs': 'Input data',
+        'step-launch': 'Start',
+        'step-results': 'Results',
+        'label-category': 'Category',
+        'label-file': 'File (CSV/XLSX)',
+        'helper-file': 'Supported formats: .xlsx, .xls, .csv',
+        'label-mode': 'Analysis mode',
+        'mode-standard': 'Standard',
+        'mode-offline': 'Cache only',
+        'mode-online': 'Always online',
+        'helper-mode': 'Standard = cache + refresh, Cache only = no scraping, Always online = live data only.',
+        'btn-start': 'Start analysis',
+        'status-empty': 'No active analysis. Once started you will see status, progress, and links to results.',
+        'label-run-id': 'Run ID:',
+        'label-status': 'Status:',
+        'label-progress': 'Progress:',
+        'label-updated': 'Last update:',
+        'label-error': 'Error:',
+        'btn-cancel': 'Cancel',
+        'btn-preview': 'Preview results',
+        'btn-download': '⬇ Download report',
+        'settings-title': 'Settings',
+        'settings-helper': 'Less common options. Hidden in simple mode.',
+        'btn-close-settings': 'Close settings',
+        'label-advanced': 'Advanced mode',
+        'btn-reset': 'Restore defaults',
+        'settings-sidehint': 'Currency rates and Categories are available in the right sidebar.',
+        'tab-sources': 'Data source',
+        'tab-performance': 'Performance',
+        'tab-quality': 'Cache & quality',
+        'tab-history': 'History & data',
+        'retry-local': 'Retry: local',
+        'history-ops': 'Operations ▾',
+        'strategy-local': 'Local Selenium',
+        'strategies-none': 'None',
+        'history-empty-text': 'No previous analyses.',
+        saved: 'Saved',
+        'strategy-required': 'Enable the local scraper for Standard/Always online.',
+        'hint-offline': 'Scraping is disabled in Cache only mode.',
+        'btn-starting': 'Sending...',
+        'btn-start-db': 'Start DB analysis',
+        'btn-starting-db': 'Starting...',
+        'loading': 'Loading...',
+        'loading-results': 'Loading results...',
+        'category-removed': 'Category removed',
+        'mode_mixed_label': 'Standard',
+        'mode_offline_label': 'Cache only',
+        'mode_online_label': 'Always online',
+        'analysis-canceled': 'Analysis was canceled.',
+        'analysis-failed': 'Analysis interrupted.',
+        'no-data': 'No data to display.',
+        'categories-empty': 'No active categories. Add one in the “Categories” section below.',
+        status_pending: 'Pending',
+        status_running: 'Running',
+        status_completed: 'Completed',
+        status_failed: 'Failed',
+        status_canceled: 'Canceled',
+        scrape_pending: 'Pending',
+        scrape_in_progress: 'Scraping',
+        scrape_blocked: 'Blocked',
+        scrape_network_error: 'Network error',
+        scrape_error: 'Error',
+        scrape_not_found: 'Not found',
+        scrape_ok: 'OK',
+        profitable_yes: 'yes',
+        profitable_no: 'no',
+        profitable_unknown: '—',
+      },
+    };
+
+    const I18N_TEXT_MAP = {
+      "Zakres / filtry danych": { pl: "Zakres / filtry danych", en: "Scope / data filters" },
+      "Opcje zachowania": { pl: "Opcje zachowania", en: "Behavior options" },
+      "Selenium lokalnie w kontenerze.": { pl: "Selenium lokalnie w kontenerze.", en: "Local Selenium inside the container." },
+      "Jeśli źródło jest wyłączone, analiza korzysta tylko z danych z bazy i cache.": { pl: "Jeśli źródło jest wyłączone, analiza korzysta tylko z danych z bazy i cache.", en: "If the source is disabled, the analysis uses only DB/cache data." },
+      "Liczba jednocześnie otwieranych okien lokalnego scrapera": { pl: "Liczba jednocześnie otwieranych okien lokalnego scrapera", en: "Number of simultaneous local scraper windows" },
+      "Więcej okien przyspiesza, ale obciąża CPU/RAM.": { pl: "Więcej okien przyspiesza, ale obciąża CPU/RAM.", en: "More windows speed things up but use more CPU/RAM." },
+      "Zapisz ustawienia": { pl: "Zapisz ustawienia", en: "Save settings" },
+      "TTL cache (dni)": { pl: "TTL cache (dni)", en: "Cache TTL (days)" },
+      "Po ilu dniach dane z Allegro uznajemy za przestarzałe.": { pl: "Po ilu dniach dane z Allegro uznajemy za przestarzałe.", en: "After how many days Allegro data becomes stale." },
+      "Analiza z bazy": { pl: "Analiza z bazy", en: "Database analysis" },
+      "Ostatnie dni cache": { pl: "Ostatnie dni cache", en: "Cache last days" },
+      "Zakres danych do analizy (dni wstecz).": { pl: "Zakres danych do analizy (dni wstecz).", en: "Data range to analyze (days back)." },
+      "Limit pozycji": { pl: "Limit pozycji", en: "Item limit" },
+      "Ogranicza liczbę rekordów do analizy.": { pl: "Ogranicza liczbę rekordów do analizy.", en: "Limits the number of records to analyze." },
+      "Źródło danych": { pl: "Źródło danych", en: "Data source" },
+      "Dowolne": { pl: "Dowolne", en: "Any" },
+      "Filtruj po źródle pozyskanych danych.": { pl: "Filtruj po źródle pozyskanych danych.", en: "Filter by source of scraped data." },
+      "EAN zawiera": { pl: "EAN zawiera", en: "EAN contains" },
+      "Pozwala zawęzić listę do fragmentu EAN.": { pl: "Pozwala zawęzić listę do fragmentu EAN.", en: "Filter by EAN fragment." },
+      "Tylko produkty z danymi": { pl: "Tylko produkty z danymi", en: "Only products with data" },
+      "Pomiń wpisy bez ceny/sprzedaży.": { pl: "Pomiń wpisy bez ceny/sprzedaży.", en: "Skip entries without price/sales." },
+      "Wszystkie zapisane produkty": { pl: "Wszystkie zapisane produkty", en: "All saved products" },
+      "Ignoruje pole „Ostatnie dni cache”.": { pl: "Ignoruje pole „Ostatnie dni cache”.", en: "Ignores the \"Cache last days\" field." },
+      "Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w kroku 1.": { pl: "Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w kroku 1.", en: "Runs analysis on cached DB data (no file). Uses the category chosen in step 1." },
+      "Start analizy z bazy": { pl: "Start analizy z bazy", en: "Start DB analysis" },
+      "Widok tabel": { pl: "Widok tabel", en: "Table view" },
+      "Tryb kompaktowy": { pl: "Tryb kompaktowy", en: "Compact mode" },
+      "Tryb kompaktowy tabel": { pl: "Tryb kompaktowy tabel", en: "Compact tables" },
+      "Zmniejsza padding i szerokości kolumn EAN/Nazwa.": { pl: "Zmniejsza padding i szerokości kolumn EAN/Nazwa.", en: "Reduces padding and EAN/Name widths." },
+      "Kolumny - Wyniki analizy": { pl: "Kolumny - Wyniki analizy", en: "Columns - Analysis results" },
+      "Kolumny - Baza Allegro": { pl: "Kolumny - Baza Allegro", en: "Columns - Allegro DB" },
+      "Przywróć domyślne": { pl: "Przywróć domyślne", en: "Restore default" },
+      "Historia analiz": { pl: "Historia analiz", en: "Analysis history" },
+      "Brak wcześniejszych analiz.": { pl: "Brak wcześniejszych analiz.", en: "No previous analyses." },
+      "Nie udało się pobrać historii.": { pl: "Nie udało się pobrać historii.", en: "Failed to load history." },
+      "Baza Allegro (ostatnie dane rynkowe)": { pl: "Baza Allegro (ostatnie dane rynkowe)", en: "Allegro DB (latest market data)" },
+      "Filtrowanie po wybranej kategorii.": { pl: "Filtrowanie po wybranej kategorii.", en: "Filter by selected category." },
+      "Może być fragmentem kodu.": { pl: "Może być fragmentem kodu.", en: "Can be a code fragment." },
+      "Skąd pochodziły dane rynkowe.": { pl: "Skąd pochodziły dane rynkowe.", en: "Where the market data came from." },
+      "Od kiedy": { pl: "Od kiedy", en: "Updated since" },
+      "Filtruj po dacie aktualizacji.": { pl: "Filtruj po dacie aktualizacji.", en: "Filter by update date." },
+      "Ładowanie...": { pl: "Ładowanie...", en: "Loading..." },
+      "Ładowanie wyników...": { pl: "Ładowanie wyników...", en: "Loading results..." },
+      "Szukaj": { pl: "Szukaj", en: "Search" },
+      "Reset": { pl: "Reset", en: "Reset" },
+      "◀ Wstecz": { pl: "◀ Wstecz", en: "◀ Back" },
+      "Dalej ▶": { pl: "Dalej ▶", en: "Next ▶" },
+      "Panel": { pl: "Panel", en: "Panel" },
+      "Operacje": { pl: "Operacje", en: "Operations" },
+      "Kursy walut": { pl: "Kursy walut", en: "Exchange rates" },
+      "Kategorie": { pl: "Kategorie", en: "Categories" },
+      "Brak aktywnych analiz.": { pl: "Brak aktywnych analiz.", en: "No active analyses." },
+      "Dodaj walutę": { pl: "Dodaj walutę", en: "Add currency" },
+      "Zapisz kursy": { pl: "Zapisz kursy", en: "Save rates" },
+      "Kategoria": { pl: "Kategoria", en: "Category" },
+      "Dodaj kategorię": { pl: "Dodaj kategorię", en: "Add category" },
+      "Dodaj nową kategorię": { pl: "Dodaj nową kategorię", en: "Add a new category" },
+      "Anuluj": { pl: "Anuluj", en: "Cancel" },
+      "Zapisz": { pl: "Zapisz", en: "Save" },
+      "Nazwa kategorii": { pl: "Nazwa kategorii", en: "Category name" },
+      "Mnożnik opłacalności": { pl: "Mnożnik opłacalności", en: "Profitability multiplier" },
+      "Prowizja Allegro (%)": { pl: "Prowizja Allegro (%)", en: "Allegro commission (%)" },
+      "Anuluj": { pl: "Anuluj", en: "Cancel" },
+      "Dodaj kategorię": { pl: "Dodaj kategorię", en: "Add category" },
+      "Szczegóły kategorii": { pl: "Szczegóły kategorii", en: "Category details" },
+      "Zapisz": { pl: "Zapisz", en: "Save" },
+      "FAQ - jak korzystać z systemu": { pl: "FAQ - jak korzystać z systemu", en: "FAQ - how to use the system" },
+      "Różnice między trybami Standard, Tylko baza, Zawsze online": { pl: "Różnice między trybami Standard, Tylko baza, Zawsze online", en: "Differences between Standard, Cache only, Always online" },
+      "Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.": { pl: "Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.", en: "Standard – uses cache but refreshes when data is older than TTL. Cache only – uses DB/cache only. Always online – ignores cache and always fetches live data." },
+      "Źródła danych (Local Selenium)": { pl: "Źródła danych (Local Selenium)", en: "Data sources (Local Selenium)" },
+      "Local Selenium – lokalny scraper z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.": { pl: "Local Selenium – lokalny scraper z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.", en: "Local Selenium – local browser scraper. In Cache only mode scraping is disabled." },
+      "Jak dodać nową kategorię": { pl: "Jak dodać nową kategorię", en: "How to add a new category" },
+      "Użyj przycisku „+” w sekcji Kategorie i wypełnij formularz.": { pl: "Użyj przycisku „+” w sekcji Kategorie i wypełnij formularz.", en: "Use the “+” button in the Categories section and fill out the form." },
+      "Jakie pliki są obsługiwane": { pl: "Jakie pliki są obsługiwane", en: "Which files are supported" },
+      "CSV, XLS, XLSX. Wymagane kolumny: EAN, Name, PurchasePrice.": { pl: "CSV, XLS, XLSX. Wymagane kolumny: EAN, Name, PurchasePrice.", en: "CSV, XLS, XLSX. Required columns: EAN, Name, PurchasePrice." },
+      "Co zrobić, gdy analiza kończy się błędem": { pl: "Co zrobić, gdy analiza kończy się błędem", en: "What to do if the analysis fails" },
+      "Sprawdź komunikat w sekcji statusu. Upewnij się, że kategoria jest aktywna oraz że w Ustawieniach masz wybrane źródła danych (jeśli tryb nie jest „Tylko baza”).": { pl: "Sprawdź komunikat w sekcji statusu. Upewnij się, że kategoria jest aktywna oraz że w Ustawieniach masz wybrane źródła danych (jeśli tryb nie jest „Tylko baza”).", en: "Check the message in the status section. Make sure the category is active and that data sources are enabled in Settings (if not in Cache only mode)." },
+      "Co oznaczają pola kategorii: nazwa, mnożnik opłacalności i prowizja Allegro?": { pl: "Co oznaczają pola kategorii: nazwa, mnożnik opłacalności i prowizja Allegro?", en: "What do the category fields mean: name, profitability multiplier, Allegro commission?" },
+      "Nazwa kategorii": { pl: "Nazwa kategorii", en: "Category name" },
+      "Nazwa kategorii – dowolna nazwa, która pozwala Ci rozpoznać grupę produktów, np. „Perfumy”, „Chemia gospodarcza”, „Zabawki”.": { pl: "Nazwa kategorii – dowolna nazwa, która pozwala Ci rozpoznać grupę produktów, np. „Perfumy”, „Chemia gospodarcza”, „Zabawki”.", en: "Category name – any name that helps you recognise the product group, e.g. “Perfumes”, “Household chemicals”, “Toys”." },
+      " – dowolna nazwa, która pozwala Ci rozpoznać grupę produktów, np. „Perfumy”, „Chemia gospodarcza”, „Zabawki”.": { pl: " – dowolna nazwa, która pozwala Ci rozpoznać grupę produktów, np. „Perfumy”, „Chemia gospodarcza”, „Zabawki”.", en: " – any name that helps you recognise the product group, e.g. “Perfumes”, “Household chemicals”, “Toys”." },
+      "Mnożnik opłacalności": { pl: "Mnożnik opłacalności", en: "Profitability multiplier" },
+      "Mnożnik opłacalności – minimalny docelowy zwrot z inwestycji (marża względem ceny zakupu). Przykład: jeżeli ustawisz mnożnik 1,5, to system oznaczy produkt jako „opłacalny” tylko wtedy, gdy po odjęciu prowizji Allegro zarobek będzie co najmniej 50% ceny zakupu.": { pl: "Mnożnik opłacalności – minimalny docelowy zwrot z inwestycji (marża względem ceny zakupu). Przykład: jeżeli ustawisz mnożnik 1,5, to system oznaczy produkt jako „opłacalny” tylko wtedy, gdy po odjęciu prowizji Allegro zarobek będzie co najmniej 50% ceny zakupu.", en: "Profitability multiplier – minimum target ROI (margin vs purchase price). Example: with multiplier 1.5 the product is “profitable” only if, after Allegro commission, the profit is at least 50% of the purchase price." },
+      " – minimalny docelowy zwrot z inwestycji (marża względem ceny zakupu). Przykład: jeżeli ustawisz mnożnik 1,5, to system oznaczy produkt jako „opłacalny” tylko wtedy, gdy po odjęciu prowizji Allegro zarobek będzie co najmniej 50% ceny zakupu.": { pl: " – minimalny docelowy zwrot z inwestycji (marża względem ceny zakupu). Przykład: jeżeli ustawisz mnożnik 1,5, to system oznaczy produkt jako „opłacalny” tylko wtedy, gdy po odjęciu prowizji Allegro zarobek będzie co najmniej 50% ceny zakupu.", en: " – minimum target ROI (margin vs purchase price). Example: with multiplier 1.5 the product is “profitable” only if, after Allegro commission, the profit is at least 50% of the purchase price." },
+      "Prowizja Allegro (%) – szacowany procent prowizji Allegro w danej kategorii. System odejmuje tę prowizję od ceny sprzedaży i dopiero z tej „netto” ceny liczy marżę.": { pl: "Prowizja Allegro (%) – szacowany procent prowizji Allegro w danej kategorii. System odejmuje tę prowizję od ceny sprzedaży i dopiero z tej „netto” ceny liczy marżę.", en: "Allegro commission (%) – estimated commission rate for the category. The system subtracts it from sale price before calculating margin." },
+      " – szacowany procent prowizji Allegro w danej kategorii. System odejmuje tę prowizję od ceny sprzedaży i dopiero z tej „netto” ceny liczy marżę.": { pl: " – szacowany procent prowizji Allegro w danej kategorii. System odejmuje tę prowizję od ceny sprzedaży i dopiero z tej „netto” ceny liczy marżę.", en: " – estimated commission rate for the category. The system subtracts it from sale price before calculating margin." },
+      "Dzięki temu opłacalność jest liczona dla każdej kategorii inaczej – np. jeśli w jednej kategorii prowizja jest wyższa, próg opłacalności jest automatycznie bardziej wymagający. Każda analiza jest powiązana z jedną kategorią, a każda kategoria ma własne parametry, więc możesz osobno ustawić logikę dla „Perfum” vs „Chemii” itp.": { pl: "Dzięki temu opłacalność jest liczona dla każdej kategorii inaczej – np. jeśli w jednej kategorii prowizja jest wyższa, próg opłacalności jest automatycznie bardziej wymagający. Każda analiza jest powiązana z jedną kategorią, a każda kategoria ma własne parametry, więc możesz osobno ustawić logikę dla „Perfum” vs „Chemii” itp.", en: "This way profitability is calculated per category – if a category has higher commission, the profitability threshold is automatically stricter. Each analysis is tied to one category with its own parameters, so you can configure logic separately (e.g., Perfumes vs. Household chemicals)." },
+      "Podgląd wyników analizy": { pl: "Podgląd wyników analizy", en: "Analysis preview" },
+      "Zamknij": { pl: "Zamknij", en: "Close" },
+      "Wyniki analizy": { pl: "Wyniki analizy", en: "Analysis results" },
+      "Analiza przerwana, brak danych do wyświetlenia.": { pl: "Analiza przerwana, brak danych do wyświetlenia.", en: "Analysis interrupted, no data to display." },
+      "Brak danych do wyświetlenia.": { pl: "Brak danych do wyświetlenia.", en: "No data to display." },
+      "EAN": { pl: "EAN", en: "EAN" },
+      "Nazwa": { pl: "Nazwa", en: "Name" },
+      "Waluta": { pl: "Waluta", en: "Currency" },
+      "Cena zakupu": { pl: "Cena zakupu", en: "Purchase price" },
+      "Cena Allegro": { pl: "Cena Allegro", en: "Allegro price" },
+      "Marża": { pl: "Marża", en: "Margin" },
+      "Marża %": { pl: "Marża %", en: "Margin %" },
+      "Opłacalny": { pl: "Opłacalny", en: "Profitable" },
+      "Ostatnio sprawdzono": { pl: "Ostatnio sprawdzono", en: "Last checked" },
+      "Status": { pl: "Status", en: "Status" },
+      "Cena zakupu (PLN)": { pl: "Cena zakupu (PLN)", en: "Purchase price (PLN)" },
+      "Sprzedanych": { pl: "Sprzedanych", en: "Sold" },
+      "Ostatnio sprawdz.": { pl: "Ostatnio sprawdz.", en: "Last checked" },
+      "Ostatni run": { pl: "Ostatni run", en: "Last run" },
+      "Źródło": { pl: "Źródło", en: "Source" },
+      "Źródło:": { pl: "Źródło:", en: "Source:" },
+      "Strategie:": { pl: "Strategie:", en: "Strategies:" },
+      "Tryb:": { pl: "Tryb:", en: "Mode:" },
+      "Status scrapingu:": { pl: "Status scrapingu:", en: "Scrape status:" },
+      "Ostatnio sprawdzono:": { pl: "Ostatnio sprawdzono:", en: "Last checked:" },
+      "Błąd scrapingu:": { pl: "Błąd scrapingu:", en: "Scrape error:" },
+      "Oryginalna waluta:": { pl: "Oryginalna waluta:", en: "Original currency:" },
+      "Oryginalna cena:": { pl: "Oryginalna cena:", en: "Original price:" },
+      "Liczba sprzedanych:": { pl: "Liczba sprzedanych:", en: "Units sold:" },
+    };
+
+    const PLACEHOLDER_I18N = {
+      'db-limit': { pl: 'np. 200', en: 'e.g. 200' },
+      'db-ean-contains': { pl: 'np. 590', en: 'e.g. 590' },
+      'market-ean': { pl: 'fragment EAN', en: 'EAN fragment' },
+    };
+
+    let currentLang = localStorage.getItem('ui.lang') === 'en' ? 'en' : 'pl';
+
+    function t(key) {
+      const dict = I18N_STRINGS[currentLang] || I18N_STRINGS.pl;
+      return dict[key] || I18N_STRINGS.pl[key] || key;
+    }
+
+    function applyI18nAttributes(lang) {
+      const dict = I18N_STRINGS[lang] || I18N_STRINGS.pl;
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.dataset.i18n;
+        const value = dict[key] || I18N_STRINGS.pl[key];
+        if (value) el.textContent = value;
+      });
+    }
+
+    function applyPlaceholderTranslations(lang) {
+      Object.entries(PLACEHOLDER_I18N).forEach(([id, values]) => {
+        const el = document.getElementById(id);
+        if (el && values[lang]) {
+          el.placeholder = values[lang];
+        }
+      });
+    }
+
+    function applyTextMap(lang) {
+      const container = document.querySelector('[data-i18n-auto]');
+      if (!container) return;
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node || !node.textContent) continue;
+        const raw = node.textContent.trim();
+        if (!raw) continue;
+        const entry = I18N_TEXT_MAP[raw];
+        if (entry && entry[lang] && node.parentElement) {
+          node.textContent = entry[lang];
+        }
+      }
+    }
+
+    function applyTranslations() {
+      const lang = currentLang;
+      document.documentElement.lang = lang;
+      applyI18nAttributes(lang);
+      applyPlaceholderTranslations(lang);
+      applyTextMap(lang);
+      if (langToggle) {
+        langToggle.textContent = lang === 'pl' ? 'EN' : 'PL';
+        langToggle.title = lang === 'pl' ? 'Switch to English' : 'Przełącz na polski';
+        langToggle.setAttribute('aria-label', lang === 'pl' ? 'Switch language to English' : 'Przełącz język na polski');
+      }
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang === 'en' ? 'en' : 'pl';
+      localStorage.setItem('ui.lang', currentLang);
+      applyTranslations();
+      applyResultsColumns();
+      applyMarketColumns();
+      applyCompactMode();
+      loadHistory();
+      loadActiveRuns();
+      if (previewState.runId) {
+        loadResults(previewState.runId, previewState.offset || 0);
+      }
+    }
 
     function normalizeMessage(msg) {
       if (!msg) return '';
@@ -1897,7 +2240,7 @@
     }
 
     function briefSuccess(target) {
-      target.textContent = 'Zapisano';
+      target.textContent = t('saved');
       setTimeout(() => { target.textContent = ''; }, 2000);
     }
 
@@ -2024,11 +2367,11 @@
 
     function statusLabel(status) {
       const map = {
-        pending: 'Oczekuje',
-        running: 'W toku',
-        completed: 'Zakończono',
-        failed: 'Błąd',
-        canceled: 'Anulowano',
+        pending: t('status_pending'),
+        running: t('status_running'),
+        completed: t('status_completed'),
+        failed: t('status_failed'),
+        canceled: t('status_canceled'),
       };
       return map[status] || status || '—';
     }
@@ -2036,9 +2379,9 @@
     function modeLabel(mode) {
       const key = String(mode || '').toLowerCase();
       const map = {
-        mixed: 'Standard',
-        offline: 'Tylko baza',
-        online: 'Zawsze online',
+        mixed: t('mode_mixed_label'),
+        offline: t('mode_offline_label'),
+        online: t('mode_online_label'),
       };
       return map[key] || mode || '—';
     }
@@ -2118,8 +2461,8 @@
 
     function renderStrategies(run) {
       const strategies = [];
-      if (run.use_local_scraper) strategies.push('Local Selenium');
-      return strategies.length ? strategies.join(' · ') : 'Brak';
+      if (run.use_local_scraper) strategies.push(t('strategy-local'));
+      return strategies.length ? strategies.join(' · ') : t('strategies-none');
     }
 
     function renderActiveRuns(runs) {
@@ -2139,7 +2482,7 @@
             <span class="badge ${run.status}">${statusLabel(run.status)}</span>
             <span class="muted">#${run.id}</span>
           </div>
-          <div class="active-run__title">${run.category_name || 'Kategoria usunięta'}</div>
+          <div class="active-run__title">${run.category_name || t('category-removed')}</div>
           <div class="active-run__meta">${run.processed_products}/${run.total_products} · ${formatDateTime(run.created_at)}</div>
           <div class="active-run__actions"></div>
         `;
@@ -2149,7 +2492,7 @@
           const preview = document.createElement('button');
           preview.type = 'button';
           preview.className = 'action-btn secondary';
-          preview.textContent = 'Podgląd';
+          preview.textContent = t('btn-preview');
           preview.addEventListener('click', () => openResultsModal(run.id));
           actions.appendChild(preview);
 
@@ -2157,7 +2500,7 @@
             const cancel = document.createElement('button');
             cancel.type = 'button';
             cancel.className = 'ghost-btn';
-            cancel.textContent = 'Anuluj';
+            cancel.textContent = t('btn-cancel');
             cancel.addEventListener('click', () => cancelRun(run.id));
             actions.appendChild(cancel);
           }
@@ -2196,7 +2539,7 @@
 
     function renderMarketTable(data) {
       if (!data.items || !data.items.length) {
-        marketTable.innerHTML = '<div class="helper">Brak danych do wyświetlenia.</div>';
+        marketTable.innerHTML = `<div class="helper">${t('no-data')}</div>`;
       } else {
         const rows = data.items.map((item) => `
           <tr>
@@ -2236,23 +2579,32 @@
 
       const start = data.total ? Math.min(data.total, marketState.offset + 1) : 0;
       const end = data.total ? Math.min(data.total, marketState.offset + marketState.limit) : (data.items?.length || 0);
-      marketPageInfo.textContent = data.total ? `${start}-${end} z ${data.total}` : `${end} wierszy`;
+      const rangeLabel = currentLang === 'en' ? `${start}-${end} of ${data.total}` : `${start}-${end} z ${data.total}`;
+      const rowsLabel = currentLang === 'en' ? `${end} rows` : `${end} wierszy`;
+      marketPageInfo.textContent = data.total ? rangeLabel : rowsLabel;
       marketPrev.disabled = marketState.offset <= 0;
       marketNext.disabled = marketState.offset + marketState.limit >= (data.total || 0);
     }
 
     function scrapeStatusLabel(status) {
-      if (status === 'pending') return 'Pending local scrape';
-      if (status === 'in_progress') return 'scraping';
-      if (status === 'blocked') return 'blocked';
-      if (status === 'network_error') return 'błąd sieci';
-      if (status === 'error') return 'błąd';
-      if (status === 'not_found') return 'brak';
-      return 'ok';
+      const map = {
+        pending: t('scrape_pending'),
+        in_progress: t('scrape_in_progress'),
+        blocked: t('scrape_blocked'),
+        network_error: t('scrape_network_error'),
+        error: t('scrape_error'),
+        not_found: t('scrape_not_found'),
+        ok: t('scrape_ok'),
+      };
+      return map[status] || t('scrape_ok');
     }
 
     function buildResultsRowCells(item) {
-      const profitableLabel = item.is_profitable === true ? 'tak' : item.is_profitable === false ? 'nie' : '—';
+      const profitableLabel = item.is_profitable === true
+        ? t('profitable_yes')
+        : item.is_profitable === false
+          ? t('profitable_no')
+          : t('profitable_unknown');
       const scrapeStatus = item.scrape_status || 'ok';
       const statusLabelText = scrapeStatusLabel(scrapeStatus);
       return `
@@ -2371,11 +2723,14 @@
 
     function renderResultsTable(data) {
       resultsError.textContent = data.error_message || '';
-      const metaParts = [`Run #${data.run_id}`, `Status: ${statusLabel(data.status)}`];
-      if (typeof data.total === 'number') metaParts.push(`Wiersze: ${data.total}`);
+      const metaParts = [`Run #${data.run_id}`, `${t('label-status')} ${statusLabel(data.status)}`];
+      if (typeof data.total === 'number') {
+        const rowsLabel = currentLang === 'en' ? 'Rows' : 'Wiersze';
+        metaParts.push(`${rowsLabel}: ${data.total}`);
+      }
       resultsMeta.textContent = metaParts.join(' · ');
       if (data.status === 'canceled') {
-        resultsBanner.textContent = data.error_message || 'Analiza została anulowana.';
+        resultsBanner.textContent = data.error_message || t('analysis-canceled');
         resultsBanner.style.display = 'block';
       } else {
         resultsBanner.textContent = '';
@@ -2388,9 +2743,9 @@
         if (data.status === 'failed') {
           resultsEmpty.textContent = data.error_message || 'Analiza przerwana, brak danych do wyświetlenia.';
         } else if (data.status === 'canceled') {
-          resultsEmpty.textContent = data.error_message || 'Analiza została anulowana.';
+          resultsEmpty.textContent = data.error_message || t('analysis-canceled');
         } else {
-          resultsEmpty.textContent = data.error_message || 'Brak danych do wyświetlenia.';
+          resultsEmpty.textContent = data.error_message || t('no-data');
         }
       } else {
         resultsEmpty.style.display = 'none';
@@ -2405,7 +2760,9 @@
 
       const start = previewState.total ? Math.min(previewState.total, previewState.offset + 1) : 0;
       const end = previewState.total ? Math.min(previewState.total, previewState.offset + previewState.limit) : (data.items?.length || 0);
-      resultsPageInfo.textContent = previewState.total ? `${start}-${end} z ${previewState.total}` : `${end} wierszy`;
+      const rangeLabel = currentLang === 'en' ? `${start}-${end} of ${previewState.total}` : `${start}-${end} z ${previewState.total}`;
+      const rowsLabel = currentLang === 'en' ? `${end} rows` : `${end} wierszy`;
+      resultsPageInfo.textContent = previewState.total ? rangeLabel : rowsLabel;
       resultsPrev.disabled = previewState.offset <= 0;
       resultsNext.disabled = previewState.offset + previewState.limit >= (previewState.total || 0);
     }
@@ -2416,7 +2773,7 @@
       resultsEmpty.style.display = 'none';
       resultsBanner.textContent = '';
       resultsBanner.style.display = 'none';
-      resultsTable.innerHTML = '<div class="helper">Ładowanie wyników...</div>';
+      resultsTable.innerHTML = `<div class="helper">${t('loading-results')}</div>`;
       try {
         const res = await fetch(`/api/v1/analysis/${runId}/results?offset=${offset}&limit=${previewState.limit}`);
         const data = await res.json().catch(() => ({}));
@@ -2464,7 +2821,7 @@
     async function loadMarketData(offset = 0, silent = false) {
       marketError.textContent = '';
       if (!silent) {
-        marketTable.innerHTML = '<div class="helper">Ładowanie...</div>';
+        marketTable.innerHTML = `<div class="helper">${t('loading')}</div>`;
       }
       const params = new URLSearchParams();
       if (marketCategory.value) params.append('category_id', marketCategory.value);
@@ -2515,7 +2872,7 @@
         if (!data.length) {
           categorySelect.innerHTML = '';
           categorySelect.disabled = true;
-          categoryInfo.textContent = 'Brak aktywnych kategorii. Dodaj kategorię w sekcji „Kategorie” poniżej.';
+          categoryInfo.textContent = t('categories-empty');
           categoriesList.textContent = '';
           updateStartState();
           return;
@@ -2538,15 +2895,16 @@
       const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
       const checked = boxes.filter(b => b.checked);
       if (mode === 'offline') {
-        strategyOfflineHint.textContent = 'W trybie Tylko baza scrapowanie jest wyłączone.';
+        strategyOfflineHint.textContent = t('hint-offline');
         setMessage('', strategyError);
         return true;
       }
       if (!checked.length) {
-        strategyOfflineHint.textContent = 'Brak aktywnych źródeł: analiza użyje tylko danych z bazy i cache.';
-      } else {
         strategyOfflineHint.textContent = '';
+        setMessage(t('strategy-required'), strategyError);
+        return false;
       }
+      strategyOfflineHint.textContent = '';
       setMessage('', strategyError);
       return true;
     }
@@ -2558,6 +2916,9 @@
       boxes.forEach((box) => {
         box.disabled = offline;
       });
+      if (!offline) {
+        boxes.forEach((box) => { box.checked = true; });
+      }
       validateStrategies();
     }
 
@@ -2761,7 +3122,7 @@
       runProgressEl.textContent = `${processed}/${total}`;
       const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : (data.status === 'completed' ? 100 : 0);
       progressBar.style.width = `${pct}%`;
-      const errorFallback = data.status === 'canceled' ? 'Analiza została anulowana.' : '';
+      const errorFallback = data.status === 'canceled' ? t('analysis-canceled') : '';
       runErrorEl.textContent = data.error_message || errorFallback;
       setLastUpdated(data.updated_at || new Date().toISOString());
       setSpinner(data.status);
@@ -2832,19 +3193,28 @@
       if (!previewState.runId || !resultsMeta) return;
       if (String(previewState.runId) !== String(payload.id)) return;
       previewState.total = payload.total_products ?? previewState.total;
-      const metaParts = [`Run #${payload.id}`, `Status: ${statusLabel(payload.status)}`];
-      if (typeof previewState.total === 'number') metaParts.push(`Wiersze: ${previewState.total}`);
+      const metaParts = [`Run #${payload.id}`, `${t('label-status')} ${statusLabel(payload.status)}`];
+      if (typeof previewState.total === 'number') {
+        const rowsLabel = currentLang === 'en' ? 'Rows' : 'Wiersze';
+        metaParts.push(`${rowsLabel}: ${previewState.total}`);
+      }
       resultsMeta.textContent = metaParts.join(' · ');
       if (resultsPageInfo && typeof previewState.total === 'number') {
         const start = previewState.total ? Math.min(previewState.total, previewState.offset + 1) : 0;
         const end = previewState.total ? Math.min(previewState.total, previewState.offset + previewState.limit) : 0;
-        resultsPageInfo.textContent = previewState.total ? `${start}-${end} z ${previewState.total}` : '';
+        if (previewState.total) {
+          resultsPageInfo.textContent = currentLang === 'en'
+            ? `${start}-${end} of ${previewState.total}`
+            : `${start}-${end} z ${previewState.total}`;
+        } else {
+          resultsPageInfo.textContent = '';
+        }
       }
       if (payload.status === 'canceled') {
-        resultsBanner.textContent = payload.error_message || 'Analiza została anulowana.';
+        resultsBanner.textContent = payload.error_message || t('analysis-canceled');
         resultsBanner.style.display = 'block';
       } else if (payload.status === 'failed') {
-        resultsBanner.textContent = payload.error_message || 'Analiza przerwana.';
+        resultsBanner.textContent = payload.error_message || t('analysis-failed');
         resultsBanner.style.display = 'block';
       } else {
         resultsBanner.textContent = '';
@@ -2998,7 +3368,7 @@
               runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
             }
             if (data.status === 'canceled') {
-              runErrorEl.textContent = data.error_message || 'Analiza została anulowana.';
+              runErrorEl.textContent = data.error_message || t('analysis-canceled');
             }
             stopPolling();
             stopResultsPolling();
@@ -3092,7 +3462,7 @@
 
       row.innerHTML = `
         <div><strong>${created}</strong><small>${finishedLabel}</small></div>
-        <div><strong>${run.category_name || 'Kategoria usunięta'}</strong><small>Tryb: ${modeText}</small></div>
+        <div><strong>${run.category_name || t('category-removed')}</strong><small>Tryb: ${modeText}</small></div>
         <div><small>Strategie:</small> ${renderStrategies(run)}</div>
         <div><small>Postęp:</small> ${run.processed_products}/${run.total_products}</div>
         <div class="history-actions">
@@ -3108,7 +3478,7 @@
         const previewButton = document.createElement('button');
         previewButton.type = 'button';
         previewButton.className = 'action-btn';
-        previewButton.textContent = 'Podgląd';
+        previewButton.textContent = t('btn-preview');
         previewButton.addEventListener('click', (e) => {
           e.stopPropagation();
           openResultsModal(run.id);
@@ -3119,7 +3489,7 @@
             const downloadBtn = document.createElement('a');
             downloadBtn.className = 'action-btn secondary';
             downloadBtn.href = downloadLink;
-            downloadBtn.textContent = '⬇ Pobierz raport';
+            downloadBtn.textContent = t('btn-download');
             buttonsEl.appendChild(downloadBtn);
           }
         }
@@ -3127,14 +3497,14 @@
         const ops = actionsEl.querySelector('.history-ops');
         const menuItems = [];
         if (run.status !== 'canceled') {
-          menuItems.push('<button type="button" data-op="retry-local">Retry: Local</button>');
+          menuItems.push(`<button type="button" data-op="retry-local">${t('retry-local')}</button>`);
         }
         if (run.status === 'pending' || run.status === 'running') {
-          menuItems.push('<button type="button" data-op="cancel" class="danger">Anuluj</button>');
+          menuItems.push(`<button type="button" data-op="cancel" class="danger">${t('btn-cancel')}</button>`);
         }
         if (ops && menuItems.length) {
           ops.innerHTML = `
-            <button type="button" class="ghost-btn ghost-btn--small">Operacje ▾</button>
+            <button type="button" class="ghost-btn ghost-btn--small">${t('history-ops')}</button>
             <div class="history-ops-menu">${menuItems.join('')}</div>
           `;
 
@@ -3227,7 +3597,7 @@
         if (!Array.isArray(data) || !data.length) {
           historyList.style.display = 'none';
           if (historyExpanded) {
-            historyEmpty.textContent = 'Brak wcześniejszych analiz.';
+            historyEmpty.textContent = t('history-empty-text');
             historyEmpty.style.display = 'block';
           }
           return;
@@ -3266,7 +3636,9 @@
       setMessage('', strategyError);
       downloadLink.style.display = 'none';
 
-      validateStrategies();
+      if (!validateStrategies()) {
+        return;
+      }
       if (!categorySelect.value) {
         setMessage('Wybierz kategorię do analizy.', dbError);
         return;
@@ -3291,7 +3663,7 @@
 
       startDbBtn.disabled = true;
       submitBtn.disabled = true;
-      startDbBtn.textContent = 'Uruchamianie...';
+      startDbBtn.textContent = t('btn-starting-db');
 
       try {
         const res = await fetch('/api/v1/analysis/run_from_cache', {
@@ -3316,7 +3688,7 @@
       } finally {
         startDbBtn.disabled = false;
         updateStartState();
-        startDbBtn.textContent = 'Start analizy z bazy';
+        startDbBtn.textContent = t('btn-start-db');
       }
     }
 
@@ -3373,7 +3745,7 @@
 
       startTouched = true;
       if (!updateStartState()) return;
-      validateStrategies();
+      if (!validateStrategies()) return;
 
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
@@ -3385,7 +3757,7 @@
       fd.append('use_local_scraper', flags.use_local_scraper ? 'true' : 'false');
 
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Wysyłanie...';
+      submitBtn.textContent = t('btn-starting');
 
       try {
         const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
@@ -3402,7 +3774,7 @@
       } catch (err) {
         setMessage(formatNetworkError(err, 'Wystąpił błąd.'), errorBox);
       } finally {
-        submitBtn.textContent = 'Start analizy';
+        submitBtn.textContent = t('btn-start');
         updateStartState();
       }
     });
@@ -3615,6 +3987,12 @@
       }
     });
 
+    if (langToggle) {
+      langToggle.addEventListener('click', () => {
+        setLanguage(currentLang === 'pl' ? 'en' : 'pl');
+      });
+    }
+
     faqBtn.addEventListener('click', () => { faqModal.style.display = 'flex'; });
     faqClose.addEventListener('click', () => { faqModal.style.display = 'none'; });
     faqModal.addEventListener('click', (e) => { if (e.target === faqModal) faqModal.style.display = 'none'; });
@@ -3656,11 +4034,10 @@
       }
     });
 
+    setLanguage(currentLang);
     loadCategories();
     loadSettings();
     loadCurrencyRates();
-    loadHistory();
-    loadActiveRuns();
     startAutoRefresh(5000);
     loadMarketData();
   </script>

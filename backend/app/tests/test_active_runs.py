@@ -62,7 +62,7 @@ def test_active_runs_endpoint_returns_only_running(client, db_session):
         total_products=1,
         processed_products=0,
         mode="mixed",
-        use_cloud_http=True,
+        use_cloud_http=False,
         use_local_scraper=True,
         started_at=datetime.now(timezone.utc),
     )
@@ -73,7 +73,7 @@ def test_active_runs_endpoint_returns_only_running(client, db_session):
         total_products=1,
         processed_products=1,
         mode="mixed",
-        use_cloud_http=True,
+        use_cloud_http=False,
         use_local_scraper=True,
         started_at=datetime.now(timezone.utc),
         finished_at=datetime.now(timezone.utc),

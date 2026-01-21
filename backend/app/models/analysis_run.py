@@ -23,7 +23,7 @@ class AnalysisRun(Base):
     total_products = Column(Integer, nullable=False, default=0)
     processed_products = Column(Integer, nullable=False, default=0)
     mode = Column(String, nullable=False, default="mixed")
-    use_cloud_http = Column(Boolean, nullable=False, server_default="true", default=True)
+    use_cloud_http = Column(Boolean, nullable=False, server_default="false", default=False)
     use_local_scraper = Column(Boolean, nullable=False, server_default="true", default=True)
     root_task_id = Column(String, nullable=True)
 

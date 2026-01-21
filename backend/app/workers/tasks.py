@@ -14,7 +14,7 @@ from celery.exceptions import Retry, SoftTimeLimitExceeded
 from celery.signals import worker_init, worker_process_init
 import redis
 
-from app.core.celery_constants import ANALYSIS_QUEUE, SCRAPER_CLOUD_QUEUE, SCRAPER_LOCAL_QUEUE
+from app.core.celery_constants import ANALYSIS_QUEUE, SCRAPER_LOCAL_QUEUE
 from app.core.config import settings
 from app.db.session import SessionLocal, engine
 from app.models.analysis_run import AnalysisRun
@@ -488,7 +488,6 @@ celery_app.conf.task_default_queue = ANALYSIS_QUEUE
 celery_app.conf.task_routes = {
     "app.workers.tasks.run_analysis_task": {"queue": ANALYSIS_QUEUE},
     "app.workers.tasks.scrape_one_local": {"queue": SCRAPER_LOCAL_QUEUE},
-    "app.workers.tasks.scrape_one_cloud": {"queue": SCRAPER_CLOUD_QUEUE},
 }
 
 celery = celery_app  # alias for CLI
@@ -554,11 +553,6 @@ def run_analysis_task(run_id: int, mode: str = "mixed"):
             logger.info("RUN_ANALYSIS_TASK canceled run_id=%s", run_id)
             return
 
-        def _enqueue_cloud_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig):
-            result = scrape_one_cloud.delay(item.ean, item.id, asdict(strategy))
-            record_run_task(db, run, result.id, "cloud", item=item, ean=item.ean)
-            return result
-
         def _enqueue_local_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig):
             result = scrape_one_local.delay(item.ean, item.id, asdict(strategy))
             record_run_task(db, run, result.id, "local", item=item, ean=item.ean)
@@ -568,7 +562,6 @@ def run_analysis_task(run_id: int, mode: str = "mixed"):
             db,
             run_id=run_id,
             mode=mode,
-            enqueue_cloud_scrape=_enqueue_cloud_scrape,
             enqueue_local_scrape=_enqueue_local_scrape,
         )
     finally:
@@ -703,6 +696,18 @@ def scrape_one_cloud(
         if run.status in {AnalysisStatus.failed, AnalysisStatus.completed, AnalysisStatus.canceled}:
             logger.info("CLOUD_SCRAPER_TASK skip run_status=%s item_id=%s", run.status, item.id)
             return
+
+        logger.info(
+            "CLOUD_SCRAPER_TASK disabled run_id=%s item_id=%s ean=%s (local-only stack)",
+            run.id,
+            item.id,
+            item.ean,
+        )
+        item.source = AnalysisItemSource.error
+        item.scrape_status = ScrapeStatus.error
+        item.error_message = "Cloud scraper wyłączony (użyj lokalnego)."
+        _finalize_item(db, run, item, prev_status)
+        return
 
         if _maybe_pause_for_blocked_item(self, scrape_one_cloud, run, item, strategy_snapshot, "CLOUD_SCRAPER_TASK"):
             return

@@ -146,7 +146,7 @@ def _test_finalize_not_in_progress() -> bool:
         processed_products=0,
         status=AnalysisStatus.running,
         mode="mixed",
-        use_cloud_http=True,
+        use_cloud_http=False,
         use_local_scraper=True,
     )
     db.add(run)

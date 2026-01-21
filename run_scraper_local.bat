@@ -15,7 +15,7 @@ call .venv\Scripts\activate.bat
 
 rem Ustawienia połączeń do usług z docker-compose (host: localhost, mapowane porty)
 set PYTHONPATH=%cd%
-set DATABASE_URL=postgresql+psycopg2://pilot:pilot@localhost:5433/pilotdb
+set DATABASE_URL=postgresql+psycopg2://mvp:mvp@localhost:5433/mvpdb
 set CELERY_BROKER_URL=redis://localhost:6379/0
 set CELERY_RESULT_BACKEND=redis://localhost:6379/0
 set SELENIUM_HEADED=true

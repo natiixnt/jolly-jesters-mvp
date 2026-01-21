@@ -116,7 +116,7 @@ def test_cancel_analysis_run(db_session):
         total_products=1,
         processed_products=0,
         mode="mixed",
-        use_cloud_http=True,
+        use_cloud_http=False,
         use_local_scraper=True,
     )
     db_session.add(run)
@@ -144,7 +144,7 @@ def test_retry_failed_items(db_session):
         total_products=1,
         processed_products=1,
         mode="mixed",
-        use_cloud_http=True,
+        use_cloud_http=False,
         use_local_scraper=False,
     )
     db_session.add(run)

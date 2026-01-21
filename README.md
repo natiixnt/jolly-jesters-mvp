@@ -1,7 +1,7 @@
 # Jolly Jesters MVP
 
 Offline-first analiza oplacalnoœci Allegro z FastAPI, PostgreSQL, Redis i Celery.
-Nie korzystamy z oficjalnego API; scraping działa przez proxy/cloud HTTP oraz lokalny Selenium.
+Nie korzystamy z oficjalnego API; scraping działa wyłącznie przez lokalny Selenium z rotacją fingerprintów.
 
 ## Uruchomienie (dev)
 
@@ -11,7 +11,7 @@ docker compose up --build
 
 Backend i workery uruchamiaja sie z kodu w obrazie (bez bind mount), wiec po zmianach w `backend/` wykonaj:
 ```
-docker compose build backend worker scraper_cloud_worker scraper_worker
+docker compose build backend worker scraper_worker local_scraper
 ```
 
 ## Troubleshooting (macOS / Docker Desktop Errno 35)
@@ -22,7 +22,7 @@ docker compose build backend worker scraper_cloud_worker scraper_worker
 - Jeśli UI ubija kontenery (kod 137), zmniejsz concurrency workerów lub zwiększ RAM w Docker Desktop.
 - Jeśli koniecznie potrzebujesz bind mount (live edit), dodaj override z `./backend:/app` tylko lokalnie i licz się z niestabilnością.
 
-Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/`. Stary widok Streamlit (port 8501) moze zostac do celow dev, ale podstawowa sciezka uzytkownika to HTML z backendu.
+Backend startuje z automatycznym `alembic upgrade head`. Glowne UI (FastAPI + Jinja) jest pod `http://localhost:8000/` i ma przelacznik PL/EN w prawym gornym rogu. Stary widok Streamlit (port 8501) jest opcjonalny (profil `legacy-ui`), podstawowa sciezka uzytkownika to HTML z backendu.
 
 Po zmianach zaleznosci Pythona zbuduj na nowo obrazy backend/worker:
 ```
@@ -50,7 +50,7 @@ API:
 ```
 POST /api/v1/analysis/run_from_cache (alias: /api/v1/analysis/run_from_db, /api/v1/analysis/start_from_db)
 POST /api/v1/analysis/{id}/cancel
-POST /api/v1/analysis/{id}/retry_failed?strategy=cloud|local
+POST /api/v1/analysis/{id}/retry_failed (lokalny scraper)
 GET /api/v1/analysis/active
 ```
 
@@ -68,8 +68,8 @@ Test (manual):
 ## Kolejki Celery (architektura)
 
 - `analysis`: uruchamia `run_analysis_task` i planuje per-item scraping.
-- `scraper_cloud`: HTTP/proxy scraping (task `scrape_one_cloud`).
 - `scraper_local`: lokalne Selenium (task `scrape_one_local`) w osobnym workerze.
+- Fingerprint oraz proxy rotują na local_scraper (UA/headers via `FINGERPRINT_ROTATION_*`, proxy via `SELENIUM_PROXY_LIST` + `SELENIUM_PROXY_ROTATION_ENABLED`, można użyć templatu `{session}`).
 
 ## Local scraper w Dockerze (VPS/Prod - domyslnie)
 
@@ -134,7 +134,7 @@ używające tego samego profilu).
 ### VPS/DC IP (ważne)
 
 Na VPS/datacenter IP captcha moze pojawiac sie nadal mimo headed. Rozważ uruchomienie local_scraper
-na zaufanej sieci domowej (host mode) albo użycie proxy rezydencjalnych w trybie cloud/proxy.
+na zaufanej sieci domowej (host mode) albo użycie VNC do ręcznego odblokowania.
 
 ## Host scraper (Windows/macOS/Linux - opcjonalnie dev)
 
@@ -229,11 +229,13 @@ W trybie hostowym ustaw `LOCAL_SCRAPER_URL=http://host.docker.internal:5050`
 
 | Klucz | Opis |
 | --- | --- |
-| `DB_URL` | URL do Postgresa (np. `postgresql+psycopg2://pilot:pilot@pilot_postgres:5432/pilotdb`) |
+| `DB_URL` | URL do Postgresa (np. `postgresql+psycopg2://mvp:mvp@postgres:5432/mvpdb`) |
 | `REDIS_URL` | URL do Redisa (np. `redis://redis:6379/0`) |
-| `PROXY_LIST` | Lista proxy rozdzielona przecinkiem dla cloud HTTP (opcjonalnie) |
 | `LOCAL_SCRAPER_ENABLED` | `true/false` – w³¹cza lokalny scraper Selenium |
 | `LOCAL_SCRAPER_URL` | Bazowy URL lokalnego scrapera, np. `http://local_scraper:5050` |
+| `SELENIUM_PROXY` | Pojedynczy proxy (może już rotować po stronie dostawcy), np. `login:pass@host:port` |
+| `SELENIUM_PROXY_LIST` | Lista proxy (np. `user:pass@host:port`, obsługa `{session}/{sid}`) |
+| `SELENIUM_PROXY_ROTATION_ENABLED` | `1/0` – włącza/wyłącza rotację proxy (domyślnie włączona) |
 | `WORKSPACE` | Katalog roboczy na upload/export (domyœlnie `/workspace`) |
 | `EUR_TO_PLN_RATE` | Sta?y kurs przeliczenia EUR?PLN dla importu cennik?w (domy?lnie `4.5`) |
 
@@ -266,7 +268,6 @@ curl -s -X POST http://localhost:8000/api/v1/analysis/upload \
   -F "category_id=<ID_Z_KROKU_1>" \
   -F "file=@/path/to/input.xlsx" \
   -F "mode=mixed" \
-  -F "use_cloud_http=false" \
   -F "use_local_scraper=true"
 docker compose start local_scraper
 ```
@@ -287,7 +288,6 @@ curl -X POST http://localhost:8000/api/v1/analysis/upload \
   -F "category_id=<ID_Z_KROKU_1>" \
   -F "file=@/path/to/input.xlsx" \
   -F "mode=mixed" \
-  -F "use_cloud_http=true" \
   -F "use_local_scraper=true"
 ```
 Zwraca `analysis_run_id`.

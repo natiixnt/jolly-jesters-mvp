@@ -699,7 +699,7 @@ def _validate_ean(driver: WebDriver, product_url: Optional[str]) -> Optional[str
 def scrape_single_ean(ean: str) -> dict:
     """
     Scrape Allegro for a single EAN using SeleniumBase and return structured data.
-    Attempts to mimic the pilot flow: load listing, open product page, and collect offers.
+    Mirrors the current browser flow: load listing, open product page, and collect offers.
     """
     scraped_at = _now_iso()
     driver: Optional[WebDriver] = None

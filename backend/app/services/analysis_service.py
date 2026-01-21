@@ -452,12 +452,6 @@ def _enqueue_scrape(
     enqueue_cloud_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None,
     enqueue_local_scrape: Callable[[AnalysisRunItem, ScrapingStrategyConfig], None] | None,
 ) -> bool:
-    if strategy.use_cloud_http and enqueue_cloud_scrape and settings.proxy_list:
-        item.source = AnalysisItemSource.scraping
-        _set_scrape_status(item, ScrapeStatus.in_progress, None)
-        enqueue_cloud_scrape(item, strategy)
-        return False
-
     if (
         strategy.use_local_scraper
         and enqueue_local_scrape
@@ -470,7 +464,7 @@ def _enqueue_scrape(
         return False
 
     item.source = AnalysisItemSource.error
-    _set_scrape_status(item, ScrapeStatus.error, "no_scraper_strategy")
+    _set_scrape_status(item, ScrapeStatus.error, "local_scraper_disabled")
     return True
 
 
@@ -532,7 +526,7 @@ def process_analysis_run(
         settings_record = settings_service.get_settings(db)
         cutoff = _stale_cutoff(settings_record.cache_ttl_days)
         strategy = ScrapingStrategyConfig(
-            use_cloud_http=run.use_cloud_http,
+            use_cloud_http=False,
             use_local_scraper=run.use_local_scraper,
         )
 
@@ -542,10 +536,7 @@ def process_analysis_run(
             if not metadata.get("watchdog_timeout_retry_done"):
                 def _enqueue_retry(item: AnalysisRunItem) -> str | None:
                     task_id: str | None = None
-                    if strategy.use_cloud_http and enqueue_cloud_scrape:
-                        result = enqueue_cloud_scrape(item, strategy)  # type: ignore[func-returns-value]
-                        task_id = getattr(result, "id", None)
-                    elif strategy.use_local_scraper and enqueue_local_scrape:
+                    if strategy.use_local_scraper and enqueue_local_scrape:
                         result = enqueue_local_scrape(item, strategy)  # type: ignore[func-returns-value]
                         task_id = getattr(result, "id", None)
                     return task_id

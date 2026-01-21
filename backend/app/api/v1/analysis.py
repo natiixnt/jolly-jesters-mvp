@@ -26,7 +26,7 @@ from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
 from app.services.schemas import ScrapingStrategyConfig
 from app.utils.local_scraper_client import check_local_scraper_health
-from app.workers.tasks import celery_app, run_analysis_task, scrape_one_cloud, scrape_one_local
+from app.workers.tasks import celery_app, run_analysis_task, scrape_one_local
 
 router = APIRouter(tags=["analysis"])
 
@@ -39,39 +39,27 @@ def _sse_event(event_type: str, payload: dict) -> str:
     return f"event: {event_type}\ndata: {data}\n\n"
 
 
-def _validate_strategy(use_cloud_http: bool, use_local_scraper: bool):
-    if not any([use_cloud_http, use_local_scraper]):
+def _validate_strategy(mode: str, use_local_scraper: bool):
+    if mode != "offline" and not use_local_scraper:
         raise HTTPException(
             status_code=400,
-            detail="At least one scraper strategy (cloud HTTP or local) must be enabled for an analysis run.",
+            detail="Tryby Standard/Zawsze online wymagają włączonego lokalnego scrapera.",
         )
 
 
-def _validate_scraper_config(use_cloud_http: bool, use_local_scraper: bool):
-    # cloud HTTP
-    if use_cloud_http:
-        proxies = settings.PROXY_LIST
-        if isinstance(proxies, str):
-            proxies = [p for p in proxies.split(",") if p.strip()]
-        if not proxies:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Brak skonfigurowanych proxy dla cloud HTTP (PROXY_LIST). "
-                    "Odznacz 'Proxy / Cloud scraper' lub ustaw liste proxy."
-                ),
-            )
-
-    # local Selenium
+def _validate_scraper_config(use_local_scraper: bool):
     if use_local_scraper and not settings.LOCAL_SCRAPER_URL:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Brak adresu uslugi lokalnego scrapera (LOCAL_SCRAPER_URL). "
-                "Odznacz 'Local scraper (Selenium)' albo skonfiguruj URL. "
-                "W Dockerze: LOCAL_SCRAPER_URL=http://local_scraper:5050, "
-                "w Kubernetes: np. http://local-scraper.default.svc.cluster.local:5050."
+                "Brak adresu usługi lokalnego scrapera (LOCAL_SCRAPER_URL). "
+                "Ustaw np. LOCAL_SCRAPER_URL=http://local_scraper:5050 w docker-compose."
             ),
+        )
+    if use_local_scraper and not settings.LOCAL_SCRAPER_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Lokalny scraper jest wyłączony (LOCAL_SCRAPER_ENABLED=false). Włącz go, aby scrapować.",
         )
 
 
@@ -80,13 +68,14 @@ async def upload_analysis(
     file: UploadFile = File(...),
     category_id: str = Form(...),
     mode: str = Form("mixed"),
-    use_cloud_http: bool = Form(True),
+    use_cloud_http: bool = Form(False),
     use_local_scraper: bool = Form(True),
     db: Session = Depends(get_db),
 ):
     mode = (mode or "mixed").lower()
-    _validate_strategy(use_cloud_http, use_local_scraper)
-    _validate_scraper_config(use_cloud_http, use_local_scraper)
+    use_cloud_http = False  # cloud/proxy scraper disabled in MVP stack
+    _validate_strategy(mode, use_local_scraper)
+    _validate_scraper_config(use_local_scraper)
     if use_local_scraper:
         health = check_local_scraper_health(timeout_seconds=2.0)
         if health.get("status") != "ok":
@@ -103,7 +92,7 @@ async def upload_analysis(
                     "Local scraper niedostepny lub niezdrowy "
                     f"(status={status_label}{suffix}). "
                     f"Sprawdz usluge pod {url} albo wylacz 'Local scraper (Selenium)' "
-                    "i uzyj 'Proxy / Cloud scraper'."
+                    "i uruchom analizę w trybie 'Tylko baza'."
                 ),
             )
 
@@ -123,7 +112,7 @@ async def upload_analysis(
         raise HTTPException(status_code=400, detail="Plik musi być w formacie Excel (.xls/.xlsx)")
 
     strategy = ScrapingStrategyConfig(
-        use_cloud_http=use_cloud_http,
+        use_cloud_http=False,
         use_local_scraper=use_local_scraper,
     )
 
@@ -156,9 +145,10 @@ def run_from_cache(payload: AnalysisStartFromDbRequest, db: Session = Depends(ge
 
 def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> AnalysisUploadResponse:
     mode = (payload.mode or "mixed").lower()
-    _validate_strategy(payload.use_cloud_http, payload.use_local_scraper)
-    _validate_scraper_config(payload.use_cloud_http, payload.use_local_scraper)
-    if payload.use_local_scraper:
+    use_local_scraper = payload.use_local_scraper
+    _validate_strategy(mode, use_local_scraper)
+    _validate_scraper_config(use_local_scraper)
+    if use_local_scraper:
         health = check_local_scraper_health(timeout_seconds=2.0)
         if health.get("status") != "ok":
             url = health.get("url") or settings.LOCAL_SCRAPER_URL or "LOCAL_SCRAPER_URL"
@@ -174,7 +164,7 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
                     "Local scraper niedostepny lub niezdrowy "
                     f"(status={status_label}{suffix}). "
                     f"Sprawdz usluge pod {url} albo wylacz 'Local scraper (Selenium)' "
-                    "i uzyj 'Proxy / Cloud scraper'."
+                    "i uruchom analizę w trybie 'Tylko baza'."
                 ),
             )
 
@@ -186,8 +176,8 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
     strategy = ScrapingStrategyConfig(
-        use_cloud_http=payload.use_cloud_http,
-        use_local_scraper=payload.use_local_scraper,
+        use_cloud_http=False,
+        use_local_scraper=use_local_scraper,
     )
 
     try:
@@ -435,7 +425,7 @@ def cancel_analysis_run(run_id: int, db: Session = Depends(get_db)):
 @router.post("/{run_id}/retry_failed", response_model=AnalysisRetryResponse)
 def retry_failed_items(
     run_id: int,
-    strategy: str = "cloud",
+    strategy: str = "local",
     db: Session = Depends(get_db),
 ):
     run = analysis_service.get_run_status(db, run_id)
@@ -444,18 +434,13 @@ def retry_failed_items(
     if run.status == AnalysisStatus.canceled:
         raise HTTPException(status_code=400, detail="Analysis was canceled")
 
-    strategy = (strategy or "cloud").lower()
-    if strategy not in {"cloud", "local"}:
-        raise HTTPException(status_code=400, detail="Strategy must be 'cloud' or 'local'")
+    strategy = (strategy or "local").lower()
+    if strategy != "local":
+        raise HTTPException(status_code=400, detail="Obsługiwany jest tylko lokalny scraper.")
 
-    use_cloud = strategy == "cloud"
-    use_local = strategy == "local"
-    _validate_scraper_config(use_cloud, use_local)
+    _validate_scraper_config(True)
 
     def _enqueue(item):
-        if use_cloud:
-            result = scrape_one_cloud.delay(item.ean, item.id, {"use_cloud_http": True, "use_local_scraper": False})
-            return result.id
         result = scrape_one_local.delay(item.ean, item.id, {"use_cloud_http": False, "use_local_scraper": True})
         return result.id
 
