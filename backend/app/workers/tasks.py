@@ -335,8 +335,9 @@ def _maybe_retry_timeout(task, db: SessionLocal, item: AnalysisRunItem, result, 
 def _log_scrape_outcome(label: str, item: AnalysisRunItem, result, status: ScrapeStatus, error_message: str | None) -> None:
     payload = getattr(result, "raw_payload", {}) or {}
     fingerprint_id = getattr(result, "fingerprint_id", None) or payload.get("fingerprint_id")
+    block_reason = payload.get("block_reason") or getattr(result, "block_reason", None)
     logger.info(
-        "%s item_id=%s ean=%s status=%s not_found=%s blocked=%s temp_error=%s error=%s http_status=%s source=%s fingerprint_id=%s",
+        "%s item_id=%s ean=%s status=%s not_found=%s blocked=%s temp_error=%s error=%s http_status=%s block_reason=%s source=%s fingerprint_id=%s",
         label,
         item.id,
         item.ean,
@@ -346,6 +347,7 @@ def _log_scrape_outcome(label: str, item: AnalysisRunItem, result, status: Scrap
         bool(getattr(result, "is_temporary_error", False)),
         error_message,
         payload.get("status_code"),
+        block_reason,
         getattr(result, "source", None),
         fingerprint_id,
     )

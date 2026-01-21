@@ -21,6 +21,9 @@ class SeleniumFingerprint:
     timezone: Optional[str]
     profile_dir: Optional[str]
     profile_mode: str
+    profile_rotated: bool
+    profile_reuse_count: Optional[int]
+    profile_rotate_after: Optional[int]
     rotated: bool
     ua_hash: str
     ua_version: Optional[str]
@@ -242,8 +245,12 @@ class _PresetRotator:
                 self._current = self._materialize(base, rng)
                 self._count = 0
                 self._threshold = self._next_threshold(rng)
-            self._count += 1
+                self._count += 1
             return self._current, rotated, self._count, self._threshold
+
+    def force_rotate(self) -> None:
+        with self._lock:
+            self._count = self._threshold
 
 
 _SELENIUM_ROTATOR = _PresetRotator(_BASE_PRESETS, "selenium", jitter=True)
@@ -251,6 +258,9 @@ _HTTP_ROTATOR = _PresetRotator(_BASE_PRESETS, "http", jitter=False)
 _PROXY_LOCK = threading.Lock()
 _PROXY_STATE: Dict[str, Optional[str]] = {"proxy_url": None, "proxy_id": None, "source": None}
 _PROXY_RNG: Optional[random.Random] = None
+_PROFILE_LOCK = threading.Lock()
+_PROFILE_STATE: Dict[str, object] = {"dir": None, "count": 0, "threshold": 0}
+_PROFILE_RNG: Optional[random.Random] = None
 
 
 def _rotating_profile_dir(preset_id: str) -> str:
@@ -319,6 +329,55 @@ def _apply_proxy_template(raw: str, placeholder: str, session_id: str) -> str:
     return raw.replace(placeholder, session_id)
 
 
+def _profile_rotation_enabled() -> bool:
+    return _env_bool("SELENIUM_FORCE_TEMP_PROFILE", False)
+
+
+def _profile_rotation_bounds() -> Tuple[int, int]:
+    min_val = max(1, _env_int("SELENIUM_PROFILE_ROTATE_MIN_REQUESTS", 3))
+    max_val = max(min_val, _env_int("SELENIUM_PROFILE_ROTATE_MAX_REQUESTS", 5))
+    return min_val, max_val
+
+
+def _profile_rng() -> random.Random:
+    global _PROFILE_RNG
+    if _PROFILE_RNG is None:
+        _PROFILE_RNG = _seeded_random("selenium_profile")
+    return _PROFILE_RNG
+
+
+def _next_profile_dir(force_rotate: bool = False) -> Tuple[Optional[str], bool, Optional[int], Optional[int]]:
+    """
+    Manage rotating temp profile directories to keep cookies across a handful of requests
+    before switching to a fresh profile.
+    """
+    if not _profile_rotation_enabled():
+        return None, False, None, None
+    rng = _profile_rng()
+    with _PROFILE_LOCK:
+        if force_rotate:
+            _PROFILE_STATE["count"] = _PROFILE_STATE.get("threshold", 0) or 0
+        rotated = False
+        threshold = int(_PROFILE_STATE.get("threshold") or 0)
+        count = int(_PROFILE_STATE.get("count") or 0)
+        current_dir = _PROFILE_STATE.get("dir")
+        if current_dir is None or count >= threshold:
+            min_val, max_val = _profile_rotation_bounds()
+            threshold = rng.randint(min_val, max_val)
+            count = 0
+            current_dir = _rotating_profile_dir("profile")
+            rotated = _PROFILE_STATE.get("dir") is not None
+            _PROFILE_STATE["dir"] = current_dir
+            _PROFILE_STATE["threshold"] = threshold
+        count += 1
+        _PROFILE_STATE["count"] = count
+        return str(current_dir), rotated, count, threshold
+
+
+def force_rotate_profile() -> None:
+    _next_profile_dir(force_rotate=True)
+
+
 def get_selenium_proxy(fingerprint: Optional[SeleniumFingerprint]) -> Optional[SeleniumProxyConfig]:
     raw_proxy = (os.getenv("SELENIUM_PROXY") or "").strip()
     proxy_list = _proxy_list()
@@ -372,6 +431,17 @@ def get_selenium_proxy(fingerprint: Optional[SeleniumFingerprint]) -> Optional[S
     return None
 
 
+def force_rotate_selenium_proxy() -> None:
+    with _PROXY_LOCK:
+        _PROXY_STATE["proxy_url"] = None
+        _PROXY_STATE["proxy_id"] = None
+        _PROXY_STATE["source"] = None
+
+
+def force_rotate_selenium_fingerprint() -> None:
+    _SELENIUM_ROTATOR.force_rotate()
+
+
 def get_selenium_fingerprint() -> Optional[SeleniumFingerprint]:
     if not _rotation_enabled():
         return None
@@ -391,10 +461,8 @@ def get_selenium_fingerprint() -> Optional[SeleniumFingerprint]:
         preset.viewport,
         preset.timezone,
     )
-    profile_dir = None
-    profile_mode = "persistent"
-    if _env_bool("SELENIUM_FORCE_TEMP_PROFILE", False):
-        profile_dir = _rotating_profile_dir(preset.preset_id)
+    profile_dir, profile_rotated, profile_reuse_count, profile_rotate_after = _next_profile_dir()
+    if profile_dir:
         profile_mode = "rotating_temp"
     elif os.getenv("SELENIUM_USER_DATA_DIR") or os.getenv("SELENIUM_PROFILE_DIR"):
         profile_mode = "persistent"
@@ -409,6 +477,9 @@ def get_selenium_fingerprint() -> Optional[SeleniumFingerprint]:
         timezone=preset.timezone,
         profile_dir=profile_dir,
         profile_mode=profile_mode,
+        profile_rotated=profile_rotated,
+        profile_reuse_count=profile_reuse_count,
+        profile_rotate_after=profile_rotate_after,
         rotated=rotated,
         ua_hash=ua_hash(user_agent) or "unknown",
         ua_version=ua_version(user_agent),

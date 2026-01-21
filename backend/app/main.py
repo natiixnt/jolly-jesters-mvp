@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.v1.router import api_router
@@ -44,6 +45,6 @@ def index(request: Request):
 
 @app.get("/health")
 def healthcheck(db: Session = Depends(get_db)):
-    db.execute("SELECT 1")
+    db.execute(text("SELECT 1"))
     local_scraper = check_local_scraper_health()
     return {"status": "ok", "local_scraper": local_scraper}

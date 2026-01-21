@@ -1839,28 +1839,28 @@
       db_ean_contains: '',
     };
     const RESULTS_COLUMNS = [
-      { id: 'ean', label: 'EAN', default: true },
-      { id: 'name', label: 'Nazwa', default: true },
-      { id: 'currency', label: 'Waluta', default: false },
-      { id: 'purchase_price', label: 'Cena zakupu', default: true },
-      { id: 'allegro_price', label: 'Cena Allegro', default: true },
-      { id: 'margin', label: 'Marża', default: true },
-      { id: 'margin_percent', label: 'Marża %', default: true },
-      { id: 'profitable', label: 'Opłacalny', default: true },
-      { id: 'source', label: 'Źródło', default: false },
-      { id: 'last_checked_at', label: 'Ostatnio sprawdzono', default: false },
-      { id: 'scrape_status', label: 'Status scrapingu', default: true },
+      { id: 'ean', label: 'EAN', labelKey: 'col_ean', default: true },
+      { id: 'name', label: 'Nazwa', labelKey: 'col_name', default: true },
+      { id: 'currency', label: 'Waluta', labelKey: 'col_currency', default: false },
+      { id: 'purchase_price', label: 'Cena zakupu', labelKey: 'col_purchase_price', default: true },
+      { id: 'allegro_price', label: 'Cena Allegro', labelKey: 'col_allegro_price', default: true },
+      { id: 'margin', label: 'Marża', labelKey: 'col_margin', default: true },
+      { id: 'margin_percent', label: 'Marża %', labelKey: 'col_margin_percent', default: true },
+      { id: 'profitable', label: 'Opłacalny', labelKey: 'col_profitable', default: true },
+      { id: 'source', label: 'Źródło', labelKey: 'col_source', default: false },
+      { id: 'last_checked_at', label: 'Ostatnio sprawdzono', labelKey: 'col_last_checked', default: false },
+      { id: 'scrape_status', label: 'Status scrapingu', labelKey: 'col_scrape_status', default: true },
     ];
     const MARKET_COLUMNS = [
-      { id: 'ean', label: 'EAN', default: true },
-      { id: 'name', label: 'Nazwa', default: true },
-      { id: 'category', label: 'Kategoria', default: false },
-      { id: 'purchase_price', label: 'Cena zakupu (PLN)', default: false },
-      { id: 'allegro_price', label: 'Cena Allegro', default: true },
-      { id: 'sold_count', label: 'Sprzedanych', default: true },
-      { id: 'source', label: 'Źródło', default: false },
-      { id: 'last_checked_at', label: 'Ostatnio sprawdz.', default: true },
-      { id: 'last_run_at', label: 'Ostatni run', default: false },
+      { id: 'ean', label: 'EAN', labelKey: 'col_ean', default: true },
+      { id: 'name', label: 'Nazwa', labelKey: 'col_name', default: true },
+      { id: 'category', label: 'Kategoria', labelKey: 'col_category', default: false },
+      { id: 'purchase_price', label: 'Cena zakupu (PLN)', labelKey: 'col_purchase_price_pln', default: false },
+      { id: 'allegro_price', label: 'Cena Allegro', labelKey: 'col_allegro_price', default: true },
+      { id: 'sold_count', label: 'Sprzedanych', labelKey: 'col_sold_count', default: true },
+      { id: 'source', label: 'Źródło', labelKey: 'col_source', default: false },
+      { id: 'last_checked_at', label: 'Ostatnio sprawdz.', labelKey: 'col_last_checked', default: true },
+      { id: 'last_run_at', label: 'Ostatni run', labelKey: 'col_last_run', default: false },
     ];
     const RESULTS_COLUMNS_KEY = 'ui.columns.results';
     const MARKET_COLUMNS_KEY = 'ui.columns.market';
@@ -1885,6 +1885,7 @@
         'btn-start': 'Start analizy',
         'status-empty': 'Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.',
         'label-run-id': 'Run ID:',
+        'run-label': 'Run',
         'label-status': 'Status:',
         'label-progress': 'Postęp:',
         'label-updated': 'Ostatnia aktualizacja:',
@@ -1916,6 +1917,8 @@
         'loading': 'Ładowanie...',
         'loading-results': 'Ładowanie wyników...',
         'category-removed': 'Kategoria usunięta',
+        'category-added': 'Kategoria dodana.',
+        'category-saved': 'Zapisano zmiany.',
         'mode_mixed_label': 'Standard',
         'mode_offline_label': 'Tylko baza',
         'mode_online_label': 'Zawsze online',
@@ -1938,6 +1941,77 @@
         profitable_yes: 'tak',
         profitable_no: 'nie',
         profitable_unknown: '—',
+        'network-error': 'Brak połączenia z backendem. Sprawdź czy kontenery działają.',
+        'add-category-to-start': 'Dodaj kategorię, aby rozpocząć.',
+        'select-category': 'Wybierz kategorię.',
+        'select-file': 'Wybierz plik do analizy.',
+        'error-fetch-rates': 'Nie udało się pobrać kursów.',
+        'error-save-rates': 'Nie udało się zapisać kursów.',
+        'error-fetch-rates-network': 'Błąd pobierania kursów.',
+        'error-save-rates-network': 'Błąd zapisu kursów.',
+        'rates-helper': 'PLN musi mieć kurs 1.0. Dodaj inne waluty, aby były przeliczane na PLN.',
+        'rates-saved': 'Zapisano kursy walut.',
+        'error-fetch-active': 'Nie udało się pobrać aktywnych analiz.',
+        'error-fetch-results': 'Nie udało się pobrać wyników.',
+        'error-fetch-results-network': 'Błąd podczas pobierania wyników.',
+        'error-fetch-market': 'Nie udało się pobrać danych.',
+        'error-fetch-market-network': 'Błąd pobierania danych.',
+        'error-fetch-categories': 'Nie udało się pobrać kategorii.',
+        'error-fetch-settings': 'Nie udało się pobrać ustawień.',
+        'error-fetch-settings-fallback': 'Nie udało się pobrać ustawień. Używane są wartości domyślne.',
+        'error-save-settings': 'Nie udało się zapisać ustawień.',
+        'error-save-settings-network': 'Błąd zapisu ustawień.',
+        'error-fetch-history': 'Nie udało się pobrać historii.',
+        'error-fetch-history-network': 'Błąd pobierania historii.',
+        'error-refresh-results': 'Błąd odświeżania wyników.',
+        'error-analysis': 'Błąd analizy.',
+        'error-status': 'Nie udało się pobrać statusu.',
+        'analysis-failed-generic': 'Analiza nie powiodła się.',
+        'analysis-failed-no-data': 'Analiza przerwana, brak danych do wyświetlenia.',
+        'error-run-cancel': 'Nie udało się anulować analizy.',
+        'error-run-cancel-network': 'Błąd anulowania.',
+        'error-run-db-start': 'Nie udało się uruchomić analizy z bazy.',
+        'error-run-start': 'Nie udało się uruchomić analizy.',
+        'error-db-select-category': 'Wybierz kategorię do analizy.',
+        'error-retry': 'Nie udało się uruchomić retry.',
+        'error-retry-network': 'Błąd retry.',
+        'error-add-category': 'Nie udało się dodać kategorii.',
+        'error-add-category-network': 'Błąd podczas dodawania kategorii.',
+        'error-save-category': 'Nie udało się zapisać kategorii.',
+        'error-save-category-network': 'Błąd zapisu kategorii.',
+        'no-details': 'Brak szczegółów.',
+        'error-reason': 'Powód błędu:',
+        'cancel-reason': 'Powód anulowania:',
+        'summary-progress': 'Postęp:',
+        'summary-finished': 'Zakończono:',
+        'summary-id': 'ID:',
+        'summary-created': 'Utworzono:',
+        'summary-canceled-at': 'Anulowano:',
+        'summary-pending': 'W toku / oczekuje',
+        'summary-mode': 'Tryb:',
+        'summary-strategies': 'Strategie:',
+        'label-source-colon': 'Źródło:',
+        'label-scrape-status-colon': 'Status scrapingu:',
+        'label-last-checked-colon': 'Ostatnio sprawdzono:',
+        'label-scrape-error-colon': 'Błąd scrapingu:',
+        'label-original-currency': 'Oryginalna waluta:',
+        'label-original-price': 'Oryginalna cena:',
+        'label-sold-count': 'Liczba sprzedanych:',
+        col_ean: 'EAN',
+        col_name: 'Nazwa',
+        col_currency: 'Waluta',
+        col_purchase_price: 'Cena zakupu',
+        col_allegro_price: 'Cena Allegro',
+        col_margin: 'Marża',
+        col_margin_percent: 'Marża %',
+        col_profitable: 'Opłacalny',
+        col_source: 'Źródło',
+        col_last_checked: 'Ostatnio sprawdzono',
+        col_scrape_status: 'Status scrapingu',
+        col_category: 'Kategoria',
+        col_purchase_price_pln: 'Cena zakupu (PLN)',
+        col_sold_count: 'Sprzedanych',
+        col_last_run: 'Ostatni run',
       },
       en: {
         'title-main': 'MVP: product import & analysis',
@@ -1957,6 +2031,7 @@
         'btn-start': 'Start analysis',
         'status-empty': 'No active analysis. Once started you will see status, progress, and links to results.',
         'label-run-id': 'Run ID:',
+        'run-label': 'Run',
         'label-status': 'Status:',
         'label-progress': 'Progress:',
         'label-updated': 'Last update:',
@@ -1988,6 +2063,8 @@
         'loading': 'Loading...',
         'loading-results': 'Loading results...',
         'category-removed': 'Category removed',
+        'category-added': 'Category added.',
+        'category-saved': 'Changes saved.',
         'mode_mixed_label': 'Standard',
         'mode_offline_label': 'Cache only',
         'mode_online_label': 'Always online',
@@ -2010,6 +2087,77 @@
         profitable_yes: 'yes',
         profitable_no: 'no',
         profitable_unknown: '—',
+        'network-error': 'Backend unreachable. Check that containers are running.',
+        'add-category-to-start': 'Add a category to start.',
+        'select-category': 'Select a category.',
+        'select-file': 'Select a file to analyze.',
+        'error-fetch-rates': 'Failed to fetch rates.',
+        'error-save-rates': 'Failed to save rates.',
+        'error-fetch-rates-network': 'Error fetching rates.',
+        'error-save-rates-network': 'Error saving rates.',
+        'rates-helper': 'PLN must have rate 1.0. Add other currencies to convert to PLN.',
+        'rates-saved': 'Currency rates saved.',
+        'error-fetch-active': 'Failed to load active analyses.',
+        'error-fetch-results': 'Failed to load results.',
+        'error-fetch-results-network': 'Error while loading results.',
+        'error-fetch-market': 'Failed to load data.',
+        'error-fetch-market-network': 'Error loading data.',
+        'error-fetch-categories': 'Failed to load categories.',
+        'error-fetch-settings': 'Failed to load settings.',
+        'error-fetch-settings-fallback': 'Failed to load settings. Using defaults.',
+        'error-save-settings': 'Failed to save settings.',
+        'error-save-settings-network': 'Error saving settings.',
+        'error-fetch-history': 'Failed to load history.',
+        'error-fetch-history-network': 'Error loading history.',
+        'error-refresh-results': 'Error refreshing results.',
+        'error-analysis': 'Analysis error.',
+        'error-status': 'Failed to load status.',
+        'analysis-failed-generic': 'Analysis failed.',
+        'analysis-failed-no-data': 'Analysis interrupted, no data to display.',
+        'error-run-cancel': 'Failed to cancel analysis.',
+        'error-run-cancel-network': 'Cancel error.',
+        'error-run-db-start': 'Failed to start DB analysis.',
+        'error-run-start': 'Failed to start analysis.',
+        'error-db-select-category': 'Choose a category to analyze.',
+        'error-retry': 'Failed to trigger retry.',
+        'error-retry-network': 'Retry error.',
+        'error-add-category': 'Failed to add category.',
+        'error-add-category-network': 'Error while adding category.',
+        'error-save-category': 'Failed to save category.',
+        'error-save-category-network': 'Category save error.',
+        'no-details': 'No details.',
+        'error-reason': 'Error reason:',
+        'cancel-reason': 'Cancel reason:',
+        'summary-progress': 'Progress:',
+        'summary-finished': 'Finished:',
+        'summary-id': 'ID:',
+        'summary-created': 'Created:',
+        'summary-canceled-at': 'Canceled:',
+        'summary-pending': 'In progress / pending',
+        'summary-mode': 'Mode:',
+        'summary-strategies': 'Strategies:',
+        'label-source-colon': 'Source:',
+        'label-scrape-status-colon': 'Scrape status:',
+        'label-last-checked-colon': 'Last checked:',
+        'label-scrape-error-colon': 'Scrape error:',
+        'label-original-currency': 'Original currency:',
+        'label-original-price': 'Original price:',
+        'label-sold-count': 'Units sold:',
+        col_ean: 'EAN',
+        col_name: 'Name',
+        col_currency: 'Currency',
+        col_purchase_price: 'Purchase price',
+        col_allegro_price: 'Allegro price',
+        col_margin: 'Margin',
+        col_margin_percent: 'Margin %',
+        col_profitable: 'Profitable',
+        col_source: 'Source',
+        col_last_checked: 'Last checked',
+        col_scrape_status: 'Scrape status',
+        col_category: 'Category',
+        col_purchase_price_pln: 'Purchase price (PLN)',
+        col_sold_count: 'Sold',
+        col_last_run: 'Last run',
       },
     };
 
@@ -2185,6 +2333,9 @@
       applyI18nAttributes(lang);
       applyPlaceholderTranslations(lang);
       applyTextMap(lang);
+      applyColumnHeaders();
+      renderColumnPicker(resultsColumnsEl, RESULTS_COLUMNS, RESULTS_COLUMNS_KEY, applyResultsColumns);
+      renderColumnPicker(marketColumnsEl, MARKET_COLUMNS, MARKET_COLUMNS_KEY, applyMarketColumns);
       if (langToggle) {
         langToggle.textContent = lang === 'pl' ? 'EN' : 'PL';
         langToggle.title = lang === 'pl' ? 'Switch to English' : 'Przełącz na polski';
@@ -2234,7 +2385,7 @@
         message.includes('NetworkError') ||
         message.includes('Load failed')
       ) {
-        return 'Brak połączenia z backendem. Sprawdź czy kontenery działają.';
+        return t('network-error');
       }
       return message || fallback;
     }
@@ -2263,11 +2414,11 @@
       if (hasCategory) {
         categorySelectError.textContent = '';
       } else if (categorySelect.disabled) {
-        categorySelectError.textContent = 'Dodaj kategorię, aby rozpocząć.';
+        categorySelectError.textContent = t('add-category-to-start');
       } else {
-        categorySelectError.textContent = 'Wybierz kategorię.';
+        categorySelectError.textContent = t('select-category');
       }
-      fileError.textContent = hasFile ? '' : 'Wybierz plik do analizy.';
+      fileError.textContent = hasFile ? '' : t('select-file');
       return hasCategory && hasFile;
     }
 
@@ -2424,12 +2575,12 @@
         const res = await fetch('/api/v1/settings/currencies');
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać kursów.'));
+          throw new Error(formatHttpError(res, data, t('error-fetch-rates')));
         }
         renderCurrencyRows(data.rates || []);
-        currencyHelper.textContent = 'PLN musi mieć kurs 1.0. Dodaj inne waluty, aby były przeliczane na PLN.';
+        currencyHelper.textContent = t('rates-helper');
       } catch (err) {
-        currencyError.textContent = formatNetworkError(err, 'Błąd pobierania kursów.');
+        currencyError.textContent = formatNetworkError(err, t('error-fetch-rates-network'));
       }
     }
 
@@ -2449,13 +2600,13 @@
           data = await res.json().catch(() => ({}));
         }
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się zapisać kursów.'));
+          throw new Error(formatHttpError(res, data, t('error-save-rates')));
         }
         renderCurrencyRows(data.rates || []);
-        currencySuccess.textContent = 'Zapisano kursy walut.';
+        currencySuccess.textContent = t('rates-saved');
         setTimeout(() => { currencySuccess.textContent = ''; }, 2000);
       } catch (err) {
-        currencyError.textContent = formatNetworkError(err, 'Błąd zapisu kursów.');
+        currencyError.textContent = formatNetworkError(err, t('error-save-rates-network'));
       }
     }
 
@@ -2516,7 +2667,7 @@
         const res = await fetch('/api/v1/analysis/active');
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać aktywnych analiz.'));
+          throw new Error(formatHttpError(res, data, t('error-fetch-active')));
         }
         const runs = Array.isArray(data) ? data : (data.runs || []);
         renderActiveRuns(runs);
@@ -2533,7 +2684,7 @@
       } catch (err) {
         activeRuns.innerHTML = '';
         activeRunsEmpty.style.display = 'none';
-        activeRunsError.textContent = formatNetworkError(err, 'Błąd pobierania aktywnych analiz.');
+        activeRunsError.textContent = formatNetworkError(err, t('error-fetch-active'));
       }
     }
 
@@ -2575,6 +2726,7 @@
           </div>
         `;
         applyMarketColumns();
+        applyColumnHeaders();
       }
 
       const start = data.total ? Math.min(data.total, marketState.offset + 1) : 0;
@@ -2628,13 +2780,13 @@
       return `
         <td colspan="${colspan}">
           <div class="detail-grid">
-            <div><strong>Źródło:</strong> ${item.source || '—'}</div>
-            <div><strong>Status scrapingu:</strong> ${statusLabelText}</div>
-            <div><strong>Ostatnio sprawdzono:</strong> ${formatDateTime(item.last_checked_at)}</div>
-            <div><strong>Błąd scrapingu:</strong> ${item.scrape_error_message || '—'}</div>
-            <div><strong>Oryginalna waluta:</strong> ${item.original_currency || 'PLN'}</div>
-            <div><strong>Oryginalna cena:</strong> ${item.original_purchase_price !== null && item.original_purchase_price !== undefined ? item.original_purchase_price + ' ' + (item.original_currency || '') : '—'}</div>
-            <div><strong>Liczba sprzedanych:</strong> ${item.sold_count ?? '—'}</div>
+            <div><strong>${t('label-source-colon')}</strong> ${item.source || '—'}</div>
+            <div><strong>${t('label-scrape-status-colon')}</strong> ${statusLabelText}</div>
+            <div><strong>${t('label-last-checked-colon')}</strong> ${formatDateTime(item.last_checked_at)}</div>
+            <div><strong>${t('label-scrape-error-colon')}</strong> ${item.scrape_error_message || '—'}</div>
+            <div><strong>${t('label-original-currency')}</strong> ${item.original_currency || 'PLN'}</div>
+            <div><strong>${t('label-original-price')}</strong> ${item.original_purchase_price !== null && item.original_purchase_price !== undefined ? item.original_purchase_price + ' ' + (item.original_currency || '') : '—'}</div>
+            <div><strong>${t('label-sold-count')}</strong> ${item.sold_count ?? '—'}</div>
           </div>
         </td>
       `;
@@ -2723,7 +2875,8 @@
 
     function renderResultsTable(data) {
       resultsError.textContent = data.error_message || '';
-      const metaParts = [`Run #${data.run_id}`, `${t('label-status')} ${statusLabel(data.status)}`];
+      const runLabel = t('run-label') || 'Run';
+      const metaParts = [`${runLabel} #${data.run_id}`, `${t('label-status')} ${statusLabel(data.status)}`];
       if (typeof data.total === 'number') {
         const rowsLabel = currentLang === 'en' ? 'Rows' : 'Wiersze';
         metaParts.push(`${rowsLabel}: ${data.total}`);
@@ -2741,7 +2894,7 @@
         resultsTable.innerHTML = '';
         resultsEmpty.style.display = 'block';
         if (data.status === 'failed') {
-          resultsEmpty.textContent = data.error_message || 'Analiza przerwana, brak danych do wyświetlenia.';
+          resultsEmpty.textContent = data.error_message || t('analysis-failed-no-data');
         } else if (data.status === 'canceled') {
           resultsEmpty.textContent = data.error_message || t('analysis-canceled');
         } else {
@@ -2756,6 +2909,7 @@
           upsertResultsRow(item);
         });
         applyResultsColumns();
+        applyColumnHeaders();
       }
 
       const start = previewState.total ? Math.min(previewState.total, previewState.offset + 1) : 0;
@@ -2778,7 +2932,7 @@
         const res = await fetch(`/api/v1/analysis/${runId}/results?offset=${offset}&limit=${previewState.limit}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          resultsError.textContent = formatHttpError(res, data, 'Nie udało się pobrać wyników.');
+          resultsError.textContent = formatHttpError(res, data, t('error-fetch-results'));
           resultsTable.innerHTML = '';
           resultsPageInfo.textContent = '';
           resultsPrev.disabled = true;
@@ -2790,7 +2944,7 @@
         previewState.total = data.total || 0;
         renderResultsTable(data);
       } catch (err) {
-        resultsError.textContent = formatNetworkError(err, 'Błąd podczas pobierania wyników.');
+        resultsError.textContent = formatNetworkError(err, t('error-fetch-results-network'));
         resultsTable.innerHTML = '';
       }
     }
@@ -2808,7 +2962,8 @@
 
     function populateMarketCategories() {
       const current = marketCategory.value;
-      marketCategory.innerHTML = '<option value=\"\">Dowolna</option>';
+      const anyLabel = currentLang === 'en' ? 'Any' : 'Dowolna';
+      marketCategory.innerHTML = `<option value="">${anyLabel}</option>`;
       categoriesCache.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat.id;
@@ -2834,13 +2989,13 @@
         const res = await fetch(`/api/v1/market-data?${params.toString()}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać danych.'));
+          throw new Error(formatHttpError(res, data, t('error-fetch-market')));
         }
         marketState.offset = offset;
         marketState.total = data.total || 0;
         renderMarketTable(data);
       } catch (err) {
-        marketError.textContent = formatNetworkError(err, 'Błąd pobierania danych.');
+        marketError.textContent = formatNetworkError(err, t('error-fetch-market-network'));
         marketTable.innerHTML = '';
       }
     }
@@ -2866,7 +3021,7 @@
         const res = await fetch('/api/v1/categories/');
         const data = await res.json().catch(() => ([]));
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać kategorii.'));
+          throw new Error(formatHttpError(res, data, t('error-fetch-categories')));
         }
         categoriesCache = data;
         if (!data.length) {
@@ -2884,7 +3039,7 @@
         populateMarketCategories();
         updateStartState();
       } catch (err) {
-        categoryInfo.textContent = formatNetworkError(err, 'Nie udało się pobrać kategorii.');
+        categoryInfo.textContent = formatNetworkError(err, t('error-fetch-categories'));
         submitBtn.disabled = true;
         updateStartState();
       }
@@ -2980,6 +3135,13 @@
       );
     }
 
+    function columnLabel(col) {
+      if (col && col.labelKey) {
+        return t(col.labelKey);
+      }
+      return col?.label || col?.id || '';
+    }
+
     function renderColumnPicker(container, columns, key, onApply) {
       if (!container) return;
       const enabled = loadColumnSet(key, columns);
@@ -2988,7 +3150,7 @@
         const label = document.createElement('label');
         label.innerHTML = `
           <input type="checkbox" value="${col.id}" ${enabled.has(col.id) ? 'checked' : ''} />
-          <span>${col.label}</span>
+          <span>${columnLabel(col)}</span>
         `;
         container.appendChild(label);
       });
@@ -3015,6 +3177,23 @@
           el.classList.toggle('is-hidden', !enabledSet.has(col.id));
         });
       });
+    }
+
+    function applyColumnHeaders() {
+      if (resultsTable) {
+        RESULTS_COLUMNS.forEach((col) => {
+          resultsTable.querySelectorAll(`th[data-col="${col.id}"]`).forEach((el) => {
+            el.textContent = columnLabel(col);
+          });
+        });
+      }
+      if (marketTable) {
+        MARKET_COLUMNS.forEach((col) => {
+          marketTable.querySelectorAll(`th[data-col="${col.id}"]`).forEach((el) => {
+            el.textContent = columnLabel(col);
+          });
+        });
+      }
     }
 
     function getResultsVisibleCount() {
@@ -3260,7 +3439,7 @@
         const res = await fetch(`/api/v1/analysis/${runId}/results/updates?${params.toString()}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać wyników.'));
+          throw new Error(formatHttpError(res, data, t('error-fetch-results')));
         }
         if (data.next_since) {
           runStreamState.since = data.next_since;
@@ -3274,7 +3453,7 @@
         }
         (data.items || []).forEach(handleStreamRow);
       } catch (err) {
-        appendStatusLog(formatNetworkError(err, 'Błąd odświeżania wyników.'), 'error');
+        appendStatusLog(formatNetworkError(err, t('error-refresh-results')), 'error');
       }
     }
 
@@ -3328,9 +3507,9 @@
         if (!event.data) return;
         try {
           const payload = JSON.parse(event.data);
-          appendStatusLog(payload.message || 'Błąd analizy.', 'error');
+          appendStatusLog(payload.message || t('error-analysis'), 'error');
         } catch (err) {
-          appendStatusLog('Błąd analizy.', 'error');
+          appendStatusLog(t('error-analysis'), 'error');
         }
       });
       runStream.addEventListener('done', async (event) => {
@@ -3354,18 +3533,18 @@
       const fetchStatus = async () => {
         try {
           const res = await fetch(`/api/v1/analysis/${runId}`);
-          if (!res.ok) throw new Error('Nie udało się pobrać statusu.');
+          if (!res.ok) throw new Error(t('error-status'));
           const data = await res.json();
           setStatus(data);
           updateResultsMetaFromStatus(data);
           if (runStreamState.lastStatus !== data.status) {
-            appendStatusLog(`Status: ${statusLabel(data.status)}`);
+            appendStatusLog(`${t('label-status')} ${statusLabel(data.status)}`);
             runStreamState.lastStatus = data.status;
           }
 
           if (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled') {
             if (data.status === 'failed') {
-              runErrorEl.textContent = data.error_message || 'Analiza nie powiodła się.';
+              runErrorEl.textContent = data.error_message || t('analysis-failed-generic');
             }
             if (data.status === 'canceled') {
               runErrorEl.textContent = data.error_message || t('analysis-canceled');
@@ -3376,7 +3555,7 @@
             await loadActiveRuns();
           }
         } catch (err) {
-          setMessage(formatNetworkError(err, 'Nie udało się pobrać statusu.'), errorBox);
+          setMessage(formatNetworkError(err, t('error-status')), errorBox);
         }
       };
       await fetchStatus();
@@ -3388,7 +3567,7 @@
         const res = await fetch('/api/v1/settings/');
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać ustawień.'));
+          throw new Error(formatHttpError(res, data, t('error-fetch-settings')));
         }
         settingsDefaults = {
           ...DEFAULT_SETTINGS,
@@ -3408,7 +3587,7 @@
           local_scraper_windows: Number(localWindowsInput.value) || DEFAULT_SETTINGS.local_scraper_windows,
         };
         setMessage(
-          formatNetworkError(err, 'Nie udało się pobrać ustawień. Używane są wartości domyślne.'),
+          formatNetworkError(err, t('error-fetch-settings-fallback')),
           settingsInfo,
         );
         applyDefaults();
@@ -3430,7 +3609,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(formatHttpError(res, data, 'Nie udało się zapisać ustawień.'), settingsError);
+          setMessage(formatHttpError(res, data, t('error-save-settings')), settingsError);
           return;
         }
         cacheTtlInput.value = data.cache_ttl_days;
@@ -3441,7 +3620,7 @@
         if (field === 'ttl') briefSuccess(settingsTtlSuccess);
         if (field === 'reset') briefSuccess(settingsResetSuccess);
       } catch (err) {
-        setMessage(formatNetworkError(err, 'Nie udało się zapisać ustawień.'), settingsError);
+        setMessage(formatNetworkError(err, t('error-save-settings-network')), settingsError);
       }
     }
 
@@ -3454,7 +3633,7 @@
       const created = formatDateTime(run.created_at || run.started_at);
       const finished = formatDateTime(run.finished_at);
       const modeText = modeLabel(run.mode);
-      const finishedLabel = finished !== '-' ? finished : 'W toku / oczekuje';
+      const finishedLabel = finished !== '-' ? finished : t('summary-pending');
       const statusBadge = `<span class="badge ${run.status}">${statusLabel(run.status)}</span>`;
       const downloadLink = run.status === 'completed'
         ? `/api/v1/analysis/${run.id}/download`
@@ -3462,9 +3641,9 @@
 
       row.innerHTML = `
         <div><strong>${created}</strong><small>${finishedLabel}</small></div>
-        <div><strong>${run.category_name || t('category-removed')}</strong><small>Tryb: ${modeText}</small></div>
-        <div><small>Strategie:</small> ${renderStrategies(run)}</div>
-        <div><small>Postęp:</small> ${run.processed_products}/${run.total_products}</div>
+        <div><strong>${run.category_name || t('category-removed')}</strong><small>${t('summary-mode')} ${modeText}</small></div>
+        <div><small>${t('summary-strategies')}</small> ${renderStrategies(run)}</div>
+        <div><small>${t('summary-progress')}</small> ${run.processed_products}/${run.total_products}</div>
         <div class="history-actions">
           ${statusBadge}
           <div class="history-buttons"></div>
@@ -3535,13 +3714,13 @@
       const detail = document.createElement('div');
       detail.className = 'history-detail';
       const detailItems = [
-        ['ID:', String(run.id)],
-        ['Utworzono:', created],
-        ['Zakończono:', finished !== '-' ? finished : '—'],
-        ['Postęp:', `${run.processed_products}/${run.total_products}`],
+        [t('summary-id'), String(run.id)],
+        [t('summary-created'), created],
+        [t('summary-finished'), finished !== '-' ? finished : '—'],
+        [t('summary-progress'), `${run.processed_products}/${run.total_products}`],
       ];
       if (run.canceled_at) {
-        detailItems.push(['Anulowano:', formatDateTime(run.canceled_at)]);
+        detailItems.push([t('summary-canceled-at'), formatDateTime(run.canceled_at)]);
       }
       detailItems.forEach(([label, value]) => {
         const rowEl = document.createElement('div');
@@ -3555,18 +3734,18 @@
         const errorLine = document.createElement('div');
         errorLine.className = 'history-error-line';
         const strong = document.createElement('strong');
-        strong.textContent = 'Powód błędu:';
+        strong.textContent = t('error-reason');
         errorLine.appendChild(strong);
-        errorLine.append(` ${run.error_message || 'Brak szczegółów.'}`);
+        errorLine.append(` ${run.error_message || t('no-details')}`);
         detail.appendChild(errorLine);
       }
       if (run.status === 'canceled') {
         const cancelLine = document.createElement('div');
         cancelLine.className = 'history-error-line';
         const strong = document.createElement('strong');
-        strong.textContent = 'Powód anulowania:';
+        strong.textContent = t('cancel-reason');
         cancelLine.appendChild(strong);
-        cancelLine.append(` ${run.error_message || 'Brak szczegółów.'}`);
+        cancelLine.append(` ${run.error_message || t('no-details')}`);
         detail.appendChild(cancelLine);
       }
 
@@ -3592,7 +3771,7 @@
         const res = await fetch('/api/v1/analysis');
         const data = await res.json().catch(() => ([]));
         if (!res.ok) {
-          throw new Error(formatHttpError(res, data, 'Nie udało się pobrać historii.'));
+          throw new Error(formatHttpError(res, data, t('error-fetch-history')));
         }
         if (!Array.isArray(data) || !data.length) {
           historyList.style.display = 'none';
@@ -3612,7 +3791,7 @@
         historyList.innerHTML = '';
         historyList.style.display = 'none';
         if (historyExpanded) {
-          historyError.textContent = formatNetworkError(err, 'Nie udało się pobrać historii.');
+          historyError.textContent = formatNetworkError(err, t('error-fetch-history-network'));
           historyError.style.display = 'block';
         }
       }
@@ -3640,7 +3819,7 @@
         return;
       }
       if (!categorySelect.value) {
-        setMessage('Wybierz kategorię do analizy.', dbError);
+        setMessage(t('error-db-select-category'), dbError);
         return;
       }
 
@@ -3673,7 +3852,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(formatHttpError(res, data, 'Nie udało się uruchomić analizy z bazy.'), dbError);
+          setMessage(formatHttpError(res, data, t('error-run-db-start')), dbError);
           return;
         }
         runIdEl.textContent = data.analysis_run_id;
@@ -3684,7 +3863,7 @@
         await loadActiveRuns();
         await loadActiveRuns();
       } catch (err) {
-        setMessage(formatNetworkError(err, 'Wystąpił błąd.'), dbError);
+        setMessage(formatNetworkError(err, t('error-analysis')), dbError);
       } finally {
         startDbBtn.disabled = false;
         updateStartState();
@@ -3699,7 +3878,7 @@
         const res = await fetch(`/api/v1/analysis/${runId}/cancel`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(formatHttpError(res, data, 'Nie udało się anulować analizy.'), errorBox);
+          setMessage(formatHttpError(res, data, t('error-run-cancel')), errorBox);
           return;
         }
         const isCurrent = String(runId) === String(runIdEl.textContent);
@@ -3712,7 +3891,7 @@
         await loadHistory();
         await loadActiveRuns();
       } catch (err) {
-        setMessage(formatNetworkError(err, 'Błąd anulowania.'), errorBox);
+        setMessage(formatNetworkError(err, t('error-run-cancel-network')), errorBox);
       } finally {
         cancelRunBtn.disabled = false;
       }
@@ -3725,7 +3904,7 @@
         const res = await fetch(`/api/v1/analysis/${runId}/retry_failed?strategy=${strategy}`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          historyError.textContent = formatHttpError(res, data, 'Nie udało się uruchomić retry.');
+          historyError.textContent = formatHttpError(res, data, t('error-retry'));
           return;
         }
         await loadHistory();
@@ -3733,7 +3912,7 @@
           startRunStream(runId);
         }
       } catch (err) {
-        historyError.textContent = formatNetworkError(err, 'Błąd retry.');
+        historyError.textContent = formatNetworkError(err, t('error-retry-network'));
       }
     }
 
@@ -3763,7 +3942,7 @@
         const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(formatHttpError(res, data, 'Nie udało się uruchomić analizy.'), errorBox);
+          setMessage(formatHttpError(res, data, t('error-run-start')), errorBox);
           return;
         }
         runIdEl.textContent = data.analysis_run_id;
@@ -3772,7 +3951,7 @@
         startRunStream(data.analysis_run_id);
         await loadHistory();
       } catch (err) {
-        setMessage(formatNetworkError(err, 'Wystąpił błąd.'), errorBox);
+        setMessage(formatNetworkError(err, t('error-analysis')), errorBox);
       } finally {
         submitBtn.textContent = t('btn-start');
         updateStartState();
@@ -3928,14 +4107,14 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(formatHttpError(res, data, 'Nie udało się dodać kategorii.'), categoryModalError);
+          setMessage(formatHttpError(res, data, t('error-add-category')), categoryModalError);
           return;
         }
         categoryModal.style.display = 'none';
-        setMessage('Kategoria dodana.', categorySuccess);
+        setMessage(t('category-added'), categorySuccess);
         await loadCategories();
       } catch (err) {
-        setMessage(formatNetworkError(err, 'Błąd podczas dodawania kategorii.'), categoryModalError);
+        setMessage(formatNetworkError(err, t('error-add-category-network')), categoryModalError);
       }
     });
 
@@ -3946,13 +4125,13 @@
       try {
         const res = await fetch(`/api/v1/categories/${id}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(formatHttpError(res, data, 'Nie udało się pobrać kategorii.'));
+        if (!res.ok) throw new Error(formatHttpError(res, data, t('error-fetch-categories')));
         document.getElementById('detail-cat-name').value = data.name || '';
         document.getElementById('detail-cat-multiplier').value = data.profitability_multiplier ?? '';
         document.getElementById('detail-cat-commission').value = data.commission_rate ? Number(data.commission_rate) * 100 : '';
         categoryDetailModal.style.display = 'flex';
       } catch (err) {
-        categoryError.textContent = formatNetworkError(err, 'Błąd pobierania kategorii.');
+        categoryError.textContent = formatNetworkError(err, t('error-fetch-categories'));
       }
     }
 
@@ -3979,11 +4158,11 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(formatHttpError(res, data, 'Nie udało się zapisać kategorii.'));
-        categoryDetailSuccess.textContent = 'Zapisano zmiany.';
+        if (!res.ok) throw new Error(formatHttpError(res, data, t('error-save-category')));
+        categoryDetailSuccess.textContent = t('category-saved');
         await loadCategories();
       } catch (err) {
-        categoryDetailError.textContent = formatNetworkError(err, 'Błąd zapisu kategorii.');
+        categoryDetailError.textContent = formatNetworkError(err, t('error-save-category-network'));
       }
     });
 

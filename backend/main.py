@@ -24,6 +24,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from app.utils.fingerprint import (
     SeleniumFingerprint,
+    force_rotate_profile,
+    force_rotate_selenium_fingerprint,
+    force_rotate_selenium_proxy,
     get_selenium_fingerprint,
     get_selenium_proxy,
     ua_hash,
@@ -287,7 +290,27 @@ def _listing_elements_count(state: Optional[Dict]) -> Optional[int]:
     return len(elements)
 
 
-def _detect_block_reason(driver: WebDriver) -> Optional[str]:
+def _detect_block_reason(driver: WebDriver, request_meta: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    status_code = None
+    headers = {}
+    if request_meta:
+        try:
+            status_code = int(request_meta.get("status_code")) if request_meta.get("status_code") is not None else None
+        except Exception:
+            status_code = None
+        try:
+            headers = request_meta.get("response_headers") or {}
+        except Exception:
+            headers = {}
+    if status_code == 404:
+        return None
+    if status_code in (401, 403, 429):
+        return f"http_{status_code}"
+    if status_code and status_code >= 500:
+        return f"http_{status_code}"
+    lowered_headers = " ".join(f"{k}:{v}" for k, v in headers.items()).lower() if headers else ""
+    if "datadome" in lowered_headers or "x-datadome" in lowered_headers:
+        return "datadome"
     try:
         source = driver.page_source or ""
     except Exception:
@@ -320,6 +343,30 @@ def _detect_no_results_text(driver: WebDriver) -> bool:
     return any(marker in lowered for marker in markers)
 
 
+def _status_indicates_block(request_meta: Dict[str, Any]) -> bool:
+    if not request_meta:
+        return False
+    try:
+        status_code = int(request_meta.get("status_code")) if request_meta.get("status_code") is not None else None
+    except Exception:
+        status_code = None
+    if status_code is None:
+        return False
+    if status_code in (401, 403, 429):
+        return True
+    return status_code >= 500
+
+
+def _status_indicates_not_found(request_meta: Dict[str, Any]) -> bool:
+    if not request_meta:
+        return False
+    try:
+        status_code = int(request_meta.get("status_code")) if request_meta.get("status_code") is not None else None
+    except Exception:
+        return False
+    return status_code == 404
+
+
 def _normalize_offer_url(url: Optional[str]) -> Optional[str]:
     if not url:
         return None
@@ -340,6 +387,44 @@ def _offer_link_from_dom(driver: WebDriver) -> Optional[str]:
         if href:
             return href
     return None
+
+
+def _request_metadata(driver: Optional[WebDriver]) -> Dict[str, Any]:
+    if driver is None:
+        return {}
+    try:
+        requests = list(getattr(driver, "requests", []) or [])
+    except Exception:
+        return {}
+    target = None
+    for req in reversed(requests):
+        try:
+            url = req.url
+        except Exception:
+            continue
+        if not url or "allegro.pl" not in url:
+            continue
+        if "/listing" in url or "listView" in url:
+            target = req
+            break
+        if target is None:
+            target = req
+    if not target:
+        return {}
+    status_code = None
+    headers = None
+    try:
+        if getattr(target, "response", None):
+            status_code = getattr(target.response, "status_code", None)
+            headers = dict(getattr(target.response, "headers", {}) or {})
+    except Exception:
+        status_code = None
+    return {
+        "url": getattr(target, "url", None),
+        "method": getattr(target, "method", None),
+        "status_code": status_code,
+        "response_headers": headers,
+    }
 
 
 def get_runtime_info() -> dict:
@@ -376,17 +461,31 @@ def get_driver_debug_info() -> Dict[str, Any]:
     }
 
 
-def _update_driver_debug(driver: WebDriver, options: Options) -> None:
+def _update_driver_debug(
+    driver: WebDriver,
+    options: Options,
+    profile_dir_override: Optional[str] = None,
+    proxy_info: Optional[Dict[str, Any]] = None,
+    fingerprint: Optional[SeleniumFingerprint] = None,
+) -> None:
     debug: Dict[str, Any] = {
         "status": "ok",
         "scraper_mode": get_scraper_mode(),
-        "user_data_dir": os.getenv("SELENIUM_USER_DATA_DIR"),
+        "user_data_dir": profile_dir_override or os.getenv("SELENIUM_USER_DATA_DIR"),
         "profile_dir": os.getenv("SELENIUM_PROFILE_DIR"),
         "chrome_args": list(getattr(options, "arguments", [])),
         "user_agent": None,
         "navigator_webdriver": None,
         "browser_version": None,
     }
+    if proxy_info:
+        debug["proxy_id"] = proxy_info.get("proxy_id")
+        debug["proxy_source"] = proxy_info.get("proxy_source")
+    if fingerprint:
+        debug["fingerprint_id"] = fingerprint.fingerprint_id
+        debug["profile_mode"] = fingerprint.profile_mode
+        debug["profile_reuse_count"] = fingerprint.profile_reuse_count
+        debug["profile_rotate_after"] = fingerprint.profile_rotate_after
     try:
         debug["user_agent"] = driver.execute_script("return navigator.userAgent")
     except Exception:
@@ -407,7 +506,7 @@ def _update_driver_debug(driver: WebDriver, options: Options) -> None:
     user_agent_hash = ua_hash(user_agent)
     user_agent_version = ua_version(user_agent)
     logger.info(
-        "local_scraper driver debug mode=%s user_data_dir=%s profile_dir=%s chrome_args=%s ua_hash=%s ua_version=%s webdriver=%s browser_version=%s",
+        "local_scraper driver debug mode=%s user_data_dir=%s profile_dir=%s chrome_args=%s ua_hash=%s ua_version=%s webdriver=%s browser_version=%s proxy_id=%s proxy_source=%s profile_mode=%s profile_reuse=%s/%s fingerprint_id=%s",
         debug.get("scraper_mode"),
         debug.get("user_data_dir"),
         debug.get("profile_dir"),
@@ -416,6 +515,12 @@ def _update_driver_debug(driver: WebDriver, options: Options) -> None:
         user_agent_version,
         debug.get("navigator_webdriver"),
         debug.get("browser_version"),
+        debug.get("proxy_id"),
+        debug.get("proxy_source"),
+        debug.get("profile_mode"),
+        debug.get("profile_reuse_count"),
+        debug.get("profile_rotate_after"),
+        debug.get("fingerprint_id"),
     )
 
 
@@ -427,7 +532,7 @@ def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
     if fingerprint:
         count, threshold = _bump_rotation_counter(fingerprint.rotated)
         logger.info(
-            "local_scraper fingerprint fingerprint_id=%s ua_hash=%s ua_version=%s viewport=%sx%s lang=%s profile_mode=%s rotated=%s ua_source=%s requests_since_rotate=%s rotate_after=%s",
+            "local_scraper fingerprint fingerprint_id=%s ua_hash=%s ua_version=%s viewport=%sx%s lang=%s profile_mode=%s profile_reuse=%s/%s profile_rotated=%s rotated=%s ua_source=%s requests_since_rotate=%s rotate_after=%s",
             fingerprint.fingerprint_id,
             fingerprint.ua_hash,
             fingerprint.ua_version,
@@ -435,13 +540,23 @@ def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
             fingerprint.viewport[1],
             fingerprint.lang,
             fingerprint.profile_mode,
+            fingerprint.profile_reuse_count,
+            fingerprint.profile_rotate_after,
+            fingerprint.profile_rotated,
             fingerprint.rotated,
             fingerprint.ua_source,
             count,
             threshold,
         )
     proxy_config = get_selenium_proxy(fingerprint)
+    proxy_info: Dict[str, Any] = {}
     if proxy_config:
+        proxy_info = {
+            "proxy_id": proxy_config.proxy_id,
+            "proxy_source": proxy_config.source,
+            "proxy_url": proxy_config.proxy_url,
+            "proxy_rotated": proxy_config.rotated,
+        }
         logger.info(
             "local_scraper proxy source=%s proxy_id=%s rotated=%s",
             proxy_config.source,
@@ -536,13 +651,7 @@ def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
 
     if driver is None:
         raise last_exc if last_exc is not None else RuntimeError("chromedriver_start_failed")
-    try:
-        driver.execute_cdp_cmd(
-            "Page.addScriptToEvaluateOnNewDocument",
-            {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"},
-        )
-    except Exception:
-        pass
+    _apply_stealth(driver, fingerprint)
     try:
         if fingerprint:
             driver.set_window_size(fingerprint.viewport[0], fingerprint.viewport[1])
@@ -555,7 +664,18 @@ def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
             driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": fingerprint.timezone})
         except Exception:
             pass
-    _update_driver_debug(driver, options)
+    try:
+        if proxy_info:
+            setattr(driver, "_proxy_info", proxy_info)
+    except Exception:
+        pass
+    _update_driver_debug(
+        driver,
+        options,
+        profile_dir_override=forced_profile_dir,
+        proxy_info=proxy_info,
+        fingerprint=fingerprint,
+    )
     return driver, fingerprint
 
 
@@ -696,82 +816,265 @@ def _validate_ean(driver: WebDriver, product_url: Optional[str]) -> Optional[str
         return None
 
 
-def scrape_single_ean(ean: str) -> dict:
-    """
-    Scrape Allegro for a single EAN using SeleniumBase and return structured data.
-    Mirrors the current browser flow: load listing, open product page, and collect offers.
-    """
-    scraped_at = _now_iso()
+def _retry_backoff_seconds(attempt: int) -> float:
+    try:
+        base = float(os.getenv("LOCAL_SCRAPER_RETRY_BACKOFF", "2.0"))
+    except Exception:
+        base = 2.0
+    return min(10.0, max(0.5, base) * max(1, attempt))
+
+
+def _build_result_payload(
+    *,
+    ean: str,
+    scraped_at: str,
+    fingerprint_id: Optional[str],
+    vnc_active: bool,
+    blocked: bool,
+    not_found: bool,
+    error: Optional[str],
+    product_title: Optional[str],
+    product_url: Optional[str],
+    offers: Optional[List[Dict]],
+    category_sold_count: Optional[int],
+    offers_total_sold_count: Optional[int],
+    lowest_price: Optional[float],
+    second_lowest_price: Optional[float],
+    original_ean: Optional[str],
+    stage_durations: Optional[Dict[str, Any]],
+    request_meta: Optional[Dict[str, Any]],
+    attempt: int,
+    max_attempts: int,
+    block_reason: Optional[str],
+    proxy_info: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    offers = offers or []
+    request_meta = request_meta or {}
+    proxy_info = proxy_info or {}
+    stage_durations = stage_durations or {}
+    request_status = request_meta.get("status_code")
+    request_url = request_meta.get("url")
+    return {
+        "ean": str(ean),
+        "product_title": product_title,
+        "product_url": product_url,
+        "category_sold_count": category_sold_count,
+        "offers_total_sold_count": offers_total_sold_count,
+        "lowest_price": lowest_price,
+        "second_lowest_price": second_lowest_price,
+        "offers": offers,
+        "not_found": bool(not_found),
+        "blocked": bool(blocked),
+        "scraped_at": scraped_at,
+        "source": "local_scraper",
+        "error": error,
+        "price": lowest_price,
+        "sold_count": offers_total_sold_count,
+        "original_ean": original_ean,
+        "fingerprint_id": fingerprint_id,
+        "vnc_active": vnc_active,
+        "block_reason": block_reason,
+        "request_status_code": request_status,
+        "request_url": request_url,
+        "stage_durations": stage_durations,
+        "attempt": attempt,
+        "max_attempts": max_attempts,
+        "proxy_id": proxy_info.get("proxy_id"),
+        "proxy_source": proxy_info.get("proxy_source"),
+    }
+
+
+def _platform_from_user_agent(user_agent: Optional[str]) -> str:
+    ua = user_agent or ""
+    if "Mac OS X" in ua or "Macintosh" in ua:
+        return "MacIntel"
+    if "Win64" in ua or "Windows" in ua:
+        return "Win32"
+    if "Linux" in ua:
+        return "Linux x86_64"
+    return "Win32"
+
+
+def _apply_stealth(driver: WebDriver, fingerprint: Optional[SeleniumFingerprint]) -> None:
+    if not fingerprint:
+        return
+    platform_name = _platform_from_user_agent(fingerprint.user_agent)
+    languages = []
+    for raw in (fingerprint.accept_language or "").split(","):
+        lang = raw.split(";")[0].strip()
+        if lang:
+            languages.append(lang)
+    if not languages and fingerprint.lang:
+        languages = [fingerprint.lang]
+    if not languages:
+        languages = ["pl-PL", "pl"]
+    script = """
+Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+Object.defineProperty(navigator, 'platform', {get: () => '%s'});
+Object.defineProperty(navigator, 'language', {get: () => '%s'});
+Object.defineProperty(navigator, 'languages', {get: () => %s});
+Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
+Object.defineProperty(navigator, 'maxTouchPoints', {get: () => 0});
+window.chrome = window.chrome || { runtime: {} };
+const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
+if (originalQuery) {
+  window.navigator.permissions.query = (parameters) => (
+    parameters && parameters.name === 'notifications'
+      ? Promise.resolve({ state: 'default', onchange: null })
+      : originalQuery(parameters)
+  );
+}
+""" % (
+        platform_name.replace("'", ""),
+        (languages[0] if languages else "pl-PL").replace("'", ""),
+        json.dumps(languages),
+    )
+    try:
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": script})
+    except Exception:
+        pass
+    try:
+        driver.execute_cdp_cmd(
+            "Network.setUserAgentOverride",
+            {
+                "userAgent": fingerprint.user_agent,
+                "acceptLanguage": fingerprint.accept_language,
+                "platform": platform_name,
+            },
+        )
+    except Exception:
+        pass
+
+
+def _scrape_attempt(ean: str, scraped_at: str, attempt: int, max_attempts: int) -> dict:
     driver: Optional[WebDriver] = None
     fingerprint: Optional[SeleniumFingerprint] = None
     fingerprint_id: Optional[str] = None
     vnc_active = _vnc_enabled()
-    page_load_started: Optional[float] = None
-
+    stage_durations: Dict[str, Any] = {}
+    request_meta: Dict[str, Any] = {}
+    proxy_info: Dict[str, Any] = {}
     try:
         driver, fingerprint = _create_driver()
         fingerprint_id = fingerprint.fingerprint_id if fingerprint else None
+        proxy_info = getattr(driver, "_proxy_info", {}) or {}
         driver.set_page_load_timeout(int(os.getenv("LOCAL_SCRAPER_PAGELOAD_TIMEOUT", "45")))
         page_load_started = time.monotonic()
         driver.get(f"https://allegro.pl/listing?string={ean}")
-        page_load_duration = time.monotonic() - page_load_started
-        logger.info(
-            "local_scraper page_load ok ean=%s duration=%.2fs fingerprint_id=%s vnc=%s",
-            ean,
-            page_load_duration,
-            fingerprint_id,
-            vnc_active,
-        )
-        _accept_cookies(driver)
-        # Wait for listing data before deciding about blocks to avoid false positives.
-        try:
-            wait_started = time.monotonic()
-            data = _wait_for_listing_data(driver)
-            wait_duration = time.monotonic() - wait_started
-            logger.info(
-                "local_scraper wait_for_listing ok ean=%s duration=%.2fs fingerprint_id=%s vnc=%s",
-                ean,
-                wait_duration,
-                fingerprint_id,
-                vnc_active,
-            )
-        except TimeoutException:
-            block_reason = _detect_block_reason(driver) if driver else None
-            if not block_reason:
-                state = _listing_state_from_scripts(driver) if driver else None
-                elements_count = _listing_elements_count(state)
-                if elements_count == 0 or _detect_no_results_text(driver):
-                    return {
-                        "ean": str(ean),
-                        "product_title": None,
-                        "product_url": None,
-                        "category_sold_count": None,
-                        "offers_total_sold_count": None,
-                        "lowest_price": None,
-                        "second_lowest_price": None,
-                        "offers": [],
-                        "not_found": True,
-                        "blocked": False,
-                        "scraped_at": scraped_at,
-                        "source": "local_scraper",
-                        "error": None,
-                        # Legacy compatibility keys
-                        "price": None,
-                        "sold_count": None,
-                        "original_ean": None,
-                        "fingerprint_id": fingerprint_id,
-                        "vnc_active": vnc_active,
-                    }
+        stage_durations["page_load_seconds"] = round(time.monotonic() - page_load_started, 2)
+        request_meta = _request_metadata(driver)
+        if _status_indicates_block(request_meta):
+            block_reason = _detect_block_reason(driver, request_meta)
             logger.warning(
-                "local_scraper wait timeout ean=%s duration=%.2fs stage=listing_wait fingerprint_id=%s vnc=%s block_reason=%s",
+                "local_scraper blocked_early ean=%s attempt=%s/%s block_reason=%s status=%s fingerprint_id=%s proxy_id=%s",
                 ean,
-                wait_started and (time.monotonic() - wait_started) or None,
-                fingerprint_id,
-                vnc_active,
+                attempt,
+                max_attempts,
                 block_reason,
+                request_meta.get("status_code"),
+                fingerprint_id,
+                proxy_info.get("proxy_id"),
             )
-            raise
+            return _build_result_payload(
+                ean=ean,
+                scraped_at=scraped_at,
+                fingerprint_id=fingerprint_id,
+                vnc_active=vnc_active,
+                blocked=True,
+                not_found=False,
+                error=f"blocked:{block_reason or 'status'}",
+                product_title=None,
+                product_url=None,
+                offers=[],
+                category_sold_count=None,
+                offers_total_sold_count=None,
+                lowest_price=None,
+                second_lowest_price=None,
+                original_ean=None,
+                stage_durations=stage_durations,
+                request_meta=request_meta,
+                attempt=attempt,
+                max_attempts=max_attempts,
+                block_reason=block_reason or "status_block",
+                proxy_info=proxy_info,
+            )
+        _accept_cookies(driver)
+        wait_started = time.monotonic()
+        data = _wait_for_listing_data(driver)
+        stage_durations["listing_wait_seconds"] = round(time.monotonic() - wait_started, 2)
+        request_meta = request_meta or _request_metadata(driver)
         elements = data.get("__listing_StoreState", {}).get("items", {}).get("elements", []) or []
+        block_reason = _detect_block_reason(driver, request_meta)
+        if _status_indicates_not_found(request_meta) or (not elements and _detect_no_results_text(driver)):
+            logger.info(
+                "local_scraper not_found ean=%s attempt=%s/%s status=%s fingerprint_id=%s proxy_id=%s",
+                ean,
+                attempt,
+                max_attempts,
+                request_meta.get("status_code"),
+                fingerprint_id,
+                proxy_info.get("proxy_id"),
+            )
+            return _build_result_payload(
+                ean=ean,
+                scraped_at=scraped_at,
+                fingerprint_id=fingerprint_id,
+                vnc_active=vnc_active,
+                blocked=False,
+                not_found=True,
+                error=None,
+                product_title=None,
+                product_url=None,
+                offers=[],
+                category_sold_count=None,
+                offers_total_sold_count=None,
+                lowest_price=None,
+                second_lowest_price=None,
+                original_ean=None,
+                stage_durations=stage_durations,
+                request_meta=request_meta,
+                attempt=attempt,
+                max_attempts=max_attempts,
+                block_reason=None,
+                proxy_info=proxy_info,
+            )
+
+        if block_reason:
+            logger.warning(
+                "local_scraper blocked ean=%s attempt=%s/%s block_reason=%s status=%s fingerprint_id=%s proxy_id=%s",
+                ean,
+                attempt,
+                max_attempts,
+                block_reason,
+                request_meta.get("status_code"),
+                fingerprint_id,
+                proxy_info.get("proxy_id"),
+            )
+            return _build_result_payload(
+                ean=ean,
+                scraped_at=scraped_at,
+                fingerprint_id=fingerprint_id,
+                vnc_active=vnc_active,
+                blocked=True,
+                not_found=False,
+                error=f"blocked:{block_reason}",
+                product_title=None,
+                product_url=None,
+                offers=[],
+                category_sold_count=None,
+                offers_total_sold_count=None,
+                lowest_price=None,
+                second_lowest_price=None,
+                original_ean=None,
+                stage_durations=stage_durations,
+                request_meta=request_meta,
+                attempt=attempt,
+                max_attempts=max_attempts,
+                block_reason=block_reason,
+                proxy_info=proxy_info,
+            )
 
         offers, product_title, product_url, category_sold_count = _extract_offers(elements)
         if not product_url:
@@ -794,83 +1097,186 @@ def scrape_single_ean(ean: str) -> dict:
         if original_ean and not _gtin_matches(original_ean, str(ean)):
             not_found = True
 
-        result = {
-            "ean": str(ean),
-            "product_title": product_title,
-            "product_url": product_url,
-            "category_sold_count": category_sold_count,
-            "offers_total_sold_count": offers_total_sold_count,
-            "lowest_price": lowest_price,
-            "second_lowest_price": second_lowest_price,
-            "offers": offers,
-            "not_found": bool(not_found),
-            "blocked": False,
-            "scraped_at": scraped_at,
-            "source": "local_scraper",
-            "error": None,
-            # Legacy compatibility keys
-            "price": lowest_price,
-            "sold_count": offers_total_sold_count,
-            "original_ean": original_ean,
-            "fingerprint_id": fingerprint_id,
-            "vnc_active": vnc_active,
-        }
-        return result
+        logger.info(
+            "local_scraper outcome ean=%s attempt=%s/%s not_found=%s offers=%s lowest_price=%s status=%s fingerprint_id=%s proxy_id=%s",
+            ean,
+            attempt,
+            max_attempts,
+            not_found,
+            len(offers),
+            lowest_price,
+            request_meta.get("status_code"),
+            fingerprint_id,
+            proxy_info.get("proxy_id"),
+        )
+
+        return _build_result_payload(
+            ean=ean,
+            scraped_at=scraped_at,
+            fingerprint_id=fingerprint_id,
+            vnc_active=vnc_active,
+            blocked=False,
+            not_found=bool(not_found),
+            error=None,
+            product_title=product_title,
+            product_url=product_url,
+            offers=offers,
+            category_sold_count=category_sold_count,
+            offers_total_sold_count=offers_total_sold_count,
+            lowest_price=lowest_price,
+            second_lowest_price=second_lowest_price,
+            original_ean=original_ean,
+            stage_durations=stage_durations,
+            request_meta=request_meta,
+            attempt=attempt,
+            max_attempts=max_attempts,
+            block_reason=None,
+            proxy_info=proxy_info,
+        )
     except TimeoutException:
-        block_reason = None
-        if driver:
-            block_reason = _detect_block_reason(driver)
+        if not request_meta:
+            request_meta = _request_metadata(driver)
+        block_reason = _detect_block_reason(driver, request_meta)
+        state = _listing_state_from_scripts(driver) if driver else None
+        elements_count = _listing_elements_count(state)
+        not_found = (elements_count == 0 or _detect_no_results_text(driver)) and not block_reason
+        blocked = bool(block_reason or _status_indicates_block(request_meta))
         error_msg = f"blocked:{block_reason}" if block_reason else "timeout"
         logger.warning(
-            "local_scraper timeout ean=%s stage=page_load duration=%s fingerprint_id=%s vnc=%s block_reason=%s",
+            "local_scraper timeout ean=%s attempt=%s/%s stage=page_load status=%s block_reason=%s not_found=%s fingerprint_id=%s proxy_id=%s",
             ean,
-            round(time.monotonic() - page_load_started, 2) if page_load_started else None,
-            fingerprint_id,
-            vnc_active,
+            attempt,
+            max_attempts,
+            request_meta.get("status_code"),
             block_reason,
+            not_found,
+            fingerprint_id,
+            proxy_info.get("proxy_id"),
         )
-        return {
-            "ean": str(ean),
-            "product_title": None,
-            "product_url": None,
-            "category_sold_count": None,
-            "offers_total_sold_count": None,
-            "lowest_price": None,
-            "second_lowest_price": None,
-            "offers": [],
-            "not_found": False,
-            "blocked": bool(block_reason),
-            "scraped_at": scraped_at,
-            "source": "local_scraper",
-            "error": error_msg,
-            "fingerprint_id": fingerprint_id,
-            "vnc_active": vnc_active,
-        }
+        return _build_result_payload(
+            ean=ean,
+            scraped_at=scraped_at,
+            fingerprint_id=fingerprint_id,
+            vnc_active=vnc_active,
+            blocked=blocked,
+            not_found=not_found,
+            error=error_msg,
+            product_title=None,
+            product_url=None,
+            offers=[],
+            category_sold_count=None,
+            offers_total_sold_count=None,
+            lowest_price=None,
+            second_lowest_price=None,
+            original_ean=None,
+            stage_durations=stage_durations,
+            request_meta=request_meta,
+            attempt=attempt,
+            max_attempts=max_attempts,
+            block_reason=block_reason,
+            proxy_info=proxy_info,
+        )
     except Exception as exc:
-        logger.exception("Local scraper failed for ean=%s", ean)
-        return {
-            "ean": str(ean),
-            "product_title": None,
-            "product_url": None,
-            "category_sold_count": None,
-            "offers_total_sold_count": None,
-            "lowest_price": None,
-            "second_lowest_price": None,
-            "offers": [],
-            "not_found": False,
-            "blocked": True,
-            "scraped_at": scraped_at,
-            "source": "local_scraper",
-            "error": str(exc),
-            "fingerprint_id": fingerprint_id,
-            "vnc_active": vnc_active,
-        }
+        if not request_meta:
+            request_meta = _request_metadata(driver)
+        block_reason = _detect_block_reason(driver, request_meta)
+        logger.exception(
+            "local_scraper failed ean=%s attempt=%s/%s block_reason=%s status=%s fingerprint_id=%s proxy_id=%s",
+            ean,
+            attempt,
+            max_attempts,
+            block_reason,
+            request_meta.get("status_code"),
+            fingerprint_id,
+            proxy_info.get("proxy_id"),
+        )
+        return _build_result_payload(
+            ean=ean,
+            scraped_at=scraped_at,
+            fingerprint_id=fingerprint_id,
+            vnc_active=vnc_active,
+            blocked=bool(block_reason),
+            not_found=False,
+            error=str(exc),
+            product_title=None,
+            product_url=None,
+            offers=[],
+            category_sold_count=None,
+            offers_total_sold_count=None,
+            lowest_price=None,
+            second_lowest_price=None,
+            original_ean=None,
+            stage_durations=stage_durations,
+            request_meta=request_meta,
+            attempt=attempt,
+            max_attempts=max_attempts,
+            block_reason=block_reason,
+            proxy_info=proxy_info,
+        )
     finally:
         if driver:
             try:
                 driver.quit()
             except Exception:
                 pass
+
+
+def scrape_single_ean(ean: str) -> dict:
+    """
+    Scrape Allegro for a single EAN using Selenium and return structured data with retries on transient blocks.
+    """
+    scraped_at = _now_iso()
+    try:
+        attempts = int(os.getenv("LOCAL_SCRAPER_MAX_ATTEMPTS", "2"))
+    except Exception:
+        attempts = 2
+    attempts = max(1, attempts)
+    last_result: Optional[dict] = None
+    for attempt in range(1, attempts + 1):
+        result = _scrape_attempt(ean, scraped_at, attempt, attempts)
+        last_result = result
+        blocked = bool(result.get("blocked"))
+        error = result.get("error")
+        not_found = bool(result.get("not_found"))
+        if not blocked and (not error or not error.startswith("timeout")):
+            return result
+        if not_found:
+            return result
+        if attempt < attempts:
+            if blocked:
+                force_rotate_selenium_fingerprint()
+                force_rotate_selenium_proxy()
+                force_rotate_profile()
+            backoff = _retry_backoff_seconds(attempt) + random.uniform(0, 0.7)
+            logger.info(
+                "local_scraper retry ean=%s attempt=%s/%s blocked=%s error=%s backoff=%.2fs",
+                ean,
+                attempt,
+                attempts,
+                blocked,
+                error,
+                backoff,
+            )
+            time.sleep(backoff)
+            continue
+        return result
+    return last_result or {
+        "ean": str(ean),
+        "product_title": None,
+        "product_url": None,
+        "category_sold_count": None,
+        "offers_total_sold_count": None,
+        "lowest_price": None,
+        "second_lowest_price": None,
+        "offers": [],
+        "not_found": False,
+        "blocked": True,
+        "scraped_at": scraped_at,
+        "source": "local_scraper",
+        "error": "unknown_error",
+        "fingerprint_id": None,
+        "vnc_active": _vnc_enabled(),
+    }
 
 
 def getProductDetail(eans: Iterable[str | int]) -> List[dict]:

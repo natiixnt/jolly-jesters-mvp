@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import random
 import time
 from contextlib import contextmanager
 from datetime import datetime
@@ -57,6 +58,13 @@ def _min_interval_seconds() -> float:
         return 1.0
 
 
+def _rate_jitter_seconds() -> float:
+    try:
+        return max(0.0, float(os.getenv("LOCAL_SCRAPER_RATE_JITTER_SECONDS", "0.7")))
+    except Exception:
+        return 0.7
+
+
 def _cooldown_seconds() -> float:
     try:
         return max(0.0, float(os.getenv("LOCAL_SCRAPER_COOLDOWN_SECONDS", "60")))
@@ -75,7 +83,8 @@ def _wait_for_rate_limit() -> None:
         if wait_for > 0:
             time.sleep(wait_for)
             now = time.monotonic()
-        _NEXT_ALLOWED_AT = now + min_interval
+        jitter = _rate_jitter_seconds()
+        _NEXT_ALLOWED_AT = now + min_interval + (random.uniform(0, jitter) if jitter > 0 else 0.0)
 
 
 def _cooldown_remaining() -> float:
@@ -128,16 +137,25 @@ def _reset_captcha_streak() -> None:
 
 def _detail_is_captcha(detail: dict) -> bool:
     error = str(detail.get("error") or "").lower()
-    return "captcha" in error
+    block_reason = str(detail.get("block_reason") or "").lower()
+    return "captcha" in error or "captcha" in block_reason or "datadome" in block_reason
 
 
 def _detail_indicates_block(detail: dict) -> bool:
     if detail.get("blocked"):
         return True
+    block_reason = str(detail.get("block_reason") or "").lower()
     error = str(detail.get("error") or "").lower()
+    status = detail.get("request_status_code")
+    if status and int(status) in (401, 403, 429):
+        return True
+    if status and int(status) >= 500:
+        return True
+    if block_reason:
+        return True
     if error.startswith("blocked:"):
         return True
-    return any(marker in error for marker in ("captcha", "cloudflare", "access denied"))
+    return any(marker in error for marker in ("captcha", "cloudflare", "access denied", "datadome"))
 
 
 def _cooldown_response(ean: str, remaining: float) -> JSONResponse:
@@ -156,6 +174,7 @@ def _cooldown_response(ean: str, remaining: float) -> JSONResponse:
         "scraped_at": datetime.utcnow().isoformat() + "Z",
         "source": "local_scraper",
         "error": "cooldown",
+        "block_reason": "cooldown",
         "price": None,
         "sold_count": None,
         "original_ean": None,
@@ -258,6 +277,15 @@ class ScrapeResponse(BaseModel):
     original_ean: Optional[str] = None
     fingerprint_id: Optional[str] = None
     vnc_active: Optional[bool] = None
+    block_reason: Optional[str] = None
+    request_status_code: Optional[int] = None
+    request_url: Optional[str] = None
+    stage_durations: Optional[dict] = None
+    proxy_id: Optional[str] = None
+    proxy_source: Optional[str] = None
+    attempt: Optional[int] = None
+    max_attempts: Optional[int] = None
+    retry_after_seconds: Optional[float] = None
 
 
 @app.get("/config", response_model=ScraperConfigResponse)
@@ -316,7 +344,16 @@ def scrape(req: ScrapeRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
     if detail.get("error"):
-        logger.warning("Local scraper error ean=%s error=%s", req.ean, detail.get("error"))
+        logger.warning(
+            "Local scraper error ean=%s error=%s block_reason=%s status=%s proxy_id=%s attempt=%s/%s",
+            req.ean,
+            detail.get("error"),
+            detail.get("block_reason"),
+            detail.get("request_status_code"),
+            detail.get("proxy_id"),
+            detail.get("attempt"),
+            detail.get("max_attempts"),
+        )
 
     return ScrapeResponse(
         ean=req.ean,
@@ -337,4 +374,13 @@ def scrape(req: ScrapeRequest):
         original_ean=detail.get("original_ean"),
         fingerprint_id=detail.get("fingerprint_id"),
         vnc_active=detail.get("vnc_active"),
+        block_reason=detail.get("block_reason"),
+        request_status_code=detail.get("request_status_code"),
+        request_url=detail.get("request_url"),
+        stage_durations=detail.get("stage_durations"),
+        proxy_id=detail.get("proxy_id"),
+        proxy_source=detail.get("proxy_source"),
+        attempt=detail.get("attempt"),
+        max_attempts=detail.get("max_attempts"),
+        retry_after_seconds=detail.get("retry_after_seconds"),
     )
