@@ -180,3 +180,10 @@ def login_submit(request: Request, password: str = Form(...)):
         path="/",
     )
     return response
+
+
+@app.get("/logout")
+def logout():
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie("jj_session", path="/")
+    return response

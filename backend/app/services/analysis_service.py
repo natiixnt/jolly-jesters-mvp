@@ -782,6 +782,13 @@ def list_active_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
         runs.append(run)
     return runs
 
+def get_latest_run(db: Session) -> AnalysisRun | None:
+    return (
+        db.query(AnalysisRun)
+        .order_by(AnalysisRun.created_at.desc())
+        .first()
+    )
+
 
 def _compute_margins(
     purchase_price_pln: Decimal | None,

@@ -134,28 +134,103 @@
     .button-row > * { min-width: 0; }
     .layout {
       margin-top: 20px;
+    }
+    .operator-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr;
+      grid-template-columns: minmax(320px, 1.05fr) minmax(360px, 1.3fr) minmax(300px, 1fr);
       gap: 16px;
       align-items: start;
     }
-    .layout.is-settings-wide {
-      grid-template-columns: 1fr;
+    @media (max-width: 1100px) {
+      .operator-grid { grid-template-columns: 1fr 1fr; }
     }
-    .layout.is-settings-wide .sidebar {
+    @media (max-width: 860px) {
+      .operator-grid { grid-template-columns: 1fr; }
+    }
+    .action-panel, .results-panel, .settings-panel-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel-2);
+      padding: 18px;
+    }
+    .dropzone {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: rgba(34,211,238,0.04);
+      text-align: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+    .dropzone:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      background: rgba(34,211,238,0.08);
+    }
+    .dropzone.is-dragover {
+      border-color: var(--accent-2);
+      background: rgba(16,185,129,0.12);
+    }
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .preset-select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b152b; color: var(--text); }
+    .mini-summary { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .results-panel .status-panel { margin-bottom: 12px; }
+    .results-toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .results-toolbar input {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b152b;
+      color: var(--text);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .chip.is-active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(34,211,238,0.12);
+    }
+    .backend-alert {
       display: none;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: rgba(248,113,113,0.12);
+      border: 1px solid rgba(248,113,113,0.4);
+      color: #fecaca;
     }
-    .layout.is-settings-wide .main-card {
-      width: 100%;
-      max-width: 100%;
+    .results-table table thead th {
+      position: sticky;
+      top: 0;
+      background: #0b152b;
+      z-index: 2;
     }
-    .layout.sidebar-collapsed {
-      grid-template-columns: 1fr;
-    }
-    @media (max-width: 960px) {
-      .layout,
-      .layout.sidebar-collapsed { grid-template-columns: 1fr; }
-    }
+    .results-table__inner { max-height: 480px; overflow: auto; }
     .card {
       background: var(--panel-2);
       border: 1px solid var(--border);
@@ -1163,13 +1238,14 @@
         <div class="button-row">
           <button class="ghost-btn" id="lang-toggle" type="button">EN / PL</button>
           <button class="ghost-btn" id="faq-btn" data-i18n="faq-button">FAQ / pomoc</button>
+          <button class="ghost-btn" id="logout-btn" type="button">Wyloguj</button>
         </div>
       </div>
     </div>
 
     <div class="layout" id="layout">
-      <div class="card main-card" id="main-card">
-        <form id="upload-form">
+      <div class="operator-grid" id="operator-grid">
+        <form id="upload-form" class="action-panel">
           <div class="step">
             <div class="step-header">
               <div class="step-title" data-i18n="step-inputs">
@@ -1178,6 +1254,13 @@
               </div>
             </div>
             <div class="step-body">
+              <div class="backend-alert" id="backend-alert">
+                Brak połączenia z backendem. Sprawdź sieć lub spróbuj ponownie.
+              </div>
+              <div class="dropzone" id="dropzone">
+                <strong>Upuść plik Excel tutaj</strong><br/>
+                <span class="muted">lub kliknij, aby wybrać</span>
+              </div>
               <div class="form-grid single">
                 <div class="form-filters">
                   <div class="form-section-title">Zakres / filtry danych</div>
@@ -1235,14 +1318,28 @@
               <div class="form-footer">
                 <div class="form-cta">
                   <button type="submit" id="submit-btn" class="primary-btn cta-btn" data-i18n="btn-start">Start analizy</button>
+                  <button type="button" id="reset-btn" class="ghost-btn" style="min-width:160px;">Wyczyść / reset</button>
                 </div>
                 <div class="error" id="error"></div>
+                <div class="mini-summary" id="settings-summary"></div>
+                <div class="quick-actions">
+                  <select id="preset-select" class="preset-select" aria-label="Presets">
+                    <option value="default">Domyślne</option>
+                    <option value="fast">Szybko (mniej danych)</option>
+                    <option value="deep">Dokładnie (więcej retry)</option>
+                    <option value="offline">Offline only</option>
+                    <option value="online">Online only (brightdata)</option>
+                    <option value="custom">Mój preset…</option>
+                  </select>
+                  <button type="button" class="ghost-btn" id="save-preset-btn">Zapisz preset</button>
+                  <div class="success" id="preset-success"></div>
+                </div>
               </div>
             </div>
           </div>
         </form>
 
-        <div class="step results-step" id="results-step">
+        <div class="step results-step results-panel" id="results-step">
           <div class="step-header">
             <div class="step-title" data-i18n="step-results">
               <span class="step-badge">3</span>
@@ -1254,6 +1351,7 @@
               <div class="status-empty" id="status-empty" data-i18n="status-empty">Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.</div>
               <div class="status-details" id="status-details" style="display:none;">
                 <div class="pill"><span data-i18n="label-run-id">Run ID:</span> <span id="run-id"></span></div>
+                <div class="pill" id="run-stage">Gotowe do startu</div>
                 <div class="status-row">
                   <strong data-i18n="label-status">Status:</strong>
                   <span id="run-status"></span>
@@ -1276,7 +1374,7 @@
           </div>
         </div>
 
-        <div class="settings-block" id="settings-block">
+        <div class="settings-block settings-panel-card" id="settings-block">
           <div class="settings-header">
             <div>
               <h3 class="section-title" data-i18n="settings-title">Ustawienia</h3>
@@ -1604,6 +1702,13 @@
         </div>
       </div>
       <div class="modal-body">
+        <div class="results-toolbar">
+          <input type="search" id="results-search" placeholder="Szukaj EAN / nazwa" />
+          <button class="chip" data-filter="profitable" id="chip-profitable">Tylko opłacalne</button>
+          <button class="chip" data-filter="errors" id="chip-errors">Tylko błędy</button>
+          <button class="chip" data-filter="missing-price" id="chip-missing">Brak ceny</button>
+          <button class="ghost-btn ghost-btn--small" id="copy-failed-btn" type="button">Kopiuj EAN-y nieudane</button>
+        </div>
         <div class="error" id="results-error"></div>
         <div class="results-empty" id="results-empty" style="display:none;"></div>
         <div class="table-wrap">
@@ -1752,6 +1857,7 @@
     const statusDetails = document.getElementById('status-details');
     const resultsStep = document.getElementById('results-step');
     const fileInput = document.getElementById('file-input');
+    const dropzone = document.getElementById('dropzone');
     const modeHelper = document.getElementById('mode-helper');
     const advancedModeToggle = document.getElementById('advanced-mode-toggle');
     const settingsPanel = document.getElementById('settings-panel');
@@ -1798,6 +1904,19 @@
     const categorySuccess = document.getElementById('category-success');
     const categoryError = document.getElementById('category-error');
     const categoryCancel = document.getElementById('category-cancel');
+    const logoutBtn = document.getElementById('logout-btn');
+    const presetSelect = document.getElementById('preset-select');
+    const savePresetBtn = document.getElementById('save-preset-btn');
+    const presetSuccess = document.getElementById('preset-success');
+    const settingsSummary = document.getElementById('settings-summary');
+    const backendAlert = document.getElementById('backend-alert');
+    const runStage = document.getElementById('run-stage');
+    const resetBtn = document.getElementById('reset-btn');
+    const resultsSearch = document.getElementById('results-search');
+    const chipProfitable = document.getElementById('chip-profitable');
+    const chipErrors = document.getElementById('chip-errors');
+    const chipMissing = document.getElementById('chip-missing');
+    const copyFailedBtn = document.getElementById('copy-failed-btn');
     const categoryDetailModal = document.getElementById('category-detail-modal');
     const categoryDetailForm = document.getElementById('category-detail-form');
     const categoryDetailError = document.getElementById('category-detail-error');
@@ -1813,6 +1932,7 @@
     const faqBtn = document.getElementById('faq-btn');
     const faqClose = document.getElementById('faq-close');
     const langToggle = document.getElementById('lang-toggle');
+    const logoutBtn = document.getElementById('logout-btn');
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebarRestore = document.getElementById('sidebar-restore');
@@ -1838,6 +1958,11 @@
     const resultsColumnsEl = document.getElementById('results-columns');
     const marketColumnsEl = document.getElementById('market-columns');
     const resultsColumnsReset = document.getElementById('results-columns-reset');
+    const resultsSearch = document.getElementById('results-search');
+    const chipProfitable = document.getElementById('chip-profitable');
+    const chipErrors = document.getElementById('chip-errors');
+    const chipMissing = document.getElementById('chip-missing');
+    const copyFailedBtn = document.getElementById('copy-failed-btn');
     const marketColumnsReset = document.getElementById('market-columns-reset');
     const runUpdatedEl = document.getElementById('run-updated');
     const statusSpinner = document.getElementById('status-spinner');
@@ -2465,6 +2590,25 @@
       return hasCategory && hasFile;
     }
 
+    function initDropzone() {
+      if (!dropzone || !fileInput) return;
+      dropzone.addEventListener('click', () => fileInput.click());
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('is-dragover');
+      });
+      ['dragleave', 'dragend', 'drop'].forEach(evt => dropzone.addEventListener(evt, () => dropzone.classList.remove('is-dragover')));
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer?.files?.length) {
+          fileInput.files = e.dataTransfer.files;
+          updateStartState();
+          if (settingsSummary) settingsSummary.textContent = `${e.dataTransfer.files.length} plik(ów) gotowe`;
+        }
+      });
+      fileInput.addEventListener('change', updateStartState);
+    }
+
     function applyDefaults() {
       const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
       if (useLocalInput) useLocalInput.checked = settingsDefaults.use_local_scraper;
@@ -2478,6 +2622,60 @@
       if (dbEanContainsInput) dbEanContainsInput.value = settingsDefaults.db_ean_contains;
       toggleDbFilters();
       updateStrategiesForMode();
+      updateSettingsSummary();
+    }
+
+    function updateSettingsSummary() {
+      if (!settingsSummary) return;
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const cache = cacheTtlInput?.value || '-';
+      const limit = dbLimitInput?.value || 'auto';
+      settingsSummary.textContent = `Tryb: ${mode} · Cache TTL: ${cache}d · Limit: ${limit}`;
+    }
+
+    const presetKey = 'jj-presets';
+    const builtInPresets = {
+      default: { mode: 'mixed', cache: 14, limit: '', onlySuccess: false, allCached: false },
+      fast: { mode: 'mixed', cache: 7, limit: 100, onlySuccess: true, allCached: false },
+      deep: { mode: 'mixed', cache: 30, limit: '', onlySuccess: false, allCached: true },
+      offline: { mode: 'offline', cache: 30, limit: '', onlySuccess: false, allCached: true },
+      online: { mode: 'online', cache: 7, limit: 50, onlySuccess: false, allCached: false },
+    };
+
+    function loadCustomPresets() {
+      try {
+        const raw = localStorage.getItem(presetKey);
+        return raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveCustomPresets(presets) {
+      localStorage.setItem(presetKey, JSON.stringify(presets));
+    }
+
+    function applyPreset(name) {
+      const customs = loadCustomPresets();
+      const preset = customs[name] || builtInPresets[name];
+      if (!preset) return;
+      setMode(preset.mode || 'mixed');
+      if (cacheTtlInput && preset.cache !== undefined) cacheTtlInput.value = preset.cache;
+      if (dbLimitInput && preset.limit !== undefined) dbLimitInput.value = preset.limit;
+      if (dbOnlySuccessInput && preset.onlySuccess !== undefined) dbOnlySuccessInput.checked = preset.onlySuccess;
+      if (dbAllCachedInput && preset.allCached !== undefined) dbAllCachedInput.checked = preset.allCached;
+      toggleDbFilters();
+      updateSettingsSummary();
+      presetSuccess.textContent = `Zastosowano preset: ${name}`;
+      setTimeout(() => (presetSuccess.textContent = ''), 1500);
+    }
+
+    function setMode(modeValue) {
+      const radio = form.querySelector(`input[name="mode"][value="${modeValue}"]`);
+      if (radio) {
+        radio.checked = true;
+        updateStrategiesForMode();
+      }
     }
 
     function setAdvancedMode(enabled) {
@@ -2863,8 +3061,88 @@
             </table>
           </div>
         `;
+        resultsTable.querySelectorAll('th').forEach((th) => {
+          th.style.cursor = 'pointer';
+          th.addEventListener('click', () => toggleResultsSort(th.dataset.col));
+        });
       }
       return resultsTable.querySelector('tbody');
+    }
+
+    const resultsFilters = {
+      search: '',
+      profitable: false,
+      errors: false,
+      missingPrice: false,
+      sortCol: null,
+      sortDir: 'asc',
+    };
+
+    function toggleResultsSort(col) {
+      if (!col) return;
+      if (resultsFilters.sortCol === col) {
+        resultsFilters.sortDir = resultsFilters.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        resultsFilters.sortCol = col;
+        resultsFilters.sortDir = 'asc';
+      }
+      applyResultsFiltersAndSort();
+    }
+
+    function applyResultsFiltersAndSort() {
+      if (!resultsTable.querySelector('tbody')) return;
+      const tbody = resultsTable.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+      const search = (resultsFilters.search || '').toLowerCase();
+
+      rows.forEach((row) => {
+        const detail = tbody.querySelector(`tr[data-detail-id="${row.dataset.id}"]`);
+        let visible = true;
+        if (search) {
+          visible =
+            (row.dataset.ean || '').toLowerCase().includes(search) ||
+            (row.dataset.name || '').toLowerCase().includes(search);
+        }
+        if (resultsFilters.profitable && row.dataset.profitable !== 'yes') visible = false;
+        if (resultsFilters.errors && row.dataset.scrapeStatus === 'ok') visible = false;
+        if (resultsFilters.missingPrice && row.dataset.priceMissing !== '1') visible = false;
+        row.style.display = visible ? '' : 'none';
+        if (detail) detail.style.display = visible ? 'none' : 'none'; // hide details when filtering; reopened on click
+      });
+
+      if (resultsFilters.sortCol) {
+        const pairs = rows.map((row) => {
+          const detail = tbody.querySelector(`tr[data-detail-id="${row.dataset.id}"]`);
+          return { row, detail };
+        });
+        const dir = resultsFilters.sortDir === 'asc' ? 1 : -1;
+        pairs.sort((a, b) => {
+          const col = resultsFilters.sortCol;
+          const av = rowSortValue(a.row, col);
+          const bv = rowSortValue(b.row, col);
+          if (av < bv) return -1 * dir;
+          if (av > bv) return 1 * dir;
+          return 0;
+        });
+        tbody.innerHTML = '';
+        pairs.forEach(({ row, detail }) => {
+          tbody.appendChild(row);
+          if (detail) tbody.appendChild(detail);
+        });
+      }
+    }
+
+    function rowSortValue(row, col) {
+      if (!row) return '';
+      if (['allegro_price', 'margin', 'margin_percent'].includes(col)) {
+        const map = {
+          allegro_price: row.dataset.allegroPrice,
+          margin: row.dataset.margin,
+          margin_percent: row.dataset.marginPercent,
+        };
+        return Number(map[col] ?? 0);
+      }
+      return (row.dataset[col] || row.textContent || '').toString().toLowerCase();
     }
 
     function toggleResultsDetail(id) {
@@ -2892,6 +3170,14 @@
         row.innerHTML = buildResultsRowCells(item);
         row.addEventListener('click', () => toggleResultsDetail(rowId));
       }
+      row.dataset.ean = item.ean || '';
+      row.dataset.name = item.name || '';
+      row.dataset.profitable = item.is_profitable === true ? 'yes' : item.is_profitable === false ? 'no' : 'unknown';
+      row.dataset.scrapeStatus = item.scrape_status || 'ok';
+      row.dataset.priceMissing = item.allegro_price_pln === null || item.allegro_price_pln === undefined ? '1' : '0';
+      row.dataset.allegroPrice = item.allegro_price_pln !== null && item.allegro_price_pln !== undefined ? Number(item.allegro_price_pln) : '';
+      row.dataset.margin = item.margin_pln !== null && item.margin_pln !== undefined ? Number(item.margin_pln) : '';
+      row.dataset.marginPercent = item.margin_percent !== null && item.margin_percent !== undefined ? Number(item.margin_percent) : '';
 
       if (detail) {
         detail.innerHTML = buildResultsDetailCells(item, visibleCount);
@@ -2958,6 +3244,7 @@
         applyResultsColumns();
         applyColumnHeaders();
       }
+      applyResultsFiltersAndSort();
 
       const start = previewState.total ? Math.min(previewState.total, previewState.offset + 1) : 0;
       const end = previewState.total ? Math.min(previewState.total, previewState.offset + previewState.limit) : (data.items?.length || 0);
@@ -3350,6 +3637,13 @@
       progressBar.style.width = `${pct}%`;
       const errorFallback = data.status === 'canceled' ? t('analysis-canceled') : '';
       runErrorEl.textContent = data.error_message || errorFallback;
+      if (runStage) {
+        if (data.status === 'pending') runStage.textContent = 'Wysyłanie pliku…';
+        else if (data.status === 'running') runStage.textContent = `Scraping… (${processed}/${total || '?'})`;
+        else if (data.status === 'completed') runStage.textContent = 'Gotowe';
+        else if (data.status === 'failed') runStage.textContent = 'Błąd analizy';
+        else if (data.status === 'canceled') runStage.textContent = 'Anulowano';
+      }
       setLastUpdated(data.updated_at || new Date().toISOString());
       setSpinner(data.status);
       const showDownload = data.status === 'completed';
@@ -3427,9 +3721,11 @@
         const captchaPct = metrics.captcha_rate ? Math.round(metrics.captcha_rate * 1000) / 10 : 0;
         scraperStatus.classList.remove('error');
         scraperStatusText.textContent = `Mode: ${mode} · success ${successPct}% · captcha ${captchaPct}%`;
+        backendAlert.style.display = 'none';
       } catch (err) {
         scraperStatus.classList.add('error');
         scraperStatusText.textContent = currentLang === 'en' ? 'Backend unreachable' : 'Backend niedostępny';
+        if (backendAlert) backendAlert.style.display = 'block';
       }
     }
 
@@ -3990,6 +4286,7 @@
       startTouched = true;
       if (!updateStartState()) return;
       if (!validateStrategies()) return;
+      if (runStage) runStage.textContent = 'Wysyłanie pliku…';
 
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
@@ -4017,6 +4314,7 @@
         await loadHistory();
       } catch (err) {
         setMessage(formatNetworkError(err, t('error-analysis')), errorBox);
+        if (runStage) runStage.textContent = 'Błąd wysyłania';
       } finally {
         submitBtn.textContent = t('btn-start');
         updateStartState();
@@ -4045,6 +4343,16 @@
       resetSettingsBtn.addEventListener('click', async () => {
         applyDefaults();
         await saveSettings('reset');
+      });
+    }
+    form.addEventListener('change', updateSettingsSummary);
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        form.reset();
+        applyDefaults();
+        updateStartState();
+        if (presetSelect) presetSelect.value = 'default';
+        if (settingsSummary) settingsSummary.textContent = '';
       });
     }
     initSettingsTabs();
@@ -4081,6 +4389,34 @@
       if (nextOffset < (previewState.total || 0)) {
         loadResults(previewState.runId, nextOffset);
       }
+    });
+
+    if (resultsSearch) {
+      resultsSearch.addEventListener('input', (e) => {
+        resultsFilters.search = e.target.value;
+        applyResultsFiltersAndSort();
+      });
+    }
+    function toggleChip(chip, key) {
+      chip.classList.toggle('is-active');
+      resultsFilters[key] = chip.classList.contains('is-active');
+      applyResultsFiltersAndSort();
+    }
+    chipProfitable?.addEventListener('click', () => toggleChip(chipProfitable, 'profitable'));
+    chipErrors?.addEventListener('click', () => toggleChip(chipErrors, 'errors'));
+    chipMissing?.addEventListener('click', () => toggleChip(chipMissing, 'missingPrice'));
+    copyFailedBtn?.addEventListener('click', () => {
+      const tbody = resultsTable.querySelector('tbody');
+      if (!tbody) return;
+      const failed = Array.from(tbody.querySelectorAll('tr[data-id]')).filter((row) => row.dataset.scrapeStatus !== 'ok');
+      const eans = failed.map((row) => row.dataset.ean).filter(Boolean);
+      if (!eans.length) {
+        alert('Brak nieudanych EANów.');
+        return;
+      }
+      navigator.clipboard.writeText(eans.join('\n'));
+      copyFailedBtn.textContent = 'Skopiowano';
+      setTimeout(() => (copyFailedBtn.textContent = 'Kopiuj EAN-y nieudane'), 1200);
     });
     marketSearch.addEventListener('click', () => {
       marketState.offset = 0;
@@ -4236,10 +4572,44 @@
         setLanguage(currentLang === 'pl' ? 'en' : 'pl');
       });
     }
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        fetch('/logout').then(() => window.location.href = '/login');
+      });
+    }
 
     faqBtn.addEventListener('click', () => { faqModal.style.display = 'flex'; });
     faqClose.addEventListener('click', () => { faqModal.style.display = 'none'; });
     faqModal.addEventListener('click', (e) => { if (e.target === faqModal) faqModal.style.display = 'none'; });
+    if (presetSelect) {
+      presetSelect.addEventListener('change', () => {
+        const val = presetSelect.value;
+        if (val === 'custom') return;
+        applyPreset(val);
+      });
+    }
+    if (savePresetBtn) {
+      savePresetBtn.addEventListener('click', () => {
+        const name = prompt('Nazwa presetu');
+        if (!name) return;
+        const presets = loadCustomPresets();
+        presets[name] = {
+          mode: form.querySelector('input[name="mode"]:checked')?.value || 'mixed',
+          cache: cacheTtlInput?.value,
+          limit: dbLimitInput?.value,
+          onlySuccess: dbOnlySuccessInput?.checked,
+          allCached: dbAllCachedInput?.checked,
+        };
+        saveCustomPresets(presets);
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        presetSelect.appendChild(option);
+        presetSelect.value = name;
+        presetSuccess.textContent = 'Preset zapisany';
+        setTimeout(() => (presetSuccess.textContent = ''), 1500);
+      });
+    }
 
     function collapseSidebar() {
       sidebar.classList.add('collapsed');
@@ -4278,11 +4648,12 @@
       }
     });
 
+    initDropzone();
     setLanguage(currentLang);
     refreshScraperStatus();
     setInterval(refreshScraperStatus, 30000);
     loadCategories();
-    loadSettings();
+    loadSettings().then(updateSettingsSummary);
     loadCurrencyRates();
     startAutoRefresh(5000);
     loadMarketData();

@@ -54,6 +54,13 @@ Zalogowanie przez przeglądarkę na /login ustawia cookie `jj_session` (httpOnly
 - Endpoint: `GET /api/v1/status` (za Basic Auth) – zwraca tryb scrapera + proste liczniki (success/no_results/error/blocked/captcha) oraz status lokalnego scrapera. Bez hostów/secretów.
 - UI: w prawym górnym rogu jest pill, który co 30 s odświeża dane z `/api/v1/status`.
 
+### Jak używać UI (flow)
+1) Zaloguj się na `/login` hasłem z `UI_PASSWORD`.
+2) W sekcji „Panel akcji” wybierz kategorię, wrzuć plik (drag & drop), sprawdź tryb (domyślnie mixed) i kliknij „Uruchom analizę”. Bez pliku przycisk start jest wyłączony.
+3) „Wyniki” pokazują status, postęp, log zdarzeń i link do podglądu/eksportu. Gdy backend nie odpowiada, pojawia się baner „Brak połączenia z backendem”.
+4) „Ustawienia” są w akordeonie: Performance, Źródła, DB Filters, Columns. Presety (Domyślne/Szybko/Dokładnie/Offline/Online) są w lewym panelu; możesz zapisać własny preset (localStorage).
+5) Podgląd wyników: sortowanie kliknięciem w nagłówek, wyszukiwarka EAN/nazwa, szybkie filtry (opłacalne/błędy/brak ceny), kopiowanie EAN-ów nieudanych, eksport.
+
 ### Reverse proxy / sieć
 - Nginx wystawia tylko port 80 i proxy_pass do backendu w sieci docker (`deploy/nginx.conf`).
 - Backend nie publikuje portów na hosta (działa wyłącznie za nginx).

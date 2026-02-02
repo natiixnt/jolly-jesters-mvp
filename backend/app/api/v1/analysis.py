@@ -220,6 +220,13 @@ def list_active_runs(db: Session = Depends(get_db), limit: int = 20):
     runs = analysis_service.list_active_runs(db, limit=limit)
     return {"runs": runs}
 
+@router.get("/latest", response_model=AnalysisStatusResponse)
+def latest_run(db: Session = Depends(get_db)):
+    run = analysis_service.get_latest_run(db)
+    if not run:
+        raise HTTPException(status_code=404, detail="Brak uruchomień")
+    return run
+
 
 @router.get("/{run_id}", response_model=AnalysisStatusResponse)
 def get_analysis_status(run_id: int, db: Session = Depends(get_db)):
