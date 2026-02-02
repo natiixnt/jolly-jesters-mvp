@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jolly Jesters | Logowanie</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.12), transparent 32%),
+                  radial-gradient(circle at 80% 0%, rgba(16, 185, 129, 0.12), transparent 28%),
+                  #0d1224;
+      color: #e5e7eb;
+    }
+    .card {
+      width: min(360px, 90vw);
+      background: #0f172a;
+      border: 1px solid #1f2937;
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    }
+    h1 { margin: 0 0 12px; font-size: 22px; letter-spacing: -0.02em; }
+    p { margin: 0 0 18px; color: #94a3b8; }
+    label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 13px; color: #cbd5e1; }
+    input[type=password] {
+      width: 100%; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid #1f2937; background: #0b152b; color: #e5e7eb;
+      font-size: 15px;
+    }
+    button {
+      width: 100%; margin-top: 14px; padding: 12px 14px;
+      background: linear-gradient(120deg, #10b981, #22d3ee);
+      border: none; border-radius: 10px; color: #fff; font-weight: 800;
+      cursor: pointer; letter-spacing: 0.01em;
+    }
+    .error { color: #f87171; margin-top: 10px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <form class="card" method="post" action="/login">
+    <h1>Logowanie</h1>
+    <p>Podaj hasło, aby uzyskać dostęp do panelu.</p>
+    <label for="password">Hasło</label>
+    <input type="password" id="password" name="password" required autocomplete="current-password" />
+    <button type="submit">Zaloguj</button>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+  </form>
+</body>
+</html>

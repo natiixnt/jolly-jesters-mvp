@@ -400,16 +400,8 @@ async def fetch_via_brightdata(ean: str) -> AllegroResult:
 
 
 def brightdata_status() -> dict:
-    """Expose lightweight stats for UI/health endpoints."""
+    """Expose minimal stats for UI/health endpoints (no secrets)."""
     return {
         "mode": (os.getenv("SCRAPER_MODE") or "brightdata").strip().lower(),
-        "config": {
-            "pool_size": _pool_size(),
-            "max_requests_per_session": _max_req_per_session(),
-            "max_session_minutes": _max_session_minutes(),
-            "cooldown_minutes": _cooldown_minutes(),
-            "concurrency": _scraper_concurrency(),
-            "ean_cache_ttl_days": _ean_cache_ttl_days(),
-        },
         "metrics": read_snapshot(days=2),
     }

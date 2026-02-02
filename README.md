@@ -34,24 +34,34 @@ make smoke        # smoke brightdata (domyślnie)
 make smoke-legacy # smoke legacy scraper
 ```
 
-### Dostęp do UI (Basic Auth)
+### Dostęp do UI (formularz + cookie)
 
-Domyślnie UI na porcie 8000 jest chronione Basic Auth: `admin` / `1234`.
+Cały backend (UI, API, static, health/status, docs) jest chroniony formularzem logowania. Domyślne hasło: `1234`.
 Zmienne środowiskowe (w `backend/.env` lub docker-compose):
 ```
-UI_BASIC_AUTH_USER=admin
-UI_BASIC_AUTH_PASSWORD=1234
+UI_PASSWORD=1234
+UI_SESSION_TTL_HOURS=24
 ```
-Test:
+Test (bez zalogowania):
 ```
-curl -i http://localhost:8000/                 # 401
-curl -i -u admin:1234 http://localhost:8000/   # 200
+curl -i http://localhost:8000/                       # 401/redirect to /login
+curl -i http://localhost:8000/api/v1/status          # 401
 ```
+Zalogowanie przez przeglądarkę na /login ustawia cookie `jj_session` (httpOnly).
 
 ### Status / telemetry
 
-- Endpoint: `GET /api/v1/status` (bez auth na API) – zwraca tryb scrapera, metryki Bright Data (success/blocked/error), health lokalnego scrapera i workspace.
+- Endpoint: `GET /api/v1/status` (za Basic Auth) – zwraca tryb scrapera + proste liczniki (success/no_results/error/blocked/captcha) oraz status lokalnego scrapera. Bez hostów/secretów.
 - UI: w prawym górnym rogu jest pill, który co 30 s odświeża dane z `/api/v1/status`.
+
+### Reverse proxy / sieć
+- Nginx wystawia tylko port 80 i proxy_pass do backendu w sieci docker (`deploy/nginx.conf`).
+- Backend nie publikuje portów na hosta (działa wyłącznie za nginx).
+- Postgres/Redis/worker/local_scraper/front nie mają mapowanych portów.
+
+### Sieć / bezpieczeństwo
+- Tylko backend jest wystawiony na hosta (`127.0.0.1:8000`); Postgres/Redis/worker/local_scraper/front nie mają mapowanych portów.
+- FastAPI ma wyłączone publiczne /docs, /redoc, /openapi.json (wymagają również Basic Auth, ale w prod są ukryte).
 
 ### Tryb Bright Data Browser API (domyślny) + legacy
 

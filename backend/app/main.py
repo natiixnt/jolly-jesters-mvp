@@ -1,11 +1,14 @@
 import logging
 import time
 from pathlib import Path
+import hmac
 import base64
+from hashlib import sha256
+from typing import Optional
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -41,17 +44,56 @@ app.include_router(api_router)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
-def _unauthorized(retry_after: int | None = None):
+def _unauthorized(retry_after: int | None = None, too_many: bool = False):
+    headers = {"WWW-Authenticate": 'Basic realm="Restricted"'}
+    if retry_after:
+        headers["Retry-After"] = str(retry_after)
     return HTMLResponse(
-        status_code=401,
-        headers={"WWW-Authenticate": 'Basic realm="Restricted"'},
+        status_code=429 if too_many else 401,
+        headers=headers,
         content="Unauthorized",
     )
 
 
+def _sign_session(timestamp: int) -> str:
+    secret = (settings.ui_password or "1234").encode("utf-8")
+    msg = str(timestamp).encode("utf-8")
+    sig = hmac.new(secret, msg, sha256).digest()
+    return base64.urlsafe_b64encode(sig).decode("utf-8").rstrip("=")
+
+
+def _issue_cookie() -> tuple[str, int]:
+    now = int(time.time())
+    return f"{now}.{_sign_session(now)}", now
+
+
+def _validate_cookie(token: str) -> bool:
+    if not token or "." not in token:
+        return False
+    ts_str, sig = token.split(".", 1)
+    try:
+        ts = int(ts_str)
+    except Exception:
+        return False
+    ttl_seconds = max(1, settings.ui_session_ttl_hours or 24) * 3600
+    if time.time() - ts > ttl_seconds:
+        return False
+    expected = _sign_session(ts)
+    return hmac.compare_digest(sig, expected)
+
+
+def _is_api_path(path: str) -> bool:
+    return path.startswith("/api")
+
+
+def _wants_html(request: Request) -> bool:
+    accept = request.headers.get("accept", "")
+    return "text/html" in accept or "*/*" in accept
+
+
 @app.middleware("http")
 async def enforce_basic_auth(request: Request, call_next):
-    """Protect all routes with Basic Auth + simple brute-force limiter."""
+    """Protect all routes with cookie-based login; brute-force guard on failures."""
     client_ip = request.client.host if request.client else "unknown"
     now = time.time()
     window_seconds = 600  # 10 minutes
@@ -60,29 +102,26 @@ async def enforce_basic_auth(request: Request, call_next):
     if client_ip in FAILED_AUTH:
         FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if now - ts <= window_seconds]
         if len(FAILED_AUTH[client_ip]) >= fail_limit:
-            return _unauthorized()
-    expected_user = settings.ui_basic_auth_user or "admin"
-    expected_pass = settings.ui_basic_auth_password or "1234"
+            return _unauthorized(retry_after=window_seconds, too_many=True)
+    path = request.url.path or "/"
+    if path.startswith("/static") or path.startswith("/favicon"):
+        # still require cookie
+        pass
+    if path.startswith("/login"):
+        return await call_next(request)
 
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.lower().startswith("basic "):
-        return _unauthorized()
-    try:
-        decoded = base64.b64decode(auth_header.split(" ", 1)[1]).decode("utf-8")
-        provided_user, provided_pass = decoded.split(":", 1)
-    except Exception:
-        FAILED_AUTH.setdefault(client_ip, []).append(now)
-        logger.warning("AUTH_FAIL parse ip=%s path=%s", client_ip, request.url.path)
-        return _unauthorized()
-    if provided_user != expected_user or provided_pass != expected_pass:
-        FAILED_AUTH.setdefault(client_ip, []).append(now)
-        logger.warning("AUTH_FAIL creds ip=%s path=%s", client_ip, request.url.path)
-        return _unauthorized()
+    session_cookie = request.cookies.get("jj_session")
+    if session_cookie and _validate_cookie(session_cookie):
+        if client_ip in FAILED_AUTH:
+            FAILED_AUTH.pop(client_ip, None)
+        return await call_next(request)
 
-    if client_ip in FAILED_AUTH:
-        FAILED_AUTH.pop(client_ip, None)
-
-    return await call_next(request)
+    # unauthorized
+    if _is_api_path(path):
+        return _unauthorized()
+    if _wants_html(request):
+        return RedirectResponse(url="/login", status_code=302)
+    return _unauthorized()
 
 
 @app.on_event("startup")
@@ -104,3 +143,35 @@ def healthcheck(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     local_scraper = check_local_scraper_health()
     return {"status": "ok", "local_scraper": local_scraper}
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login_submit(request: Request, password: str = Form(...)):
+    client_ip = request.client.host if request.client else "unknown"
+    window_seconds = 600
+    fail_limit = 8
+    if client_ip in FAILED_AUTH:
+        FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if time.time() - ts <= window_seconds]
+        if len(FAILED_AUTH[client_ip]) >= fail_limit:
+            return templates.TemplateResponse("login.html", {"request": request, "error": "Too many attempts, try later."}, status_code=429)
+    expected = settings.ui_password or "1234"
+    if password != expected:
+        FAILED_AUTH.setdefault(client_ip, []).append(time.time())
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid password"}, status_code=401)
+    token, ts = _issue_cookie()
+    response = RedirectResponse(url="/", status_code=302)
+    response.set_cookie(
+        key="jj_session",
+        value=token,
+        httponly=True,
+        max_age=max(1, (settings.ui_session_ttl_hours or 24) * 3600),
+        samesite="lax",
+        secure=False,
+        path="/",
+    )
+    return response
