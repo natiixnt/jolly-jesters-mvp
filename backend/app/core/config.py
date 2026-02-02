@@ -39,6 +39,9 @@ class Settings(BaseSettings):
 
     sqlalchemy_echo: bool = Field(default=False)
 
+    ui_basic_auth_user: str = Field(default="admin", env="UI_BASIC_AUTH_USER")
+    ui_basic_auth_password: str = Field(default="1234", env="UI_BASIC_AUTH_PASSWORD")
+
     class Config:
         env_file = Path(__file__).resolve().parents[2] / ".env"
         env_file_encoding = "utf-8"

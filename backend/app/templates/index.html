@@ -100,6 +100,36 @@
       transform: none;
       box-shadow: none;
     }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.01em;
+      min-width: 180px;
+    }
+    .status-pill .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
+    }
+    .status-pill.error { border-color: rgba(248,113,113,0.6); color: #fecaca; }
+    .status-pill.error .status-dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(248,113,113,0.15); }
     .button-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .button-row > * { min-width: 0; }
     .layout {
@@ -1125,10 +1155,16 @@
         <h1 id="page-title" data-i18n="title-main">MVP: import i analiza produktów</h1>
         <p id="page-lead" class="lead" data-i18n="lead-main">Wgraj plik, wybierz kategorię i uruchom analizę. Zaawansowane opcje są w Ustawieniach.</p>
       </div>
+      <div class="top-actions">
+        <div class="status-pill" id="scraper-status" title="Status backendu i tryb scrapera">
+          <span class="status-dot" id="scraper-status-dot"></span>
+          <span id="scraper-status-text">Sprawdzanie statusu…</span>
+        </div>
         <div class="button-row">
           <button class="ghost-btn" id="lang-toggle" type="button">EN / PL</button>
           <button class="ghost-btn" id="faq-btn" data-i18n="faq-button">FAQ / pomoc</button>
         </div>
+      </div>
     </div>
 
     <div class="layout" id="layout">
@@ -1703,6 +1739,9 @@
     const categorySelectError = document.getElementById('category-select-error');
     const fileError = document.getElementById('file-error');
     const categoriesList = document.getElementById('categories-list');
+    const scraperStatus = document.getElementById('scraper-status');
+    const scraperStatusText = document.getElementById('scraper-status-text');
+    const scraperStatusDot = document.getElementById('scraper-status-dot');
     const form = document.getElementById('upload-form');
     const errorBox = document.getElementById('error');
     const strategyError = document.getElementById('strategy-error');
@@ -3376,6 +3415,24 @@
       refreshTimer = setInterval(runAutoRefresh, intervalMs);
     }
 
+    async function refreshScraperStatus() {
+      if (!scraperStatus || !scraperStatusText) return;
+      try {
+        const res = await fetch('/api/v1/status');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const mode = (data.scraper_mode || data?.brightdata?.mode || 'unknown').toLowerCase();
+        const metrics = data?.brightdata?.metrics || {};
+        const successPct = metrics.success_rate ? Math.round(metrics.success_rate * 1000) / 10 : 0;
+        const captchaPct = metrics.captcha_rate ? Math.round(metrics.captcha_rate * 1000) / 10 : 0;
+        scraperStatus.classList.remove('error');
+        scraperStatusText.textContent = `Mode: ${mode} · success ${successPct}% · captcha ${captchaPct}%`;
+      } catch (err) {
+        scraperStatus.classList.add('error');
+        scraperStatusText.textContent = currentLang === 'en' ? 'Backend unreachable' : 'Backend niedostępny';
+      }
+    }
+
     function updateResultsMetaFromStatus(payload) {
       if (!previewState.runId || !resultsMeta) return;
       if (String(previewState.runId) !== String(payload.id)) return;
@@ -4222,6 +4279,8 @@
     });
 
     setLanguage(currentLang);
+    refreshScraperStatus();
+    setInterval(refreshScraperStatus, 30000);
     loadCategories();
     loadSettings();
     loadCurrencyRates();

@@ -23,6 +23,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from app.core.config import settings
 from app.services.schemas import AllegroResult
 from app.utils.bd_unlocker_client import _parse_listing_offers, _parse_pdp_sold_count
+from app.utils.brightdata_metrics import read_snapshot, record_outcome
 
 
 # ---------- Env helpers ----------
@@ -243,8 +244,21 @@ CONCURRENCY_SEM = asyncio.Semaphore(_scraper_concurrency())
 
 
 def _blocked(html: str) -> bool:
+    blocked, _, _ = _blocked_info(html)
+    return blocked
+
+
+def _blocked_info(html: str) -> Tuple[bool, Optional[int], Optional[str]]:
     lowered = html.lower()
-    return any(marker in lowered for marker in ["captcha", "access denied", "robot", "forbidden", "przepraszamy"])
+    if "captcha" in lowered or "robot" in lowered:
+        return True, None, "captcha"
+    if "access denied" in lowered or "forbidden" in lowered or "403" in lowered:
+        return True, 403, "forbidden"
+    if "429" in lowered or "too many requests" in lowered:
+        return True, 429, "rate_limited"
+    if "przepraszamy" in lowered:
+        return True, None, "soft_block"
+    return False, None, None
 
 
 async def _sleep_jitter():
@@ -255,14 +269,16 @@ async def _sleep_jitter():
 
 
 async def fetch_via_brightdata(ean: str) -> AllegroResult:
+    started = time.monotonic()
     cached = _cache_get(ean)
     if cached:
+        record_outcome("success" if not cached.is_not_found else "no_results", time.monotonic() - started, cached=True)
         return cached
 
     async with CONCURRENCY_SEM:
         session, error = await SESSION_POOL.acquire()
         if not session:
-            return AllegroResult(
+            result = AllegroResult(
                 price=None,
                 sold_count=None,
                 is_not_found=False,
@@ -272,24 +288,29 @@ async def fetch_via_brightdata(ean: str) -> AllegroResult:
                 source="brightdata",
                 last_checked_at=datetime.now(timezone.utc),
             )
+            record_outcome("error", time.monotonic() - started, blocked=False)
+            return result
 
         try:
             listing_url = f"https://allegro.pl/listing?string={ean}&order=qd&offerTypeBuyNow=1"
             session.driver.get(listing_url)
             html = session.driver.page_source or ""
             session.mark_used()
-            if _blocked(html):
+            is_blocked, status_code, block_reason = _blocked_info(html)
+            if is_blocked:
                 session.mark_bad()
-                return AllegroResult(
+                result = AllegroResult(
                     price=None,
                     sold_count=None,
                     is_not_found=False,
                     is_temporary_error=True,
-                    raw_payload={"error": "blocked", "provider": "brightdata"},
+                    raw_payload={"error": "blocked", "provider": "brightdata", "block_reason": block_reason, "status_code": status_code},
                     source="brightdata",
                     last_checked_at=datetime.now(timezone.utc),
                     blocked=True,
                 )
+                record_outcome("blocked", time.monotonic() - started, blocked=True, status_code=status_code)
+                return result
 
             offers, auctions_only = _parse_listing_offers(html, page=1)
             if not offers:
@@ -304,6 +325,7 @@ async def fetch_via_brightdata(ean: str) -> AllegroResult:
                     last_checked_at=datetime.now(timezone.utc),
                 )
                 _cache_set(ean, result)
+                record_outcome("no_results", time.monotonic() - started)
                 return result
 
             # tie-break on sold count via PDP
@@ -323,7 +345,7 @@ async def fetch_via_brightdata(ean: str) -> AllegroResult:
                     await _sleep_jitter()
                 except WebDriverException:
                     cand.sold_count = None
-                    cand.sold_count_status = "error"
+                cand.sold_count_status = "error"
 
             chosen = sorted(
                 candidates,
@@ -359,10 +381,11 @@ async def fetch_via_brightdata(ean: str) -> AllegroResult:
                 last_checked_at=datetime.now(timezone.utc),
             )
             _cache_set(ean, result)
+            record_outcome("success", time.monotonic() - started)
             return result
         except Exception as exc:
             session.mark_bad()
-            return AllegroResult(
+            result = AllegroResult(
                 price=None,
                 sold_count=None,
                 is_not_found=False,
@@ -372,3 +395,21 @@ async def fetch_via_brightdata(ean: str) -> AllegroResult:
                 last_checked_at=datetime.now(timezone.utc),
                 error="brightdata_error",
             )
+            record_outcome("error", time.monotonic() - started)
+            return result
+
+
+def brightdata_status() -> dict:
+    """Expose lightweight stats for UI/health endpoints."""
+    return {
+        "mode": (os.getenv("SCRAPER_MODE") or "brightdata").strip().lower(),
+        "config": {
+            "pool_size": _pool_size(),
+            "max_requests_per_session": _max_req_per_session(),
+            "max_session_minutes": _max_session_minutes(),
+            "cooldown_minutes": _cooldown_minutes(),
+            "concurrency": _scraper_concurrency(),
+            "ean_cache_ttl_days": _ean_cache_ttl_days(),
+        },
+        "metrics": read_snapshot(days=2),
+    }

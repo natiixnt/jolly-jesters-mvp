@@ -10,8 +10,6 @@ services:
       POSTGRES_PASSWORD: mvp
       POSTGRES_DB: mvpdb
       SELENIUM_HEADED: "true"
-    ports:
-      - "5433:5432"
     volumes:
       - mvp_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,8 +21,6 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -61,12 +57,14 @@ services:
       - SBR_COOLDOWN_MINUTES=${SBR_COOLDOWN_MINUTES:-60}
       - SCRAPER_CONCURRENCY=${SCRAPER_CONCURRENCY:-1}
       - EAN_CACHE_TTL_DAYS=${EAN_CACHE_TTL_DAYS:-14}
+      - UI_BASIC_AUTH_USER=${UI_BASIC_AUTH_USER:-admin}
+      - UI_BASIC_AUTH_PASSWORD=${UI_BASIC_AUTH_PASSWORD:-1234}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - workspace_data:/workspace
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -78,6 +76,12 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   local_scraper:
     build:
@@ -90,58 +94,50 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-brightdata}
-      - BRD_SBR_USERNAME=${BRD_SBR_USERNAME:-}
-      - BRD_SBR_PASSWORD=${BRD_SBR_PASSWORD:-}
-      - BRD_SBR_HOST=${BRD_SBR_HOST:-brd.superproxy.io}
-      - BRD_SBR_WEBDRIVER_PORT=${BRD_SBR_WEBDRIVER_PORT:-9515}
-      - SBR_POOL_SIZE=${SBR_POOL_SIZE:-2}
-      - SBR_MAX_REQ_PER_SESSION=${SBR_MAX_REQ_PER_SESSION:-20}
-      - SBR_MAX_SESSION_MINUTES=${SBR_MAX_SESSION_MINUTES:-15}
-      - SBR_COOLDOWN_MINUTES=${SBR_COOLDOWN_MINUTES:-60}
-      - SCRAPER_CONCURRENCY=${SCRAPER_CONCURRENCY:-1}
-      - EAN_CACHE_TTL_DAYS=${EAN_CACHE_TTL_DAYS:-14}
-    environment:
-      - DISPLAY=:99
-      - SELENIUM_HEADED=true
-      - SELENIUM_USER_DATA_DIR=/data/chrome-profile
-      - SELENIUM_KILL_EXISTING=1
-      - SELENIUM_PROFILE_FALLBACK=${SELENIUM_PROFILE_FALLBACK:-1}
-      - SELENIUM_FORCE_TEMP_PROFILE=${SELENIUM_FORCE_TEMP_PROFILE:-1}
-      - SELENIUM_TEMP_PROFILE_DIR=${SELENIUM_TEMP_PROFILE_DIR:-/data/chrome-profile}
-      - SELENIUM_PROFILE_ROTATE_MIN_REQUESTS=${SELENIUM_PROFILE_ROTATE_MIN_REQUESTS:-4}
-      - SELENIUM_PROFILE_ROTATE_MAX_REQUESTS=${SELENIUM_PROFILE_ROTATE_MAX_REQUESTS:-7}
-      - LOCAL_SCRAPER_ENABLE_VNC=1
-      - SELENIUM_CHROME_LOG_PATH=${SELENIUM_CHROME_LOG_PATH:-}
-      - SELENIUM_CHROMEDRIVER_LOG_PATH=${SELENIUM_CHROMEDRIVER_LOG_PATH:-}
-      - LOCAL_SCRAPER_LISTING_TIMEOUT=${LOCAL_SCRAPER_LISTING_TIMEOUT:-50}
-      - LOCAL_SCRAPER_PAGELOAD_TIMEOUT=${LOCAL_SCRAPER_PAGELOAD_TIMEOUT:-45}
-      - LOCAL_SCRAPER_MIN_INTERVAL_SECONDS=${LOCAL_SCRAPER_MIN_INTERVAL_SECONDS:-2}
-      - LOCAL_SCRAPER_COOLDOWN_SECONDS=${LOCAL_SCRAPER_COOLDOWN_SECONDS:-5}
-      - LOCAL_SCRAPER_CAPTCHA_COOLDOWN_SECONDS=${LOCAL_SCRAPER_CAPTCHA_COOLDOWN_SECONDS:-10}
-      - LOCAL_SCRAPER_REQUEST_DELAY=${LOCAL_SCRAPER_REQUEST_DELAY:-3}
-      - LOCAL_SCRAPER_WINDOWS=${LOCAL_SCRAPER_WINDOWS:-1}
-      - LOCAL_SCRAPER_MAX_ATTEMPTS=${LOCAL_SCRAPER_MAX_ATTEMPTS:-2}
-      - LOCAL_SCRAPER_RATE_JITTER_SECONDS=${LOCAL_SCRAPER_RATE_JITTER_SECONDS:-0.7}
-      - LOCAL_SCRAPER_RETRY_BACKOFF=${LOCAL_SCRAPER_RETRY_BACKOFF:-2.0}
-      - FINGERPRINT_ROTATION_ENABLED=${FINGERPRINT_ROTATION_ENABLED:-1}
-      - FINGERPRINT_ROTATION_EVERY_MIN=${FINGERPRINT_ROTATION_EVERY_MIN:-3}
-      - FINGERPRINT_ROTATION_EVERY_MAX=${FINGERPRINT_ROTATION_EVERY_MAX:-5}
-      - FINGERPRINT_PRESET_SEED=${FINGERPRINT_PRESET_SEED:-}
-      # Debug options for troubleshooting proxy/block issues
-      - DEBUG_SELENIUM_REQUESTS=${DEBUG_SELENIUM_REQUESTS:-0}
-      - DEBUG_SKIP_EARLY_BLOCK=${DEBUG_SKIP_EARLY_BLOCK:-0}
-      - DEBUG_PAUSE_ON_BLOCK=${DEBUG_PAUSE_ON_BLOCK:-0}
-      # DataDome anti-bot wait time (seconds) - give JS challenge time to execute
-      - LOCAL_SCRAPER_DATADOME_WAIT=${LOCAL_SCRAPER_DATADOME_WAIT:-0}
-      # Use undetected-chromedriver for better anti-bot evasion (bypasses DataDome)
-      - USE_UNDETECTED_CHROMEDRIVER=${USE_UNDETECTED_CHROMEDRIVER:-0}
-      # Use local proxy forwarder to handle proxy authentication (enables UC + auth proxy)
-      - USE_PROXY_FORWARDER=${USE_PROXY_FORWARDER:-0}
-    ports:
-      - "5050:5050"
-      # noVNC (secure via SSH tunnel or firewall on VPS)
-      - "6080:6080"
+      SCRAPER_MODE: ${SCRAPER_MODE:-brightdata}
+      BRD_SBR_USERNAME: ${BRD_SBR_USERNAME:-}
+      BRD_SBR_PASSWORD: ${BRD_SBR_PASSWORD:-}
+      BRD_SBR_HOST: ${BRD_SBR_HOST:-brd.superproxy.io}
+      BRD_SBR_WEBDRIVER_PORT: ${BRD_SBR_WEBDRIVER_PORT:-9515}
+      SBR_POOL_SIZE: ${SBR_POOL_SIZE:-2}
+      SBR_MAX_REQ_PER_SESSION: ${SBR_MAX_REQ_PER_SESSION:-20}
+      SBR_MAX_SESSION_MINUTES: ${SBR_MAX_SESSION_MINUTES:-15}
+      SBR_COOLDOWN_MINUTES: ${SBR_COOLDOWN_MINUTES:-60}
+      SCRAPER_CONCURRENCY: ${SCRAPER_CONCURRENCY:-1}
+      EAN_CACHE_TTL_DAYS: ${EAN_CACHE_TTL_DAYS:-14}
+      DISPLAY: ":99"
+      SELENIUM_HEADED: "true"
+      SELENIUM_USER_DATA_DIR: /data/chrome-profile
+      SELENIUM_KILL_EXISTING: 1
+      SELENIUM_PROFILE_FALLBACK: ${SELENIUM_PROFILE_FALLBACK:-1}
+      SELENIUM_FORCE_TEMP_PROFILE: ${SELENIUM_FORCE_TEMP_PROFILE:-1}
+      SELENIUM_TEMP_PROFILE_DIR: ${SELENIUM_TEMP_PROFILE_DIR:-/data/chrome-profile}
+      SELENIUM_PROFILE_ROTATE_MIN_REQUESTS: ${SELENIUM_PROFILE_ROTATE_MIN_REQUESTS:-4}
+      SELENIUM_PROFILE_ROTATE_MAX_REQUESTS: ${SELENIUM_PROFILE_ROTATE_MAX_REQUESTS:-7}
+      LOCAL_SCRAPER_ENABLE_VNC: 1
+      SELENIUM_CHROME_LOG_PATH: ${SELENIUM_CHROME_LOG_PATH:-}
+      SELENIUM_CHROMEDRIVER_LOG_PATH: ${SELENIUM_CHROMEDRIVER_LOG_PATH:-}
+      LOCAL_SCRAPER_LISTING_TIMEOUT: ${LOCAL_SCRAPER_LISTING_TIMEOUT:-50}
+      LOCAL_SCRAPER_PAGELOAD_TIMEOUT: ${LOCAL_SCRAPER_PAGELOAD_TIMEOUT:-45}
+      LOCAL_SCRAPER_MIN_INTERVAL_SECONDS: ${LOCAL_SCRAPER_MIN_INTERVAL_SECONDS:-2}
+      LOCAL_SCRAPER_COOLDOWN_SECONDS: ${LOCAL_SCRAPER_COOLDOWN_SECONDS:-5}
+      LOCAL_SCRAPER_CAPTCHA_COOLDOWN_SECONDS: ${LOCAL_SCRAPER_CAPTCHA_COOLDOWN_SECONDS:-10}
+      LOCAL_SCRAPER_REQUEST_DELAY: ${LOCAL_SCRAPER_REQUEST_DELAY:-3}
+      LOCAL_SCRAPER_WINDOWS: ${LOCAL_SCRAPER_WINDOWS:-1}
+      LOCAL_SCRAPER_MAX_ATTEMPTS: ${LOCAL_SCRAPER_MAX_ATTEMPTS:-2}
+      LOCAL_SCRAPER_RATE_JITTER_SECONDS: ${LOCAL_SCRAPER_RATE_JITTER_SECONDS:-0.7}
+      LOCAL_SCRAPER_RETRY_BACKOFF: ${LOCAL_SCRAPER_RETRY_BACKOFF:-2.0}
+      FINGERPRINT_ROTATION_ENABLED: ${FINGERPRINT_ROTATION_ENABLED:-1}
+      FINGERPRINT_ROTATION_EVERY_MIN: ${FINGERPRINT_ROTATION_EVERY_MIN:-3}
+      FINGERPRINT_ROTATION_EVERY_MAX: ${FINGERPRINT_ROTATION_EVERY_MAX:-5}
+      FINGERPRINT_PRESET_SEED: ${FINGERPRINT_PRESET_SEED:-}
+      DEBUG_SELENIUM_REQUESTS: ${DEBUG_SELENIUM_REQUESTS:-0}
+      DEBUG_SKIP_EARLY_BLOCK: ${DEBUG_SKIP_EARLY_BLOCK:-0}
+      DEBUG_PAUSE_ON_BLOCK: ${DEBUG_PAUSE_ON_BLOCK:-0}
+      LOCAL_SCRAPER_DATADOME_WAIT: ${LOCAL_SCRAPER_DATADOME_WAIT:-0}
+      USE_UNDETECTED_CHROMEDRIVER: ${USE_UNDETECTED_CHROMEDRIVER:-0}
+      USE_PROXY_FORWARDER: ${USE_PROXY_FORWARDER:-0}
+    ports: []
     volumes:
       - local_scraper_profile:/data/chrome-profile
       # Optional (bind mount host profile; ensure permissions):
@@ -187,6 +183,12 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.tasks inspect ping -d celery@$${HOSTNAME} >/tmp/worker_health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   scraper_worker:
     build:
@@ -196,7 +198,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-internal}
+      - SCRAPER_MODE=${SCRAPER_MODE:-brightdata}
       - BD_UNLOCKER_TOKEN=${BD_UNLOCKER_TOKEN:-}
       - BD_UNLOCKER_ZONE=${BD_UNLOCKER_ZONE:-}
       - BD_TIMEOUT_S=${BD_TIMEOUT_S:-30}
@@ -223,6 +225,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.tasks inspect ping -d celery@$${HOSTNAME} >/tmp/scraper_worker_health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   frontend:
     build:
@@ -232,8 +240,7 @@ services:
       - legacy-ui
     volumes:
       - ./frontend:/app
-    ports:
-      - "8501:8501"
+    ports: []
     depends_on:
       - backend
 

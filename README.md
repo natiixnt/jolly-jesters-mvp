@@ -9,6 +9,12 @@ Nie korzystamy z oficjalnego API; scraping działa przez lokalny Selenium z rota
 docker compose up --build
 ```
 
+Przed startem skopiuj `.env`:
+
+```
+cp backend/.env.example backend/.env   # uzupełnij BRD_SBR_PASSWORD
+```
+
 ### Testy lokalnie
 
 ```
@@ -16,6 +22,36 @@ python -m pip install -r backend/requirements.txt
 make test         # pełna paczka
 make test-bd      # tylko testy trybu BD (kryterium k bd_)
 ```
+
+### Skróty (Makefile)
+
+```
+make up           # docker compose up --build
+make down         # zatrzymanie stacka
+make logs         # podgląd logów (backend/worker/scraper/db/cache)
+make migrate      # alembic upgrade head (w kontenerze backend)
+make smoke        # smoke brightdata (domyślnie)
+make smoke-legacy # smoke legacy scraper
+```
+
+### Dostęp do UI (Basic Auth)
+
+Domyślnie UI na porcie 8000 jest chronione Basic Auth: `admin` / `1234`.
+Zmienne środowiskowe (w `backend/.env` lub docker-compose):
+```
+UI_BASIC_AUTH_USER=admin
+UI_BASIC_AUTH_PASSWORD=1234
+```
+Test:
+```
+curl -i http://localhost:8000/                 # 401
+curl -i -u admin:1234 http://localhost:8000/   # 200
+```
+
+### Status / telemetry
+
+- Endpoint: `GET /api/v1/status` (bez auth na API) – zwraca tryb scrapera, metryki Bright Data (success/blocked/error), health lokalnego scrapera i workspace.
+- UI: w prawym górnym rogu jest pill, który co 30 s odświeża dane z `/api/v1/status`.
 
 ### Tryb Bright Data Browser API (domyślny) + legacy
 
@@ -38,6 +74,15 @@ EAN_CACHE_TTL_DAYS=14
 3) Flow: UI ➜ Celery (`scraper_local` queue) ➜ brightdata_browser ➜ zapis w DB ➜ UI.
 4) Cache wyników EAN w Redis (TTL `EAN_CACHE_TTL_DAYS`) – jeśli hit, browser nie startuje.
 5) Legacy scraper zostaje w repo; włączysz go przez `SCRAPER_MODE=legacy`.
+6) Status backendu + tryb scrapera: `GET /api/v1/status` albo pigułka w prawym górnym rogu UI (pokazuje mode/success%/captcha%).
+   Klasyczne `GET /health` nadal sprawdza bazę + lokalny scraper.
+
+Smoke testy (wymagają uruchomionego stacka + BRD_SBR_* w env):
+```
+docker compose exec backend python backend/scripts/smoke_scraper.py --mode brightdata
+docker compose exec backend python backend/scripts/smoke_scraper.py --mode legacy
+```
+Zapis idzie do tych samych tabel (`product_market_data`) i od razu wypełnia cache Redis.
 
 Definicja wybierania oferty (jak legacy):
 - Listing sortowany rosnąco po cenie „Kup teraz”.
