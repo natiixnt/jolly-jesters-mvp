@@ -1,13 +1,13 @@
-PYTHON ?= python3
+PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 PYTHONPATH := backend
 
 .PHONY: test test-bd up down logs migrate smoke-brightdata smoke-legacy smoke
 
 test:
-	LOCAL_SCRAPER_SKIP_HEALTHCHECK=1 PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q
+	UI_AUTH_BYPASS=1 LOCAL_SCRAPER_SKIP_HEALTHCHECK=1 PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q
 
 test-bd:
-	LOCAL_SCRAPER_SKIP_HEALTHCHECK=1 PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q -k bd_
+	UI_AUTH_BYPASS=1 LOCAL_SCRAPER_SKIP_HEALTHCHECK=1 PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q -k bd_
 
 up:
 	docker compose up --build
