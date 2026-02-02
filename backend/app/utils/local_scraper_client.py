@@ -12,6 +12,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.schemas import AllegroResult
+from app.utils.rate_limiter import RateLimited, rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,8 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
         async with httpx.AsyncClient(timeout=timeout) as client:
             for attempt in range(1, attempts + 1):
                 try:
-                    resp = await client.post(url, json={"ean": ean}, timeout=max_request_seconds)
+                    async with rate_limiter.throttle("https://allegro.pl"):
+                        resp = await client.post(url, json={"ean": ean}, timeout=max_request_seconds)
                     break
                 except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
                     duration = time.monotonic() - start_ts
@@ -179,6 +181,21 @@ async def fetch_via_local_scraper(ean: str) -> AllegroResult:
                         duration,
                     )
                     await asyncio.sleep(_local_scraper_backoff(attempt))
+    except RateLimited:
+        # Should not happen often; return blocked signal
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={
+                "error": "blocked",
+                "provider": "local",
+                "block_reason": "blocked_429_cooldown",
+            },
+            source="local",
+            blocked=True,
+        )
     except (httpx.TimeoutException, httpx.ConnectError) as exc:
         duration = time.monotonic() - start_ts
         logger.warning(

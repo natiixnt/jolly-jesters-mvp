@@ -47,10 +47,6 @@ services:
       - ./backend/.env
     environment:
       - SCRAPER_MODE=${SCRAPER_MODE:-brightdata}
-      - BRD_SBR_USERNAME=${BRD_SBR_USERNAME:-}
-      - BRD_SBR_PASSWORD=${BRD_SBR_PASSWORD:-}
-      - BRD_SBR_HOST=${BRD_SBR_HOST:-brd.superproxy.io}
-      - BRD_SBR_WEBDRIVER_PORT=${BRD_SBR_WEBDRIVER_PORT:-9515}
       - SBR_POOL_SIZE=${SBR_POOL_SIZE:-2}
       - SBR_MAX_REQ_PER_SESSION=${SBR_MAX_REQ_PER_SESSION:-20}
       - SBR_MAX_SESSION_MINUTES=${SBR_MAX_SESSION_MINUTES:-15}
@@ -157,10 +153,6 @@ services:
       - ./backend/.env
     environment:
       - SCRAPER_MODE=${SCRAPER_MODE:-brightdata}
-      - BRD_SBR_USERNAME=${BRD_SBR_USERNAME:-}
-      - BRD_SBR_PASSWORD=${BRD_SBR_PASSWORD:-}
-      - BRD_SBR_HOST=${BRD_SBR_HOST:-brd.superproxy.io}
-      - BRD_SBR_WEBDRIVER_PORT=${BRD_SBR_WEBDRIVER_PORT:-9515}
       - SBR_POOL_SIZE=${SBR_POOL_SIZE:-2}
       - SBR_MAX_REQ_PER_SESSION=${SBR_MAX_REQ_PER_SESSION:-20}
       - SBR_MAX_SESSION_MINUTES=${SBR_MAX_SESSION_MINUTES:-15}

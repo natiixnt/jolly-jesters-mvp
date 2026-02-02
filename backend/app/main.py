@@ -109,6 +109,8 @@ async def enforce_basic_auth(request: Request, call_next):
         if len(FAILED_AUTH[client_ip]) >= fail_limit:
             return _unauthorized(retry_after=window_seconds, too_many=True)
     path = request.url.path or "/"
+    if path.startswith("/healthz"):
+        return await call_next(request)
     if path.startswith("/static") or path.startswith("/favicon"):
         # still require cookie
         pass
@@ -148,6 +150,11 @@ def healthcheck(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     local_scraper = check_local_scraper_health()
     return {"status": "ok", "local_scraper": local_scraper}
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
 
 
 @app.get("/login", response_class=HTMLResponse)

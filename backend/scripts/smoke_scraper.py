@@ -113,10 +113,17 @@ async def main():
 
     stats = {"success": 0, "no_results": 0, "blocked": 0, "error": 0}
     total_start = time.monotonic()
+    early_blocked = 0
+    EARLY_STOP_N = 3
     for ean in eans:
         outcome, duration = await scrape_one(ean, args.mode)
         stats[outcome] = stats.get(outcome, 0) + 1
         print(f"[{args.mode}] ean={ean} outcome={outcome} duration={duration:.1f}s")
+        if outcome == "blocked" and len(eans) >= EARLY_STOP_N and (stats["blocked"] == stats["success"] + stats["no_results"] + stats["blocked"]):  # blocked so far
+            early_blocked += 1
+            if early_blocked >= EARLY_STOP_N:
+                print(f"\nSMOKE_ABORT_BLOCKED: {early_blocked}/{EARLY_STOP_N} first EANs blocked -> stopping to save pool/limits")
+                break
 
     total_duration = time.monotonic() - total_start
     total_runs = sum(stats.values())

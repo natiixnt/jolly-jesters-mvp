@@ -57,6 +57,8 @@ RUN pip install --no-cache-dir --upgrade pip --retries 5 --timeout 120 \
 COPY alembic.ini .
 COPY alembic ./alembic
 COPY ./app ./app
+# helper scripts (smoke tests, maintenance)
+COPY ./scripts ./scripts
 
 # expose fastapi port
 EXPOSE 8000
