@@ -35,7 +35,7 @@ from app.services.profitability_service import calculate_profitability
 from app.services.schemas import AllegroResult, ScrapingStrategyConfig
 from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import check_local_scraper_health, fetch_via_local_scraper
-from app.utils.bd_unlocker_client import fetch_via_bd_unlocker
+from app.utils.brightdata_browser import fetch_via_brightdata
 
 logger = logging.getLogger(__name__)
 _REDIS_CLIENT = None
@@ -187,7 +187,7 @@ def _status_and_error(result) -> tuple[ScrapeStatus, str | None]:
 
 
 def _scraper_mode() -> str:
-    return (os.getenv("SCRAPER_MODE") or "internal").strip().lower()
+    return (os.getenv("SCRAPER_MODE") or "brightdata").strip().lower()
 
 
 def _cached_result_from_state(state) -> AllegroResult | None:
@@ -659,13 +659,16 @@ def scrape_one_local(
         item.scrape_status = ScrapeStatus.in_progress
         item.error_message = None
         db.commit()
-        use_bd_unlocker = _scraper_mode() == "bd_unlocker"
-        result = asyncio.run(fetch_via_bd_unlocker(item.ean)) if use_bd_unlocker else asyncio.run(fetch_via_local_scraper(item.ean))
-        if use_bd_unlocker and (result.is_temporary_error or getattr(result, "blocked", False)):
+        mode = _scraper_mode()
+        if mode == "legacy":
+            result = asyncio.run(fetch_via_local_scraper(item.ean))
+        else:
+            result = asyncio.run(fetch_via_brightdata(item.ean))
+        if mode != "legacy" and (result.is_temporary_error or getattr(result, "blocked", False)):
             cached_result = _cached_result_from_state(state)
             if cached_result:
                 status = ScrapeStatus.not_found if cached_result.is_not_found else ScrapeStatus.ok
-                _log_scrape_outcome("LOCAL_SCRAPER_CACHE_RESULT", item, cached_result, status, None)
+                _log_scrape_outcome("BRIGHTDATA_CACHE_RESULT", item, cached_result, status, None)
                 _apply_scrape_result(db, item, product, category, state, cached_result)
                 _clear_blocked_state(run.id, item.id)
                 _finalize_item(db, run, item, prev_status)

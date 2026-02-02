@@ -17,39 +17,39 @@ make test         # pełna paczka
 make test-bd      # tylko testy trybu BD (kryterium k bd_)
 ```
 
-### Tryb Bright Data Web Unlocker (override)
+### Tryb Bright Data Browser API (domyślny) + legacy
 
-1) Skonfiguruj zmienne (np. w `backend/.env.example` skopiuj do `backend/.env` lub eksportuj w shellu):
+1) Skonfiguruj zmienne (skopiuj `backend/.env.example` do `backend/.env` i uzupełnij hasło):
 ```
-SCRAPER_MODE=bd_unlocker
-BD_UNLOCKER_TOKEN=your_token
-BD_UNLOCKER_ZONE=your_zone_optional
-BD_TIMEOUT_S=30
-BD_MAX_RETRIES=3
-BD_QPS=1.0
-BD_LISTING_MAX_PAGES=3
-BD_PDP_TIE_BREAK_LIMIT=5
-BD_CACHE_TTL_SECONDS=86400
+SCRAPER_MODE=brightdata        # brightdata | legacy
+BRD_SBR_USERNAME=brd-customer-hl_d5ac7890-zone-scraping_browser1
+BRD_SBR_PASSWORD=***sekret_z_BrightData***
+BRD_SBR_HOST=brd.superproxy.io
+BRD_SBR_WEBDRIVER_PORT=9515
+SBR_POOL_SIZE=2
+SBR_MAX_REQ_PER_SESSION=20
+SBR_MAX_SESSION_MINUTES=15
+SBR_COOLDOWN_MINUTES=60
+SCRAPER_CONCURRENCY=1
+EAN_CACHE_TTL_DAYS=14
 ```
 2) Uruchom stack (przykład):\
-`SCRAPER_MODE=bd_unlocker BD_UNLOCKER_TOKEN=abc123 docker compose up --build`
-3) Ten sam flow: UI ➜ start job ➜ Celery (`scraper_local`) ➜ zapis do DB ➜ UI.
-4) Dane cache’owane w Redis (`bd_unlocker:v1:*`), fallback do ostatniego market_data gdy unlocker zawiedzie.
-5) Sanity: w logach workera szukaj `provider=bd_unlocker` / `sold_count_status`.
+`SCRAPER_MODE=brightdata BRD_SBR_PASSWORD=*** docker compose up --build`
+3) Flow: UI ➜ Celery (`scraper_local` queue) ➜ brightdata_browser ➜ zapis w DB ➜ UI.
+4) Cache wyników EAN w Redis (TTL `EAN_CACHE_TTL_DAYS`) – jeśli hit, browser nie startuje.
+5) Legacy scraper zostaje w repo; włączysz go przez `SCRAPER_MODE=legacy`.
 
-Definicja A (tie-break):
-- Listing sortowany rosnąco, filtr „Kup teraz”, do `BD_LISTING_MAX_PAGES` (domyślnie 3) dopóki znajdzie oferty.
-- `lowest_price` = min cena brutto PLN.
-- Kandydaci z najniższą ceną → max `BD_PDP_TIE_BREAK_LIMIT` (domyślnie 5) PDP.
-- Wybór: najwyższy `sold_count_A` z PDP (brak widoczności ⇒ `sold_count_status=not_visible`), remis → mniejszy `offer_id`.
-- `sold_count_status`: ok | not_visible | no_offers_found | auctions_only | error.
+Definicja wybierania oferty (jak legacy):
+- Listing sortowany rosnąco po cenie „Kup teraz”.
+- `lowest_price` = minimalna cena.
+- Tie-break: max 3 PDP, największy `sold_count`, potem min `offer_id`; statusy: ok/not_visible/no_results/auctions_only/error.
 
 Observability:
-- Logi Celery zawierają `provider`, `listing_requests`, `pdp_requests`, `pages_scraped`, `sold_count_status` (w `raw_payload`).
+- Logi zawierają provider=brightdata|legacy, outcome (success/no_results/blocked/error), licznik sesji/requests, sold_count_status.
 
 Debug:
-- Sprawdź cache: `redis-cli keys 'bd_unlocker:v1:*'`.
-- Podgląd ostatniego wyniku w DB: tabela `product_market_data.raw_payload` ma `provider=bd_unlocker`.
+- Klucze cache: `sbr:ean:*` w Redis.
+- Ostatni wynik: `product_market_data.raw_payload.provider=brightdata`.
 
 ### Pliki .env
 - `backend/.env.example` – szablon bez sekretów. Skopiuj do `backend/.env` lokalnie; nie commituj sekretów.
