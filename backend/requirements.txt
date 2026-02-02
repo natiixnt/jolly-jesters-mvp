@@ -18,3 +18,4 @@ blinker==1.6.2
 seleniumbase
 httpx
 pytest
+pytest-asyncio

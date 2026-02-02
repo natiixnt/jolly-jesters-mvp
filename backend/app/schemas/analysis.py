@@ -87,6 +87,7 @@ class AnalysisResultItem(BaseModel):
     purchase_price_pln: Optional[float]
     allegro_price_pln: Optional[float]
     sold_count: Optional[int]
+    sold_count_status: Optional[str] = None
     margin_pln: Optional[float]
     margin_percent: Optional[float]
     is_profitable: Optional[bool]

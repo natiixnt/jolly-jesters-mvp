@@ -1997,6 +1997,8 @@
         'label-original-currency': 'Oryginalna waluta:',
         'label-original-price': 'Oryginalna cena:',
         'label-sold-count': 'Liczba sprzedanych:',
+        'label-sold-count-status': 'Status sprzedaży:',
+        'label-data-provider': 'Źródło danych:',
         col_ean: 'EAN',
         col_name: 'Nazwa',
         col_currency: 'Waluta',
@@ -2143,6 +2145,8 @@
         'label-original-currency': 'Original currency:',
         'label-original-price': 'Original price:',
         'label-sold-count': 'Units sold:',
+        'label-sold-count-status': 'Sales status:',
+        'label-data-provider': 'Data provider:',
         col_ean: 'EAN',
         col_name: 'Name',
         col_currency: 'Currency',
@@ -2746,6 +2750,9 @@
         network_error: t('scrape_network_error'),
         error: t('scrape_error'),
         not_found: t('scrape_not_found'),
+        not_visible: t('scrape_not_found'),
+        no_offers_found: t('scrape_not_found'),
+        auctions_only: t('scrape_not_found'),
         ok: t('scrape_ok'),
       };
       return map[status] || t('scrape_ok');
@@ -2787,6 +2794,7 @@
             <div><strong>${t('label-original-currency')}</strong> ${item.original_currency || 'PLN'}</div>
             <div><strong>${t('label-original-price')}</strong> ${item.original_purchase_price !== null && item.original_purchase_price !== undefined ? item.original_purchase_price + ' ' + (item.original_currency || '') : '—'}</div>
             <div><strong>${t('label-sold-count')}</strong> ${item.sold_count ?? '—'}</div>
+            <div><strong>${t('label-sold-count-status')}</strong> ${item.sold_count_status || '—'}</div>
           </div>
         </td>
       `;

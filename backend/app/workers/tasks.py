@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -30,9 +32,10 @@ from app.services.analysis_service import (
     record_run_task,
 )
 from app.services.profitability_service import calculate_profitability
-from app.services.schemas import ScrapingStrategyConfig
+from app.services.schemas import AllegroResult, ScrapingStrategyConfig
 from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import check_local_scraper_health, fetch_via_local_scraper
+from app.utils.bd_unlocker_client import fetch_via_bd_unlocker
 
 logger = logging.getLogger(__name__)
 _REDIS_CLIENT = None
@@ -181,6 +184,29 @@ def _status_and_error(result) -> tuple[ScrapeStatus, str | None]:
     if result.is_temporary_error:
         return ScrapeStatus.network_error, error_message or "temporary_error"
     return ScrapeStatus.ok, None
+
+
+def _scraper_mode() -> str:
+    return (os.getenv("SCRAPER_MODE") or "internal").strip().lower()
+
+
+def _cached_result_from_state(state) -> AllegroResult | None:
+    md = getattr(state, "last_market_data", None)
+    if not md:
+        return None
+    payload = dict(getattr(md, "raw_payload", {}) or {})
+    payload.setdefault("source", "cache_fallback")
+    payload["cache_fallback"] = True
+    payload["market_data_id"] = getattr(md, "id", None)
+    return AllegroResult(
+        price=md.allegro_price,
+        sold_count=md.allegro_sold_count,
+        is_not_found=bool(getattr(md, "is_not_found", False)),
+        is_temporary_error=False,
+        raw_payload=payload,
+        source=getattr(md, "source", None) or "scraping",
+        last_checked_at=getattr(md, "last_checked_at", None) or getattr(md, "fetched_at", None),
+    )
 
 
 def _timeout_retry_limit() -> int:
@@ -336,8 +362,9 @@ def _log_scrape_outcome(label: str, item: AnalysisRunItem, result, status: Scrap
     payload = getattr(result, "raw_payload", {}) or {}
     fingerprint_id = getattr(result, "fingerprint_id", None) or payload.get("fingerprint_id")
     block_reason = payload.get("block_reason") or getattr(result, "block_reason", None)
+    provider = payload.get("provider") or payload.get("source")
     logger.info(
-        "%s item_id=%s ean=%s status=%s not_found=%s blocked=%s temp_error=%s error=%s http_status=%s block_reason=%s source=%s fingerprint_id=%s",
+        "%s item_id=%s ean=%s status=%s not_found=%s blocked=%s temp_error=%s error=%s http_status=%s block_reason=%s source=%s provider=%s fingerprint_id=%s",
         label,
         item.id,
         item.ean,
@@ -349,6 +376,7 @@ def _log_scrape_outcome(label: str, item: AnalysisRunItem, result, status: Scrap
         payload.get("status_code"),
         block_reason,
         getattr(result, "source", None),
+        provider,
         fingerprint_id,
     )
 
@@ -631,7 +659,17 @@ def scrape_one_local(
         item.scrape_status = ScrapeStatus.in_progress
         item.error_message = None
         db.commit()
-        result = asyncio.run(fetch_via_local_scraper(item.ean))
+        use_bd_unlocker = _scraper_mode() == "bd_unlocker"
+        result = asyncio.run(fetch_via_bd_unlocker(item.ean)) if use_bd_unlocker else asyncio.run(fetch_via_local_scraper(item.ean))
+        if use_bd_unlocker and (result.is_temporary_error or getattr(result, "blocked", False)):
+            cached_result = _cached_result_from_state(state)
+            if cached_result:
+                status = ScrapeStatus.not_found if cached_result.is_not_found else ScrapeStatus.ok
+                _log_scrape_outcome("LOCAL_SCRAPER_CACHE_RESULT", item, cached_result, status, None)
+                _apply_scrape_result(db, item, product, category, state, cached_result)
+                _clear_blocked_state(run.id, item.id)
+                _finalize_item(db, run, item, prev_status)
+                return
         if result.is_temporary_error or getattr(result, "blocked", False):
             _maybe_retry_blocked(self, db, run, item, result, "LOCAL_SCRAPER_TASK")
             _maybe_retry_timeout(self, db, item, result, "LOCAL_SCRAPER_TASK")
@@ -653,6 +691,9 @@ def scrape_one_local(
         status = ScrapeStatus.not_found if result.is_not_found else ScrapeStatus.ok
         _log_scrape_outcome("LOCAL_SCRAPER_RESULT", item, result, status, None)
         _apply_scrape_result(db, item, product, category, state, result)
+        sold_status = (getattr(result, "raw_payload", {}) or {}).get("sold_count_status")
+        if sold_status and sold_status not in {"ok", None}:
+            item.error_message = f"sold_count_status:{sold_status}"
         _clear_blocked_state(run.id, item.id)
         _finalize_item(db, run, item, prev_status)
     except SoftTimeLimitExceeded as exc:

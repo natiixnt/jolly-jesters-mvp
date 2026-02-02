@@ -29,9 +29,13 @@ class Settings(BaseSettings):
     proxy_timeout: float = Field(default=15.0)
     local_scraper_timeout: float = Field(default=90.0, env="LOCAL_SCRAPER_TIMEOUT")
     scraping_retries: int = Field(default=2)
-    local_scraper_enabled: bool = Field(default=False, env="LOCAL_SCRAPER_ENABLED")
-    local_scraper_url: Optional[str] = Field(default=None, env="LOCAL_SCRAPER_URL")
+    local_scraper_enabled: bool = Field(default=True, env="LOCAL_SCRAPER_ENABLED")
+    local_scraper_url: Optional[str] = Field(default="http://local_scraper:5050", env="LOCAL_SCRAPER_URL")
     local_scraper_windows: int = Field(default=1, env="LOCAL_SCRAPER_WINDOWS")
+
+    # Bright Data Web Unlocker
+    bd_unlocker_token: Optional[str] = Field(default=None, env="BD_UNLOCKER_TOKEN")
+    bd_unlocker_zone: Optional[str] = Field(default=None, env="BD_UNLOCKER_ZONE")
 
     sqlalchemy_echo: bool = Field(default=False)
 

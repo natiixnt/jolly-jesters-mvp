@@ -49,6 +49,16 @@ services:
     working_dir: /app
     env_file:
       - ./backend/.env
+    environment:
+      - SCRAPER_MODE=${SCRAPER_MODE:-internal}
+      - BD_UNLOCKER_TOKEN=${BD_UNLOCKER_TOKEN:-}
+      - BD_UNLOCKER_ZONE=${BD_UNLOCKER_ZONE:-}
+      - BD_TIMEOUT_S=${BD_TIMEOUT_S:-30}
+      - BD_MAX_RETRIES=${BD_MAX_RETRIES:-3}
+      - BD_QPS=${BD_QPS:-1.0}
+      - BD_LISTING_MAX_PAGES=${BD_LISTING_MAX_PAGES:-3}
+      - BD_PDP_TIE_BREAK_LIMIT=${BD_PDP_TIE_BREAK_LIMIT:-5}
+      - BD_CACHE_TTL_SECONDS=${BD_CACHE_TTL_SECONDS:-86400}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
@@ -126,6 +136,16 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env
+    environment:
+      - SCRAPER_MODE=${SCRAPER_MODE:-internal}
+      - BD_UNLOCKER_TOKEN=${BD_UNLOCKER_TOKEN:-}
+      - BD_UNLOCKER_ZONE=${BD_UNLOCKER_ZONE:-}
+      - BD_TIMEOUT_S=${BD_TIMEOUT_S:-30}
+      - BD_MAX_RETRIES=${BD_MAX_RETRIES:-3}
+      - BD_QPS=${BD_QPS:-1.0}
+      - BD_LISTING_MAX_PAGES=${BD_LISTING_MAX_PAGES:-3}
+      - BD_PDP_TIE_BREAK_LIMIT=${BD_PDP_TIE_BREAK_LIMIT:-5}
+      - BD_CACHE_TTL_SECONDS=${BD_CACHE_TTL_SECONDS:-86400}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=2 --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
@@ -149,6 +169,16 @@ services:
     # --- POPRAWKA: dodalem env_file zeby wczytac proxy ---
     env_file:
       - ./backend/.env
+    environment:
+      - SCRAPER_MODE=${SCRAPER_MODE:-internal}
+      - BD_UNLOCKER_TOKEN=${BD_UNLOCKER_TOKEN:-}
+      - BD_UNLOCKER_ZONE=${BD_UNLOCKER_ZONE:-}
+      - BD_TIMEOUT_S=${BD_TIMEOUT_S:-30}
+      - BD_MAX_RETRIES=${BD_MAX_RETRIES:-3}
+      - BD_QPS=${BD_QPS:-1.0}
+      - BD_LISTING_MAX_PAGES=${BD_LISTING_MAX_PAGES:-3}
+      - BD_PDP_TIE_BREAK_LIMIT=${BD_PDP_TIE_BREAK_LIMIT:-5}
+      - BD_CACHE_TTL_SECONDS=${BD_CACHE_TTL_SECONDS:-86400}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-2} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:

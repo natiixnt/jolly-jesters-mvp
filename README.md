@@ -1,13 +1,58 @@
 # Jolly Jesters MVP
 
 Offline-first analiza oplacalnoœci Allegro z FastAPI, PostgreSQL, Redis i Celery.
-Nie korzystamy z oficjalnego API; scraping działa wyłącznie przez lokalny Selenium z rotacją fingerprintów.
+Nie korzystamy z oficjalnego API; scraping działa przez lokalny Selenium z rotacją fingerprintów **lub** (tryb override) przez Bright Data Web Unlocker.
 
 ## Uruchomienie (dev)
 
 ```
 docker compose up --build
 ```
+
+### Testy lokalnie
+
+```
+python -m pip install -r backend/requirements.txt
+make test         # pełna paczka
+make test-bd      # tylko testy trybu BD (kryterium k bd_)
+```
+
+### Tryb Bright Data Web Unlocker (override)
+
+1) Skonfiguruj zmienne (np. w `backend/.env.example` skopiuj do `backend/.env` lub eksportuj w shellu):
+```
+SCRAPER_MODE=bd_unlocker
+BD_UNLOCKER_TOKEN=your_token
+BD_UNLOCKER_ZONE=your_zone_optional
+BD_TIMEOUT_S=30
+BD_MAX_RETRIES=3
+BD_QPS=1.0
+BD_LISTING_MAX_PAGES=3
+BD_PDP_TIE_BREAK_LIMIT=5
+BD_CACHE_TTL_SECONDS=86400
+```
+2) Uruchom stack (przykład):\
+`SCRAPER_MODE=bd_unlocker BD_UNLOCKER_TOKEN=abc123 docker compose up --build`
+3) Ten sam flow: UI ➜ start job ➜ Celery (`scraper_local`) ➜ zapis do DB ➜ UI.
+4) Dane cache’owane w Redis (`bd_unlocker:v1:*`), fallback do ostatniego market_data gdy unlocker zawiedzie.
+5) Sanity: w logach workera szukaj `provider=bd_unlocker` / `sold_count_status`.
+
+Definicja A (tie-break):
+- Listing sortowany rosnąco, filtr „Kup teraz”, do `BD_LISTING_MAX_PAGES` (domyślnie 3) dopóki znajdzie oferty.
+- `lowest_price` = min cena brutto PLN.
+- Kandydaci z najniższą ceną → max `BD_PDP_TIE_BREAK_LIMIT` (domyślnie 5) PDP.
+- Wybór: najwyższy `sold_count_A` z PDP (brak widoczności ⇒ `sold_count_status=not_visible`), remis → mniejszy `offer_id`.
+- `sold_count_status`: ok | not_visible | no_offers_found | auctions_only | error.
+
+Observability:
+- Logi Celery zawierają `provider`, `listing_requests`, `pdp_requests`, `pages_scraped`, `sold_count_status` (w `raw_payload`).
+
+Debug:
+- Sprawdź cache: `redis-cli keys 'bd_unlocker:v1:*'`.
+- Podgląd ostatniego wyniku w DB: tabela `product_market_data.raw_payload` ma `provider=bd_unlocker`.
+
+### Pliki .env
+- `backend/.env.example` – szablon bez sekretów. Skopiuj do `backend/.env` lokalnie; nie commituj sekretów.
 
 Backend i workery uruchamiaja sie z kodu w obrazie (bez bind mount), wiec po zmianach w `backend/` wykonaj:
 ```

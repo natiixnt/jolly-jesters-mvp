@@ -69,7 +69,7 @@ def _looks_like_ean_series(series: pd.Series) -> bool:
         digits = "".join(ch for ch in v if ch.isdigit())
         if 12 <= len(digits) <= 14:
             hits += 1
-    return hits >= max(3, int(len(vals) * 0.6))
+    return hits >= max(1, int(len(vals) * 0.6))
 
 
 def _detect_header_row(df_raw: pd.DataFrame, max_scan: int = 20) -> int:
@@ -173,10 +173,13 @@ def _context_currency_hint(file_name: Optional[str], sheet_names: Sequence[str])
 
 def read_excel_file(
     file_bytes: bytes,
-    currency_rates: Dict[str, float],
+    currency_rates: Optional[Dict[str, float]] = None,
     default_currency: Optional[str] = None,
     file_name: Optional[str] = None,
 ) -> List[InputRow]:
+    currency_rates = currency_rates or {"PLN": 1.0, "EUR": 4.5, "USD": 4.2, "CAD": 3.1}
+    if default_currency is None:
+        default_currency = "PLN" if "PLN" in currency_rates else next(iter(currency_rates.keys()))
     excel = pd.ExcelFile(BytesIO(file_bytes))
     sheet_name = excel.sheet_names[0] if excel.sheet_names else 0
     df_raw = excel.parse(sheet_name=sheet_name, header=None)

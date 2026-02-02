@@ -816,7 +816,8 @@ def _resolve_source_label(item: AnalysisRunItem, product: Product | None) -> str
     if product and product.effective_state and product.effective_state.last_market_data:
         md = product.effective_state.last_market_data
         try:
-            candidate_source = (md.raw_payload or {}).get("source")
+            rp = md.raw_payload or {}
+            candidate_source = rp.get("provider") or rp.get("source")
         except Exception:
             candidate_source = None
         if not candidate_source and md.source:
@@ -869,12 +870,17 @@ def serialize_analysis_item(
 
     state = product.effective_state if product else None
     last_checked_at = None
+    sold_count_status = None
     if state:
         last_checked_at = (
             state.last_analysis_at
             or state.last_checked_at
             or (state.last_market_data.last_checked_at if state.last_market_data else None)
         )
+        try:
+            sold_count_status = (state.last_market_data.raw_payload or {}).get("sold_count_status") if state.last_market_data else None
+        except Exception:
+            sold_count_status = None
 
     return AnalysisResultItem(
         id=item.id,
@@ -886,6 +892,7 @@ def serialize_analysis_item(
         purchase_price_pln=float(purchase_price_pln) if purchase_price_pln is not None else None,
         allegro_price_pln=float(item.allegro_price) if item.allegro_price is not None else None,
         sold_count=item.allegro_sold_count,
+        sold_count_status=sold_count_status,
         margin_pln=float(margin_pln) if margin_pln is not None else None,
         margin_percent=float(margin_percent) if margin_percent is not None else None,
         is_profitable=is_profitable,

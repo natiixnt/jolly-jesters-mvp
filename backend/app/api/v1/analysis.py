@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.encoders import jsonable_encoder
@@ -61,6 +64,28 @@ def _validate_scraper_config(use_local_scraper: bool):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Lokalny scraper jest wyłączony (LOCAL_SCRAPER_ENABLED=false). Włącz go, aby scrapować.",
         )
+    if not use_local_scraper:
+        return
+    if os.getenv("LOCAL_SCRAPER_SKIP_HEALTHCHECK", "0").lower() in {"1", "true", "yes"}:
+        return
+    health = check_local_scraper_health(timeout_seconds=2.0)
+    if health.get("status") != "ok":
+        url = health.get("url") or settings.LOCAL_SCRAPER_URL or "LOCAL_SCRAPER_URL"
+        status_label = health.get("status") or "unknown"
+        status_code = health.get("status_code")
+        error = health.get("error")
+        suffix = f", status_code={status_code}" if status_code else ""
+        if error:
+            suffix += f", error={error}"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Local scraper niedostepny lub niezdrowy "
+                f"(status={status_label}{suffix}). "
+                f"Sprawdz usluge pod {url} albo wylacz 'Local scraper (Selenium)' "
+                "i uruchom analizę w trybie 'Tylko baza'."
+            ),
+        )
 
 
 @router.post("/upload", response_model=AnalysisUploadResponse)
@@ -76,25 +101,6 @@ async def upload_analysis(
     use_cloud_http = False  # cloud/proxy scraper disabled in MVP stack
     _validate_strategy(mode, use_local_scraper)
     _validate_scraper_config(use_local_scraper)
-    if use_local_scraper:
-        health = check_local_scraper_health(timeout_seconds=2.0)
-        if health.get("status") != "ok":
-            url = health.get("url") or settings.LOCAL_SCRAPER_URL or "LOCAL_SCRAPER_URL"
-            status_label = health.get("status") or "unknown"
-            status_code = health.get("status_code")
-            error = health.get("error")
-            suffix = f", status_code={status_code}" if status_code else ""
-            if error:
-                suffix += f", error={error}"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Local scraper niedostepny lub niezdrowy "
-                    f"(status={status_label}{suffix}). "
-                    f"Sprawdz usluge pod {url} albo wylacz 'Local scraper (Selenium)' "
-                    "i uruchom analizę w trybie 'Tylko baza'."
-                ),
-            )
 
     try:
         category_uuid = uuid.UUID(category_id)
@@ -278,8 +284,8 @@ def get_analysis_results(
 @router.get("/{run_id}/results/updates", response_model=AnalysisResultsResponse)
 def get_analysis_results_updates(
     run_id: int,
-    since: datetime | None = None,
-    since_id: int | None = None,
+    since: Optional[datetime] = None,
+    since_id: Optional[int] = None,
     limit: int = 200,
     db: Session = Depends(get_db),
 ):
