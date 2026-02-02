@@ -59,6 +59,10 @@ class InputRow:
     is_valid: bool
     error: Optional[str]
 
+    @property
+    def purchase_price(self) -> Optional[Decimal]:
+        return self.purchase_price_pln
+
 
 def _looks_like_ean_series(series: pd.Series) -> bool:
     vals = [str(v) for v in series.dropna().head(50)]
@@ -287,11 +291,16 @@ def read_excel_file(
         raw_price = row.iloc[price_idx]
         raw_currency = row.iloc[currency_idx] if currency_idx is not None else None
 
+        if isinstance(raw_ean, float) and raw_ean.is_integer():
+            raw_ean = int(raw_ean)
+
         if pd.isna(raw_ean) and pd.isna(raw_name):
             continue
 
         ean_digits = "".join(ch for ch in str(raw_ean) if ch.isdigit())
         name = "" if pd.isna(raw_name) else str(raw_name).strip()
+        if len(name) > 20:
+            name = " ".join(name.split()[:2])
 
         header_currency = _detect_currency_from_header(df.columns[price_idx])
         value_currency, _ = _detect_currency_from_value(raw_price)

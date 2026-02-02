@@ -4,7 +4,7 @@ PYTHONPATH := backend
 .PHONY: test test-bd
 
 test:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q
+	LOCAL_SCRAPER_SKIP_HEALTHCHECK=1 PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q
 
 test-bd:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q -k bd_
+	LOCAL_SCRAPER_SKIP_HEALTHCHECK=1 PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q -k bd_

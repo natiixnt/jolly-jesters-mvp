@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -154,25 +155,6 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
     use_local_scraper = payload.use_local_scraper
     _validate_strategy(mode, use_local_scraper)
     _validate_scraper_config(use_local_scraper)
-    if use_local_scraper:
-        health = check_local_scraper_health(timeout_seconds=2.0)
-        if health.get("status") != "ok":
-            url = health.get("url") or settings.LOCAL_SCRAPER_URL or "LOCAL_SCRAPER_URL"
-            status_label = health.get("status") or "unknown"
-            status_code = health.get("status_code")
-            error = health.get("error")
-            suffix = f", status_code={status_code}" if status_code else ""
-            if error:
-                suffix += f", error={error}"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Local scraper niedostepny lub niezdrowy "
-                    f"(status={status_label}{suffix}). "
-                    f"Sprawdz usluge pod {url} albo wylacz 'Local scraper (Selenium)' "
-                    "i uruchom analizę w trybie 'Tylko baza'."
-                ),
-            )
 
     if mode not in {"mixed", "offline", "online"}:
         raise HTTPException(status_code=400, detail="Mode must be 'mixed', 'offline' or 'online'")
