@@ -5,3 +5,4 @@ selenium
 selenium-wire
 blinker==1.6.3
 packaging
+undetected-chromedriver

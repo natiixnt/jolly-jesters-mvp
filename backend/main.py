@@ -7,13 +7,15 @@ import shutil
 import signal
 import subprocess
 import random
+import tempfile
+import zipfile
 from pathlib import Path
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
-from seleniumwire import webdriver
+from seleniumwire import webdriver as seleniumwire_webdriver
 from selenium.common.exceptions import SessionNotCreatedException, TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -21,6 +23,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
+# Try to import undetected-chromedriver (optional)
+try:
+    import undetected_chromedriver as uc
+    UC_AVAILABLE = True
+except ImportError:
+    UC_AVAILABLE = False
+    uc = None
 
 from app.utils.fingerprint import (
     SeleniumFingerprint,
@@ -260,6 +270,7 @@ def _build_chrome_options(
         options.add_argument("--enable-logging")
         options.add_argument("--v=1")
         options.add_argument(f"--log-path={chrome_log_file}")
+    
     return options
 
 
@@ -346,6 +357,11 @@ def _detect_no_results_text(driver: WebDriver) -> bool:
 def _status_indicates_block(request_meta: Dict[str, Any]) -> bool:
     if not request_meta:
         return False
+    
+    # Skip early block detection if DEBUG_SKIP_EARLY_BLOCK is set (for debugging)
+    if _env_flag_enabled(os.getenv("DEBUG_SKIP_EARLY_BLOCK")):
+        return False
+    
     try:
         status_code = int(request_meta.get("status_code")) if request_meta.get("status_code") is not None else None
     except Exception:
@@ -389,14 +405,134 @@ def _offer_link_from_dom(driver: WebDriver) -> Optional[str]:
     return None
 
 
-def _request_metadata(driver: Optional[WebDriver]) -> Dict[str, Any]:
-    if driver is None:
-        return {}
+def _request_metadata_from_page(driver: WebDriver) -> Dict[str, Any]:
+    """
+    Extract request metadata from page for UC drivers using Performance API.
+    This is a fallback when selenium-wire is not available.
+    """
     try:
-        requests = list(getattr(driver, "requests", []) or [])
+        current_url = driver.current_url
     except Exception:
         return {}
+    
+    # Try to get navigation timing to detect issues
+    try:
+        # Get the main document's response status via Performance API
+        # Note: Performance API doesn't give us HTTP status codes directly,
+        # so we need to infer from page content
+        timing = driver.execute_script(
+            "return window.performance.getEntriesByType('navigation')[0];"
+        )
+        
+        if timing:
+            # Check if the page loaded (transferSize > 0 usually means content was received)
+            transfer_size = timing.get("transferSize", 0)
+            response_status = timing.get("responseStatus")  # Available in newer browsers
+            
+            if response_status:
+                print(f"DEBUG: UC driver got responseStatus from Performance API: {response_status}", flush=True)
+                return {
+                    "url": current_url,
+                    "method": "GET",
+                    "status_code": response_status,
+                    "response_headers": {},
+                }
+    except Exception as e:
+        print(f"DEBUG: UC driver Performance API failed: {e}", flush=True)
+    
+    # Fallback: Try to detect block from page content
+    try:
+        page_source = driver.page_source or ""
+        page_lower = page_source.lower()
+        
+        # DataDome challenge detection
+        if "var dd=" in page_source and "<title>allegro.pl</title>" in page_lower:
+            if len(page_source) < 2000:  # Challenge pages are typically small
+                print(f"DEBUG: UC driver detected DataDome challenge page", flush=True)
+                return {
+                    "url": current_url,
+                    "method": "GET",
+                    "status_code": 403,  # Treat as 403
+                    "response_headers": {},
+                    "detected_via": "page_content_datadome",
+                }
+        
+        # Check for common block indicators
+        block_indicators = [
+            ("captcha", 403),
+            ("access denied", 403),
+            ("blocked", 403),
+            ("cloudflare", 403),
+        ]
+        for indicator, status in block_indicators:
+            if indicator in page_lower:
+                # Make sure it's not a false positive from normal page content
+                if len(page_source) < 5000:
+                    print(f"DEBUG: UC driver detected block indicator: {indicator}", flush=True)
+                    return {
+                        "url": current_url,
+                        "method": "GET",
+                        "status_code": status,
+                        "response_headers": {},
+                        "detected_via": f"page_content_{indicator}",
+                    }
+        
+        # Check if page has actual listing content
+        if "data-serialize-box-id" in page_source or "__listing_StoreState" in page_source:
+            # Page loaded successfully with listing data
+            return {
+                "url": current_url,
+                "method": "GET",
+                "status_code": 200,
+                "response_headers": {},
+                "detected_via": "page_content_listing",
+            }
+        
+        # Check for "no results" (not blocked, just no products)
+        no_results_markers = ["brak wyników", "nie znaleźliśmy", "0 wyników"]
+        if any(marker in page_lower for marker in no_results_markers):
+            return {
+                "url": current_url,
+                "method": "GET", 
+                "status_code": 200,
+                "response_headers": {},
+                "detected_via": "page_content_no_results",
+            }
+            
+    except Exception as e:
+        print(f"DEBUG: UC driver page content check failed: {e}", flush=True)
+    
+    # Unknown status - return empty to let normal flow continue
+    return {"url": current_url, "method": "GET", "status_code": None, "response_headers": {}}
+
+
+def _request_metadata(driver: Optional[WebDriver]) -> Dict[str, Any]:
+    """
+    Extract HTTP request metadata from driver (requires selenium-wire).
+    Returns status codes and headers for block detection.
+    For undetected-chromedriver (UC), we use page-based detection instead.
+    """
+    if driver is None:
+        return {}
+    
+    # Check if this is a UC driver (no requests attribute)
+    requests_attr = getattr(driver, "requests", None)
+    if requests_attr is None:
+        # UC driver - use page-based detection via Performance API
+        return _request_metadata_from_page(driver)
+    
+    try:
+        requests = list(requests_attr or [])
+    except Exception:
+        return {}
+    
+    # Debug: Log all allegro.pl requests and their status codes
+    debug_all_requests = _env_flag_enabled(os.getenv("DEBUG_SELENIUM_REQUESTS"))
+    allegro_requests_summary = []
+    
     target = None
+    main_page_request = None  # Track the main listing page specifically
+    
     for req in reversed(requests):
         try:
             url = req.url
@@ -404,11 +540,36 @@ def _request_metadata(driver: Optional[WebDriver]) -> Dict[str, Any]:
             continue
         if not url or "allegro.pl" not in url:
             continue
-        if "/listing" in url or "listView" in url:
+        
+        # Get status code for this request
+        req_status = None
+        try:
+            if getattr(req, "response", None):
+                req_status = getattr(req.response, "status_code", None)
+        except Exception:
+            pass
+        
+        if debug_all_requests:
+            allegro_requests_summary.append(f"{req_status}:{url[:100]}")
+        
+        # Prioritize the main listing page URL (the one user actually navigates to)
+        if "/listing" in url and "string=" in url:
+            # This is our main search page - prioritize it
+            if main_page_request is None:
+                main_page_request = req
+        elif "/listing" in url or "listView" in url:
+            if target is None:
+                target = req
+        elif target is None:
             target = req
-            break
-        if target is None:
-            target = req
+    
+    # Prefer main page request over other API calls
+    if main_page_request:
+        target = main_page_request
+    
+    if debug_all_requests and allegro_requests_summary:
+        print(f"DEBUG: All allegro.pl requests: {allegro_requests_summary}", flush=True)
+    
     if not target:
         return {}
     status_code = None
@@ -419,8 +580,20 @@ def _request_metadata(driver: Optional[WebDriver]) -> Dict[str, Any]:
             headers = dict(getattr(target.response, "headers", {}) or {})
     except Exception:
         status_code = None
+    
+    # Debug: Log the selected target URL and status
+    target_url = getattr(target, "url", None)
+    has_response = getattr(target, "response", None) is not None
+    response_reason = None
+    if has_response:
+        try:
+            response_reason = getattr(target.response, "reason", None)
+        except Exception:
+            pass
+    print(f"DEBUG: Selected request for status check: status={status_code} reason={response_reason} has_response={has_response} url={target_url[:150] if target_url else 'None'}", flush=True)
+    
     return {
-        "url": getattr(target, "url", None),
+        "url": target_url,
         "method": getattr(target, "method", None),
         "status_code": status_code,
         "response_headers": headers,
@@ -524,10 +697,249 @@ def _update_driver_debug(
     )
 
 
+def _use_undetected_chromedriver() -> bool:
+    """Check if we should use undetected-chromedriver instead of selenium-wire."""
+    if not UC_AVAILABLE:
+        return False
+    return _env_flag_enabled(os.getenv("USE_UNDETECTED_CHROMEDRIVER"))
+
+
+def _create_uc_driver(driver_path: str) -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
+    """Create a driver using undetected-chromedriver for better anti-bot evasion."""
+    if not UC_AVAILABLE or uc is None:
+        raise RuntimeError("undetected-chromedriver not installed")
+    
+    fingerprint = get_selenium_fingerprint()
+    if fingerprint:
+        count, threshold = _bump_rotation_counter(fingerprint.rotated)
+        logger.info(
+            "local_scraper uc_fingerprint fingerprint_id=%s ua_hash=%s viewport=%sx%s lang=%s",
+            fingerprint.fingerprint_id,
+            fingerprint.ua_hash,
+            fingerprint.viewport[0],
+            fingerprint.viewport[1],
+            fingerprint.lang,
+        )
+    
+    proxy_config = get_selenium_proxy(fingerprint)
+    proxy_info: Dict[str, Any] = {}
+    proxy_ext_path: Optional[str] = None
+    
+    if proxy_config:
+        proxy_info = {
+            "proxy_id": proxy_config.proxy_id,
+            "proxy_source": proxy_config.source,
+            "proxy_url": proxy_config.proxy_url,
+            "proxy_rotated": proxy_config.rotated,
+        }
+        print(f"DEBUG: UC driver configuring proxy: {proxy_config.proxy_url[:50]}...", flush=True)
+    
+    # Configure UC options
+    chrome_path = _resolve_chrome_binary()
+    headless = is_headless_mode()
+    
+    options = uc.ChromeOptions()
+    if chrome_path:
+        options.binary_location = chrome_path
+    
+    # Note: UC handles headless differently - use headless=True parameter in uc.Chrome()
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-first-run")
+    options.add_argument("--no-default-browser-check")
+    
+    if fingerprint:
+        width, height = fingerprint.viewport
+        options.add_argument(f"--window-size={width},{height}")
+        options.add_argument(f"--lang={fingerprint.lang}")
+        # CRITICAL: Set user agent to match fingerprint (must match browser version!)
+        options.add_argument(f"--user-agent={fingerprint.user_agent}")
+        print(f"DEBUG: UC driver fingerprint: preset={fingerprint.preset_id} ua_version={fingerprint.ua_version}", flush=True)
+    else:
+        options.add_argument("--window-size=1280,800")
+        options.add_argument("--lang=pl-PL")
+        # Default user agent for Chromium 144
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
+    
+    # Configure proxy via extension for HTTP/HTTPS (UC doesn't work well with --proxy-server for auth)
+    if proxy_config and proxy_config.proxy_url:
+        proxy_url = proxy_config.proxy_url
+        parsed = urlparse(proxy_url if "://" in proxy_url else f"http://{proxy_url}")
+        
+        if parsed.username:  # Proxy needs authentication
+            try:
+                proxy_ext_path = _create_proxy_extension(proxy_url)
+                options.add_extension(proxy_ext_path)
+                print(f"DEBUG: UC driver using proxy extension for auth", flush=True)
+            except Exception as e:
+                print(f"DEBUG: Failed to create proxy extension: {e}", flush=True)
+                # Fall back to no-auth proxy config
+                options.add_argument(f"--proxy-server={parsed.hostname}:{parsed.port or 8080}")
+        else:
+            # No auth needed, use direct proxy argument
+            options.add_argument(f"--proxy-server={parsed.hostname}:{parsed.port or 8080}")
+    
+    # Set up profile directory
+    forced_profile_dir: Optional[str] = None
+    if fingerprint and fingerprint.profile_dir:
+        forced_profile_dir = fingerprint.profile_dir
+    elif _env_flag_enabled(os.getenv("SELENIUM_FORCE_TEMP_PROFILE")):
+        forced_profile_dir = _get_forced_profile_dir()
+    
+    if forced_profile_dir:
+        options.add_argument(f"--user-data-dir={forced_profile_dir}")
+        print(f"DEBUG: UC driver using profile dir: {forced_profile_dir}", flush=True)
+    
+    try:
+        # Create UC driver
+        # Note: UC patches Chrome to avoid detection
+        driver = uc.Chrome(
+            options=options,
+            driver_executable_path=driver_path,
+            headless=headless,
+            use_subprocess=True,  # More reliable
+        )
+        print(f"DEBUG: UC driver created successfully", flush=True)
+    except Exception as e:
+        print(f"DEBUG: UC driver creation failed: {e}", flush=True)
+        raise
+    
+    # Set page load timeout
+    driver.set_page_load_timeout(int(os.getenv("LOCAL_SCRAPER_PAGELOAD_TIMEOUT", "45")))
+    
+    # Apply stealth settings (critical for anti-detection)
+    _apply_stealth(driver, fingerprint)
+    
+    # Set window size
+    try:
+        if fingerprint:
+            driver.set_window_size(fingerprint.viewport[0], fingerprint.viewport[1])
+    except Exception:
+        pass
+    
+    # Set timezone if available
+    if fingerprint and fingerprint.timezone:
+        try:
+            driver.execute_cdp_cmd("Emulation.setTimezoneOverride", {"timezoneId": fingerprint.timezone})
+        except Exception:
+            pass
+    
+    # Store proxy info on driver for later retrieval
+    try:
+        setattr(driver, "_proxy_info", proxy_info)
+    except Exception:
+        pass
+    
+    # Apply fingerprint settings
+    fingerprint_id = fingerprint.fingerprint_id if fingerprint else None
+    
+    _LAST_DRIVER_DEBUG.clear()
+    _LAST_DRIVER_DEBUG.update({
+        "status": "ok",
+        "scraper_mode": "uc_headless" if headless else "uc_headed",
+        "user_data_dir": forced_profile_dir,
+        "profile_dir": None,
+        "chrome_args": list(options.arguments),
+        "user_agent": None,
+        "navigator_webdriver": None,
+        "browser_version": None,
+        "proxy_id": proxy_info.get("proxy_id"),
+        "proxy_source": proxy_info.get("proxy_source"),
+        "fingerprint_id": fingerprint_id,
+    })
+    
+    logger.info(
+        "local_scraper uc_driver_ready mode=%s fingerprint_id=%s proxy_id=%s",
+        "headless" if headless else "headed",
+        fingerprint_id,
+        proxy_info.get("proxy_id"),
+    )
+    
+    return driver, fingerprint
+
+
+def _create_proxy_extension(proxy_url: str) -> str:
+    """Create a Chrome extension for proxy authentication (HTTP/HTTPS proxy)."""
+    parsed = urlparse(proxy_url if "://" in proxy_url else f"http://{proxy_url}")
+    proxy_host = parsed.hostname
+    proxy_port = parsed.port or 8080
+    proxy_user = parsed.username or ""
+    proxy_pass = parsed.password or ""
+    scheme = parsed.scheme if parsed.scheme in ("http", "https") else "http"
+    
+    manifest_json = """{
+  "manifest_version": 3,
+  "name": "Proxy Auth Helper",
+  "version": "1.0",
+  "permissions": ["proxy", "webRequest", "webRequestAuthProvider"],
+  "host_permissions": ["<all_urls>"],
+  "background": {"service_worker": "background.js"}
+}"""
+    
+    background_js = f"""
+var config = {{
+  mode: "fixed_servers",
+  rules: {{
+    singleProxy: {{
+      scheme: "{scheme}",
+      host: "{proxy_host}",
+      port: {proxy_port}
+    }},
+    bypassList: ["localhost", "127.0.0.1"]
+  }}
+}};
+
+chrome.proxy.settings.set({{value: config, scope: "regular"}});
+
+chrome.webRequest.onAuthRequired.addListener(
+  function(details, callback) {{
+    callback({{
+      authCredentials: {{
+        username: "{proxy_user}",
+        password: "{proxy_pass}"
+      }}
+    }});
+  }},
+  {{urls: ["<all_urls>"]}},
+  ["asyncBlocking"]
+);
+"""
+    
+    ext_file = tempfile.NamedTemporaryFile(mode='w+b', suffix='.zip', delete=False)
+    ext_path = ext_file.name
+    ext_file.close()
+    
+    with zipfile.ZipFile(ext_path, 'w') as zp:
+        zp.writestr("manifest.json", manifest_json)
+        zp.writestr("background.js", background_js)
+    
+    return ext_path
+
+
 def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
     driver_path = _resolve_chromedriver_path()
     if not driver_path:
         raise RuntimeError("chromedriver_not_found")
+    
+    # Check if we should use undetected-chromedriver
+    # NOTE: UC doesn't work well with authenticated proxies - use selenium-wire instead
+    use_uc = _use_undetected_chromedriver()
+    if use_uc:
+        # Check if proxy requires authentication
+        proxy_config = get_selenium_proxy(None)
+        if proxy_config and proxy_config.proxy_url:
+            parsed = urlparse(proxy_config.proxy_url if "://" in proxy_config.proxy_url else f"http://{proxy_config.proxy_url}")
+            if parsed.username:
+                print(f"DEBUG: Proxy requires auth - using selenium-wire instead of UC (UC doesn't support proxy auth well)", flush=True)
+                # Fall through to use selenium-wire
+            else:
+                print(f"DEBUG: Using undetected-chromedriver mode (no proxy auth needed)", flush=True)
+                return _create_uc_driver(driver_path)
+        else:
+            print(f"DEBUG: Using undetected-chromedriver mode (no proxy)", flush=True)
+            return _create_uc_driver(driver_path)
+    
     fingerprint = get_selenium_fingerprint()
     if fingerprint:
         count, threshold = _bump_rotation_counter(fingerprint.rotated)
@@ -576,27 +988,121 @@ def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
                 pass
             log_output = str(chromedriver_log_file)
         service = Service(executable_path=driver_path, log_output=log_output)
+        
+        # Configure proxy (Selenium Wire for HTTP/HTTPS, Chrome extension for SOCKS5)
         seleniumwire_options = None
         proxy_raw = proxy_config.proxy_url if proxy_config else ""
+        print(f"DEBUG: Proxy config check: proxy_raw={proxy_raw!r} proxy_config={proxy_config!r}", flush=True)
         if proxy_raw:
-            proxy_url = proxy_raw if "://" in proxy_raw else f"socks5://{proxy_raw}"
+            # Parse proxy: user:pass@host:port or scheme://user:pass@host:port
+            proxy_url = proxy_raw if "://" in proxy_raw else f"http://{proxy_raw}"
             parsed = urlparse(proxy_url)
-            if not parsed.hostname or parsed.port is None:
-                raise RuntimeError(
-                    "SELENIUM_PROXY must include host and port, e.g. user:pass@host:port or "
-                    "socks5://user:pass@host:port"
-                )
-            seleniumwire_options = {
-                "proxy": {
-                    "http": proxy_url,
-                    "https": proxy_url,
-                    "no_proxy": "localhost,127.0.0.1",
-                },
-                "verify_ssl": False,
-            }
+            print(f"DEBUG: Proxy URL parsed: proxy_url={proxy_url} starts_with_socks5={proxy_url.startswith('socks5://')}", flush=True)
+            
+            # SOCKS5 proxy: use Chrome extension for authentication (Chrome doesn't support SOCKS5 auth natively)
+            if proxy_url.startswith("socks5://"):
+                print("DEBUG: Entering SOCKS5 branch", flush=True)
+                try:
+                    import tempfile
+                    import zipfile
+                    
+                    proxy_host = parsed.hostname
+                    proxy_port = parsed.port or 1080
+                    proxy_user = parsed.username or ""
+                    proxy_pass = parsed.password or ""
+                    
+                    print(f"DEBUG: SOCKS5 proxy details: host={proxy_host} port={proxy_port} user={proxy_user[:5]}...", flush=True)
+                    
+                    # Create Chrome extension for SOCKS5 proxy auth
+                    manifest_json = """{
+  "manifest_version": 3,
+  "name": "Proxy Auth",
+  "version": "1.0",
+  "permissions": ["proxy", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {"service_worker": "background.js"}
+}"""
+                    
+                    background_js = f"""
+const config = {{
+  mode: "fixed_servers",
+  rules: {{
+    singleProxy: {{
+      scheme: "socks5",
+      host: "{proxy_host}",
+      port: {proxy_port}
+    }},
+    bypassList: ["localhost", "127.0.0.1"]
+  }}
+}};
+
+chrome.proxy.settings.set({{value: config, scope: "regular"}});
+
+chrome.webRequest.onAuthRequired.addListener(
+  function(details) {{
+    return {{
+      authCredentials: {{
+        username: "{proxy_user}",
+        password: "{proxy_pass}"
+      }}
+    }};
+  }},
+  {{urls: ["<all_urls>"]}},
+  ["blocking"]
+);
+"""
+                    
+                    print("DEBUG: Creating extension zip", flush=True)
+                    # Create extension zip
+                    ext_file = tempfile.NamedTemporaryFile(mode='w+b', suffix='.zip', delete=False)
+                    ext_path = ext_file.name
+                    ext_file.close()
+                    
+                    with zipfile.ZipFile(ext_path, 'w') as zp:
+                        zp.writestr("manifest.json", manifest_json)
+                        zp.writestr("background.js", background_js)
+                    
+                    print(f"DEBUG: Extension created at {ext_path}, adding to options", flush=True)
+                    options.add_extension(ext_path)
+                    print("DEBUG: Extension added successfully", flush=True)
+                    logger.info("Configured SOCKS5 proxy via Chrome extension: %s:%s (user: %s)", 
+                               proxy_host, proxy_port, proxy_user if proxy_user else "none")
+                except Exception as e:
+                    print(f"DEBUG: ERROR creating SOCKS5 extension: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
+                    raise
+            else:
+                # HTTP/HTTPS proxy: use Selenium Wire
+                seleniumwire_options = {
+                    "proxy": {
+                        "http": proxy_url,
+                        "https": proxy_url,
+                        "no_proxy": "localhost,127.0.0.1",
+                    },
+                    "verify_ssl": False,
+                    # Disable request storage to reduce memory usage
+                    "disable_encoding": True,
+                    # Don't capture all requests (only what we need)
+                    "request_storage": "memory",
+                    "request_storage_max_size": 100,  # Keep only last 100 requests
+                }
+                
+                # Debug: Check if the proxy URL is well-formed for selenium-wire
+                print(f"DEBUG: Selenium-wire proxy config: http={proxy_url[:50]}... hostname={parsed.hostname} port={parsed.port} has_auth={bool(parsed.username)}", flush=True)
+                
+                # Check for common proxy format issues
+                if not parsed.port:
+                    print("WARNING: Proxy URL has no port specified!", flush=True)
+                if "@" in proxy_url and not parsed.username:
+                    print("WARNING: Proxy URL contains @ but username not parsed correctly!", flush=True)
+                
+                logger.info("Configured Selenium Wire HTTP/HTTPS proxy: %s:%s (user: %s)", 
+                           parsed.hostname, parsed.port, parsed.username if parsed.username else "none")
+        
         if seleniumwire_options:
-            return webdriver.Chrome(service=service, options=options, seleniumwire_options=seleniumwire_options)
-        return webdriver.Chrome(service=service, options=options)
+            return seleniumwire_webdriver.Chrome(service=service, options=options, seleniumwire_options=seleniumwire_options)
+        return seleniumwire_webdriver.Chrome(service=service, options=options)
 
     last_exc: Optional[Exception] = None
 
@@ -620,13 +1126,19 @@ def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
         forced_profile_dir = _FORCED_PROFILE_DIR
         logger.warning("Using fallback profile dir=%s", forced_profile_dir)
 
-    options = _build_chrome_options(user_data_dir_override=forced_profile_dir, fingerprint=fingerprint)
+    options = _build_chrome_options(
+        user_data_dir_override=forced_profile_dir,
+        fingerprint=fingerprint,
+    )
     driver = _try_start("forced_profile" if forced_profile_dir else "default", options)
 
     if driver is None and forced_profile_dir is not None:
         fallback_dir = _new_temp_profile_dir()
         logger.warning("Retrying with new forced profile dir=%s", fallback_dir)
-        options = _build_chrome_options(user_data_dir_override=fallback_dir, fingerprint=fingerprint)
+        options = _build_chrome_options(
+            user_data_dir_override=fallback_dir,
+            fingerprint=fingerprint,
+        )
         driver = _try_start("forced_profile_retry", options)
         if driver is not None:
             _FORCED_PROFILE_DIR = fallback_dir
@@ -634,7 +1146,10 @@ def _create_driver() -> Tuple[WebDriver, Optional[SeleniumFingerprint]]:
     if driver is None and forced_profile_dir is None and _env_flag_enabled(os.getenv("SELENIUM_PROFILE_FALLBACK")):
         fallback_dir = _new_temp_profile_dir()
         logger.warning("Retrying with fallback profile dir=%s", fallback_dir)
-        options = _build_chrome_options(user_data_dir_override=fallback_dir, fingerprint=fingerprint)
+        options = _build_chrome_options(
+            user_data_dir_override=fallback_dir,
+            fingerprint=fingerprint,
+        )
         driver = _try_start("fallback_profile", options)
         if driver is not None:
             _FORCED_PROFILE_DIR = fallback_dir
@@ -896,8 +1411,19 @@ def _platform_from_user_agent(user_agent: Optional[str]) -> str:
 
 
 def _apply_stealth(driver: WebDriver, fingerprint: Optional[SeleniumFingerprint]) -> None:
+    """Apply comprehensive stealth settings to evade anti-bot detection like DataDome."""
     if not fingerprint:
+        # Apply basic stealth even without fingerprint
+        basic_script = """
+Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+delete navigator.__proto__.webdriver;
+"""
+        try:
+            driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": basic_script})
+        except Exception:
+            pass
         return
+    
     platform_name = _platform_from_user_agent(fingerprint.user_agent)
     languages = []
     for raw in (fingerprint.accept_language or "").split(","):
@@ -908,33 +1434,119 @@ def _apply_stealth(driver: WebDriver, fingerprint: Optional[SeleniumFingerprint]
         languages = [fingerprint.lang]
     if not languages:
         languages = ["pl-PL", "pl"]
+    
+    # Comprehensive stealth script for DataDome evasion
     script = """
+// Hide webdriver property
 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+delete navigator.__proto__.webdriver;
+
+// Override platform to match User-Agent
 Object.defineProperty(navigator, 'platform', {get: () => '%s'});
+
+// Set languages
 Object.defineProperty(navigator, 'language', {get: () => '%s'});
-Object.defineProperty(navigator, 'languages', {get: () => %s});
+Object.defineProperty(navigator, 'languages', {get: () => Object.freeze(%s)});
+
+// Hardware concurrency (typical desktop)
 Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
 Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
-Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
+
+// Touch points (0 for desktop)
 Object.defineProperty(navigator, 'maxTouchPoints', {get: () => 0});
-window.chrome = window.chrome || { runtime: {} };
+
+// Proper plugins array (looks like real browser)
+Object.defineProperty(navigator, 'plugins', {
+    get: () => {
+        const plugins = [
+            {name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format'},
+            {name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: ''},
+            {name: 'Native Client', filename: 'internal-nacl-plugin', description: ''}
+        ];
+        plugins.length = 3;
+        return plugins;
+    }
+});
+
+// MimeTypes
+Object.defineProperty(navigator, 'mimeTypes', {
+    get: () => {
+        const mimes = [
+            {type: 'application/pdf', suffixes: 'pdf', description: 'Portable Document Format'},
+            {type: 'text/pdf', suffixes: 'pdf', description: 'Portable Document Format'}
+        ];
+        mimes.length = 2;
+        return mimes;
+    }
+});
+
+// Chrome object (must exist and look real)
+window.chrome = window.chrome || {};
+window.chrome.runtime = window.chrome.runtime || {};
+window.chrome.loadTimes = window.chrome.loadTimes || function() { return {}; };
+window.chrome.csi = window.chrome.csi || function() { return {}; };
+window.chrome.app = window.chrome.app || {isInstalled: false, InstallState: {DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed'}, RunningState: {CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running'}};
+
+// Permissions API
 const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
 if (originalQuery) {
-  window.navigator.permissions.query = (parameters) => (
-    parameters && parameters.name === 'notifications'
-      ? Promise.resolve({ state: 'default', onchange: null })
-      : originalQuery(parameters)
-  );
+    window.navigator.permissions.query = (parameters) => {
+        if (parameters && parameters.name === 'notifications') {
+            return Promise.resolve({ state: Notification.permission, onchange: null });
+        }
+        return originalQuery(parameters);
+    };
 }
+
+// WebGL vendor/renderer (important for fingerprinting)
+const getParameterProxyHandler = {
+    apply: function(target, ctx, args) {
+        const param = args[0];
+        const gl = ctx;
+        if (param === 37445) { // UNMASKED_VENDOR_WEBGL
+            return 'Google Inc. (NVIDIA)';
+        }
+        if (param === 37446) { // UNMASKED_RENDERER_WEBGL
+            return 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1080 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+        }
+        return Reflect.apply(target, ctx, args);
+    }
+};
+
+try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl) {
+        const originalGetParameter = gl.__proto__.getParameter;
+        gl.__proto__.getParameter = new Proxy(originalGetParameter, getParameterProxyHandler);
+    }
+} catch(e) {}
+
+// Console.debug should exist
+if (!window.console.debug) {
+    window.console.debug = window.console.log;
+}
+
+// Iframe contentWindow should work normally
+try {
+    Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+        get: function() {
+            return this._contentWindow || null;
+        }
+    });
+} catch(e) {}
 """ % (
-        platform_name.replace("'", ""),
-        (languages[0] if languages else "pl-PL").replace("'", ""),
+        platform_name.replace("'", "").replace("\\", "\\\\"),
+        (languages[0] if languages else "pl-PL").replace("'", "").replace("\\", "\\\\"),
         json.dumps(languages),
     )
+    
     try:
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": script})
-    except Exception:
-        pass
+        print(f"DEBUG: Stealth script applied successfully", flush=True)
+    except Exception as e:
+        print(f"DEBUG: Failed to apply stealth script: {e}", flush=True)
+    
     try:
         driver.execute_cdp_cmd(
             "Network.setUserAgentOverride",
@@ -964,9 +1576,31 @@ def _scrape_attempt(ean: str, scraped_at: str, attempt: int, max_attempts: int) 
         page_load_started = time.monotonic()
         driver.get(f"https://allegro.pl/listing?string={ean}")
         stage_durations["page_load_seconds"] = round(time.monotonic() - page_load_started, 2)
+        
+        # DataDome/anti-bot challenge wait: give JavaScript time to execute the challenge
+        datadome_wait = float(os.getenv("LOCAL_SCRAPER_DATADOME_WAIT", "0") or "0")
+        if datadome_wait > 0:
+            print(f"DEBUG: Waiting {datadome_wait}s for DataDome challenge to resolve...", flush=True)
+            time.sleep(datadome_wait)
+        
         request_meta = _request_metadata(driver)
         if _status_indicates_block(request_meta):
             block_reason = _detect_block_reason(driver, request_meta)
+            
+            # Debug: Get page source snippet and current URL to help diagnose
+            page_snippet = ""
+            current_url = ""
+            try:
+                current_url = driver.current_url or ""
+            except Exception:
+                current_url = "unable_to_get_url"
+            try:
+                page_source = driver.page_source or ""
+                # Get first 500 chars to see what actually loaded
+                page_snippet = page_source[:500].replace("\n", " ")
+            except Exception:
+                page_snippet = "unable_to_get_source"
+            
             logger.warning(
                 "local_scraper blocked_early ean=%s attempt=%s/%s block_reason=%s status=%s fingerprint_id=%s proxy_id=%s",
                 ean,
@@ -977,6 +1611,16 @@ def _scrape_attempt(ean: str, scraped_at: str, attempt: int, max_attempts: int) 
                 fingerprint_id,
                 proxy_info.get("proxy_id"),
             )
+            print(f"DEBUG: Current browser URL: {current_url}", flush=True)
+            print(f"DEBUG: Page content snippet on block: {page_snippet[:300]}", flush=True)
+            print(f"DEBUG: Request URL that returned {request_meta.get('status_code')}: {request_meta.get('url')}", flush=True)
+            
+            # Debug pause: keep browser open for VNC inspection
+            debug_pause = float(os.getenv("DEBUG_PAUSE_ON_BLOCK", "0") or "0")
+            if debug_pause > 0:
+                print(f"DEBUG: Pausing for {debug_pause}s for VNC inspection...", flush=True)
+                time.sleep(debug_pause)
+            
             return _build_result_payload(
                 ean=ean,
                 scraped_at=scraped_at,

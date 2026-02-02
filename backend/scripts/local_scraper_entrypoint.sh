@@ -40,4 +40,17 @@ if [ "${LOCAL_SCRAPER_ENABLE_VNC:-0}" = "1" ]; then
   fi
 fi
 
+# Start proxy forwarder if USE_PROXY_FORWARDER is enabled and SELENIUM_PROXY is set
+if [ "${USE_PROXY_FORWARDER:-0}" = "1" ] && [ -n "${SELENIUM_PROXY:-}" ]; then
+  # Save original proxy for the forwarder to use as upstream
+  export SELENIUM_PROXY_ORIGINAL="$SELENIUM_PROXY"
+  echo "[local_scraper] Starting proxy forwarder on 127.0.0.1:8888" >&2
+  echo "[local_scraper] Upstream proxy: ${SELENIUM_PROXY_ORIGINAL}" >&2
+  python /app/proxy_forwarder.py &
+  sleep 1
+  # Override SELENIUM_PROXY for the browser to use local forwarder (no auth needed)
+  export SELENIUM_PROXY="http://127.0.0.1:8888"
+  echo "[local_scraper] Browser will use proxy: $SELENIUM_PROXY (no auth)" >&2
+fi
+
 exec python -m uvicorn local_scraper_service:app --host 0.0.0.0 --port "${LOCAL_SCRAPER_PORT:-5050}"

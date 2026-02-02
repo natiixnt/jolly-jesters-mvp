@@ -63,62 +63,70 @@ class _BasePreset:
     timezone: Optional[str]
 
 
+# NOTE: User-Agent version MUST match the actual browser version!
+# Check docker logs for "chrome=Chromium X.X.X" to get the actual version.
+# Current container uses Chromium 144.
+
 _BASE_PRESETS: List[_BasePreset] = [
+    # Primary preset: Polish Windows user for allegro.pl (most common)
     _BasePreset(
-        preset_id="win_pl_122",
+        preset_id="win_pl_144",
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
         ),
-        sec_ch_ua='"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+        sec_ch_ua='"Chromium";v="144", "Not A(Brand";v="99", "Google Chrome";v="144"',
         sec_ch_ua_platform='"Windows"',
         accept_language="pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7",
         intl_accept_languages="pl-PL,pl,en-US,en",
         lang="pl-PL",
+        viewport=(1920, 1080),
+        timezone="Europe/Warsaw",
+    ),
+    # Secondary: Polish Windows with different viewport
+    _BasePreset(
+        preset_id="win_pl_144_b",
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+        ),
+        sec_ch_ua='"Chromium";v="144", "Not A(Brand";v="99", "Google Chrome";v="144"',
+        sec_ch_ua_platform='"Windows"',
+        accept_language="pl-PL,pl;q=0.9,en;q=0.8",
+        intl_accept_languages="pl-PL,pl,en",
+        lang="pl-PL",
         viewport=(1366, 768),
         timezone="Europe/Warsaw",
     ),
+    # Tertiary: Polish macOS user
     _BasePreset(
-        preset_id="win_de_123",
+        preset_id="mac_pl_144",
         user_agent=(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
         ),
-        sec_ch_ua='"Chromium";v="123", "Not(A:Brand";v="24", "Google Chrome";v="123"',
-        sec_ch_ua_platform='"Windows"',
-        accept_language="de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-        intl_accept_languages="de-DE,de,en-US,en",
-        lang="de-DE",
-        viewport=(1920, 1080),
-        timezone="Europe/Berlin",
-    ),
-    _BasePreset(
-        preset_id="mac_en_124",
-        user_agent=(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_4) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        ),
-        sec_ch_ua='"Chromium";v="124", "Not(A:Brand";v="24", "Google Chrome";v="124"',
+        sec_ch_ua='"Chromium";v="144", "Not A(Brand";v="99", "Google Chrome";v="144"',
         sec_ch_ua_platform='"macOS"',
-        accept_language="en-US,en;q=0.9",
-        intl_accept_languages="en-US,en",
-        lang="en-US",
+        accept_language="pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7",
+        intl_accept_languages="pl-PL,pl,en-US,en",
+        lang="pl-PL",
         viewport=(1440, 900),
-        timezone="America/New_York",
+        timezone="Europe/Warsaw",
     ),
+    # Fourth: Polish Windows 11
     _BasePreset(
-        preset_id="win_en_125",
+        preset_id="win11_pl_144",
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
         ),
-        sec_ch_ua='"Chromium";v="125", "Not(A:Brand";v="24", "Google Chrome";v="125"',
+        sec_ch_ua='"Chromium";v="144", "Not A(Brand";v="99", "Google Chrome";v="144"',
         sec_ch_ua_platform='"Windows"',
-        accept_language="en-US,en;q=0.9",
-        intl_accept_languages="en-US,en",
-        lang="en-US",
+        accept_language="pl,en-US;q=0.9,en;q=0.8",
+        intl_accept_languages="pl,en-US,en",
+        lang="pl",
         viewport=(1536, 864),
-        timezone="America/New_York",
+        timezone="Europe/Warsaw",
     ),
 ]
 

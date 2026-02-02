@@ -42,6 +42,7 @@ RUN if [ "$WITH_VNC" = "1" ]; then \
 # Copy scraper service code
 COPY local_scraper_service.py ./local_scraper_service.py
 COPY main.py ./main.py
+COPY proxy_forwarder.py ./proxy_forwarder.py
 COPY app/__init__.py ./app/__init__.py
 RUN mkdir -p /app/app/utils && printf '# local_scraper utils package\n' > /app/app/utils/__init__.py
 COPY app/utils/fingerprint.py ./app/utils/fingerprint.py
