@@ -21,8 +21,8 @@ from app.models.category import Category
 from app.models.enums import ProfitabilityLabel
 from app.models.product import Product
 from app.services.analysis_service import _ensure_product_state, _persist_market_data, _update_effective_state
-from app.utils.brightdata_browser import fetch_via_brightdata
 from app.utils.local_scraper_client import fetch_via_local_scraper
+from app.utils.brightdata_browser import fetch_via_brightdata
 
 DEFAULT_EANS = [
     "5901234123457",
@@ -72,6 +72,7 @@ async def scrape_one(ean: str, mode: str) -> Tuple[str, float]:
     if mode == "legacy":
         result = await fetch_via_local_scraper(ean)
     else:
+        print("SMOKE using provider=brightdata_browser")
         result = await fetch_via_brightdata(ean)
     duration = time.monotonic() - start
 

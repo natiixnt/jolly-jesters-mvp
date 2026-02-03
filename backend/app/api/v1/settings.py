@@ -26,6 +26,7 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
         db=db,
         cache_ttl_days=payload.cache_ttl_days,
         local_scraper_windows=payload.local_scraper_windows,
+        cloud_scraper_disabled=payload.cloud_scraper_disabled,
     )
     update_result = update_local_scraper_windows(record.local_scraper_windows)
     if update_result.get("status") == "error":

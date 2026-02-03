@@ -24,7 +24,14 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 from app.core.config import settings
 from app.services.schemas import AllegroResult
-from app.utils.bd_unlocker_client import _parse_listing_offers, _parse_pdp_sold_count
+from app.utils.bd_unlocker_client import (
+    fetch_listing_html_via_unlocker,
+    parse_offers_from_listing_html,
+    fetch_offer_html_via_unlocker,
+    parse_sold_count_from_offer_html,
+    OfferCandidate,
+    SoldCountResult,
+)
 import selenium
 from app.utils.brightdata_metrics import read_snapshot, record_outcome
 from app.utils.rate_limiter import RateLimited, rate_limiter, host_from_url
@@ -37,10 +44,16 @@ _COUNTERS = {
     "success": 0,
     "blocked_captcha": 0,
     "blocked_429": 0,
+    "blocked_429_listing": 0,
+    "blocked_429_pdp": 0,
     "timeout_nav": 0,
     "timeout_selector": 0,
     "other_webdriver_error": 0,
     "error": 0,
+    "fallback_browser_used": 0,
+    "sold_count_found_unlocker": 0,
+    "sold_count_found_browser": 0,
+    "sold_count_missing": 0,
 }
 _COUNTERS_LOCK = threading.Lock()
 
@@ -126,6 +139,301 @@ def classify_block_reason(html: str, status_code: Optional[int]) -> str:
             if p in lowered:
                 return tag
     return "unknown"
+
+
+def _apply_cdp_block(driver: webdriver.Remote):
+    """Best-effort: block heavy resources (images/media/fonts/css) to reduce requests in fallback."""
+    try:
+        driver.execute_cdp_cmd("Network.enable", {})
+        driver.execute_cdp_cmd(
+            "Network.setBlockedURLs",
+            {"urls": ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.svg", "*.woff", "*.woff2", "*.ttf", "*.otf", "*.mp4", "*.webm", "*.css"]},
+        )
+    except Exception:
+        # remote drivers may not support CDP; ignore
+        pass
+
+
+async def _browser_fetch_sold(url: str) -> SoldCountResult:
+    if not url:
+        return SoldCountResult(sold_count=None, status="missing", reason="no_url")
+    session, error = await SESSION_POOL.acquire()
+    if not session:
+        return SoldCountResult(sold_count=None, status="error", reason=error or "no_session")
+    try:
+        _apply_cdp_block(session.driver)
+        async with rate_limiter.throttle(url):
+            session.driver.get(url)
+        html = session.driver.page_source or ""
+        session.mark_used()
+        sc = _parse_pdp_sold_count(html)
+        if sc is not None:
+            return SoldCountResult(sold_count=sc, status="visible", reason=None)
+        return SoldCountResult(sold_count=None, status="missing", reason="browser_missing")
+    except TimeoutException:
+        _dump_artifacts(session.driver, url, "pdp_timeout_browser")
+        session.mark_bad()
+        SESSION_POOL._drop(session)
+        _inc("timeout_nav")
+        return SoldCountResult(sold_count=None, status="error", reason="timeout")
+    except WebDriverException as exc:
+        _dump_artifacts(session.driver, url, "webdriver_error_browser")
+        session.mark_bad()
+        SESSION_POOL._drop(session)
+        _inc("other_webdriver_error")
+        return SoldCountResult(sold_count=None, status="error", reason=repr(exc))
+    except RateLimited:
+        _inc("blocked_429")
+    return SoldCountResult(sold_count=None, status="blocked", reason="429_cooldown")
+
+
+def _is_allegro(url: str) -> bool:
+    host = host_from_url(url)
+    return host.endswith("allegro.pl") if host else False
+
+
+async def _browser_flow_allegro(ean: str, listing_url: str, started: float) -> AllegroResult:
+    session, error = await SESSION_POOL.acquire()
+    if not session:
+        _inc("error")
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": error or "no_session", "provider": "brightdata"},
+            error=error or "no_session",
+            source="brightdata",
+            last_checked_at=datetime.now(timezone.utc),
+        )
+    host = host_from_url(listing_url)
+    try:
+        _apply_cdp_block(session.driver)
+        async with rate_limiter.throttle(listing_url):
+            session.driver.get(listing_url)
+        html = session.driver.page_source or ""
+        session.mark_used()
+        is_blocked, status_code, block_reason = _blocked_info(html)
+        if is_blocked:
+            tagged_reason = classify_block_reason(html, status_code) or (block_reason or "unknown")
+            _dump_artifacts(session.driver, ean, block_reason or "blocked_listing")
+            _inc("blocked_429_listing" if status_code == 429 else "blocked_captcha")
+            return AllegroResult(
+                price=None,
+                sold_count=None,
+                is_not_found=False,
+                is_temporary_error=True,
+                raw_payload={"error": "blocked", "provider": "brightdata", "block_reason": tagged_reason, "status_code": status_code},
+                source="brightdata",
+                last_checked_at=datetime.now(timezone.utc),
+                blocked=True,
+            )
+
+        offers = parse_offers_from_listing_html(html, limit=20)
+        if not offers:
+            result = AllegroResult(
+                price=None,
+                sold_count=None,
+                is_not_found=True,
+                is_temporary_error=False,
+                raw_payload={"provider": "brightdata", "sold_count_status": "no_results"},
+                source="brightdata",
+                last_checked_at=datetime.now(timezone.utc),
+            )
+            _cache_set(ean, result)
+            rate_limiter.reset_429(host)
+            record_outcome("no_results", time.monotonic() - started)
+            return result
+
+        # only cheapest one to minimize navigations
+        chosen_offer = ([o for o in offers if o.price is not None] or [offers[0]])[0]
+        cand = chosen_offer
+        if cand.url:
+            try:
+                async with rate_limiter.throttle(cand.url):
+                    session.driver.get(cand.url)
+                page_html = session.driver.page_source or ""
+                session.mark_used()
+                cand.sold_count = _parse_pdp_sold_count(page_html)
+                cand.sold_count_status = "ok" if cand.sold_count is not None else "not_visible"
+            except TimeoutException:
+                _dump_artifacts(session.driver, ean, "pdp_timeout_browser")
+                cand.sold_count = None
+                cand.sold_count_status = "timeout"
+                session.mark_bad()
+                SESSION_POOL._drop(session)
+            except WebDriverException:
+                cand.sold_count = None
+                cand.sold_count_status = "error"
+
+        payload = {
+            "provider": "brightdata",
+            "offers": [
+                {
+                    "offer_id": o.offer_id,
+                    "url": o.url,
+                    "price": o.price,
+                    "currency": o.currency,
+                    "sold_count": getattr(o, "sold_count", None),
+                    "sold_count_status": getattr(o, "sold_count_status", None),
+                }
+                for o in offers
+            ],
+            "lowest_price_offer_id": cand.offer_id,
+            "lowest_price_offer_url": cand.url,
+            "sold_count_status": getattr(cand, "sold_count_status", None),
+        }
+
+        result = AllegroResult(
+            price=Decimal(str(cand.price)) if cand.price is not None else None,
+            sold_count=getattr(cand, "sold_count", None),
+            is_not_found=False,
+            is_temporary_error=False,
+            raw_payload=payload,
+            source="brightdata",
+            last_checked_at=datetime.now(timezone.utc),
+        )
+        _cache_set(ean, result)
+        _inc("success")
+        rate_limiter.reset_429(host)
+        record_outcome("success", time.monotonic() - started)
+        return result
+    except RateLimited as rl:
+        _inc("blocked_429_listing")
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": "blocked", "provider": "brightdata", "block_reason": "blocked_429_cooldown", "cooldown_minutes": rl.remaining_seconds / 60},
+            source="brightdata",
+            last_checked_at=datetime.now(timezone.utc),
+            blocked=True,
+        )
+    except Exception as exc:
+        _inc("error")
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": repr(exc), "provider": "brightdata"},
+            source="brightdata",
+            last_checked_at=datetime.now(timezone.utc),
+            error="brightdata_error",
+        )
+    finally:
+        try:
+            SESSION_POOL._drop(session)
+        except Exception:
+            pass
+
+
+async def _unlocker_flow_generic(ean: str, listing_url: str, started: float) -> AllegroResult:
+    try:
+        listing_html = await fetch_listing_html_via_unlocker(ean)
+    except RateLimited as rl:
+        _inc("blocked_429")
+        _inc("blocked_429_listing")
+        minutes = rl.remaining_seconds / 60
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": "blocked", "provider": "bd_unlocker", "block_reason": "blocked_429_cooldown", "cooldown_minutes": minutes},
+            source="bd_unlocker",
+            last_checked_at=datetime.now(timezone.utc),
+            blocked=True,
+        )
+    if not listing_html:
+        _inc("blocked_429_listing")
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={"error": "blocked", "provider": "bd_unlocker", "block_reason": "listing_empty_or_blocked"},
+            source="bd_unlocker",
+            last_checked_at=datetime.now(timezone.utc),
+            blocked=True,
+        )
+
+    offers = parse_offers_from_listing_html(listing_html, limit=20)
+    if not offers:
+        result = AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=True,
+            is_temporary_error=False,
+            raw_payload={"provider": "bd_unlocker", "sold_count_status": "no_results"},
+            source="bd_unlocker",
+            last_checked_at=datetime.now(timezone.utc),
+        )
+        _cache_set(ean, result)
+        record_outcome("no_results", time.monotonic() - started)
+        return result
+
+    cheapest = [o for o in offers if o.price is not None][:3] or offers[:3]
+    chosen_offer = cheapest[0]
+    sold_result: Optional[SoldCountResult] = None
+    fallback_browser_used = False
+
+    for cand in cheapest:
+        html_pdp = await fetch_offer_html_via_unlocker(cand.url or "")
+        sc = parse_sold_count_from_offer_html(html_pdp)
+        if sc.status == "visible":
+            sold_result = sc
+            chosen_offer = cand
+            _inc("sold_count_found_unlocker")
+            _inc("success")
+            break
+        if sc.status == "blocked" and sc.reason == "429":
+            _inc("blocked_429")
+            _inc("blocked_429_pdp")
+        elif sc.status == "blocked":
+            _inc("blocked_captcha")
+        else:
+            _inc("sold_count_missing")
+
+    if not sold_result or sold_result.sold_count is None:
+        fallback_browser_used = True
+        _inc("fallback_browser_used")
+        sc = await _browser_fetch_sold(chosen_offer.url if chosen_offer else None)
+        sold_result = sc
+        if sc.status == "visible":
+            _inc("sold_count_found_browser")
+        elif sc.status == "blocked":
+            if sc.reason and "429" in sc.reason:
+                _inc("blocked_429")
+                _inc("blocked_429_pdp")
+            else:
+                _inc("blocked_captcha")
+        else:
+            _inc("sold_count_missing")
+
+    result = AllegroResult(
+        price=chosen_offer.price if chosen_offer else None,
+        sold_count=sold_result.sold_count if sold_result else None,
+        is_not_found=False,
+        is_temporary_error=False if sold_result and sold_result.status != "error" else True,
+        raw_payload={
+            "provider": "bd_unlocker" if not fallback_browser_used else "brightdata_browser_fallback",
+            "offers_considered": [
+                {"offer_id": o.offer_id, "url": o.url, "price": o.price, "currency": o.currency, "seller": o.seller}
+                for o in cheapest
+            ],
+            "fallback_browser_used": fallback_browser_used,
+            "blocked_reason": sold_result.reason if sold_result and sold_result.status == "blocked" else None,
+            "sold_count_status": sold_result.status if sold_result else "missing",
+        },
+        source="bd_unlocker" if not fallback_browser_used else "brightdata_browser_fallback",
+        last_checked_at=datetime.now(timezone.utc),
+        product_url=chosen_offer.url if chosen_offer else None,
+    )
+    _cache_set(ean, result)
+    record_outcome("success" if result.sold_count is not None else "no_results", time.monotonic() - started)
+    return result
 
 # --- block reason tagging ---
 _SIGS = {
@@ -536,274 +844,14 @@ async def fetch_via_brightdata(ean: str) -> AllegroResult:
         record_outcome("success" if not cached.is_not_found else "no_results", time.monotonic() - started, cached=True)
         return cached
 
-    async with CONCURRENCY_SEM:
-        backoffs = [2, 5, 10]
-        last_result: Optional[AllegroResult] = None
-
-        for attempt in range(1, _max_retries() + 1):
-            session, error = await SESSION_POOL.acquire()
-            if not session:
-                _inc("error")
-                last_result = AllegroResult(
-                    price=None,
-                    sold_count=None,
-                    is_not_found=False,
-                    is_temporary_error=True,
-                    raw_payload={"error": error or "no_session", "provider": "brightdata"},
-                    error=error or "no_session",
-                    source="brightdata",
-                    last_checked_at=datetime.now(timezone.utc),
-                )
-                record_outcome("error", time.monotonic() - started, blocked=False)
-                break
-
-            retryable = False
-
-            try:
-                listing_url = f"https://allegro.pl/listing?string={ean}&order=qd&offerTypeBuyNow=1"
-                host = host_from_url(listing_url)
-                async with rate_limiter.throttle(listing_url):
-                    session.driver.get(listing_url)
-                html = session.driver.page_source or ""
-                session.mark_used()
-                is_blocked, status_code, block_reason = _blocked_info(html)
-                if is_blocked:
-                    tagged_reason = classify_block_reason(html, status_code) or (block_reason or "unknown")
-                    _dump_artifacts(session.driver, ean, block_reason or "blocked")
-                    session.mark_bad()
-                    SESSION_POOL._drop(session)
-                    retryable = True
-                    if status_code == 429:
-                        _inc("blocked_429")
-                        cooldown_min = rate_limiter.register_429(host)
-                    else:
-                        _inc("blocked_captcha")
-                        cooldown_min = None
-                    last_result = AllegroResult(
-                        price=None,
-                        sold_count=None,
-                        is_not_found=False,
-                        is_temporary_error=True,
-                        raw_payload={
-                            "error": "blocked",
-                            "provider": "brightdata",
-                            "block_reason": tagged_reason,
-                            "status_code": status_code,
-                            "cooldown_minutes": cooldown_min,
-                        },
-                        source="brightdata",
-                        last_checked_at=datetime.now(timezone.utc),
-                        blocked=True,
-                    )
-                    record_outcome("blocked", time.monotonic() - started, blocked=True, status_code=status_code)
-                    if status_code == 429:
-                        break  # no fast retry; cooldown already applied
-                    if attempt < _max_retries():
-                        await asyncio.sleep(
-                            random.uniform(
-                                backoffs[min(attempt - 1, len(backoffs) - 1)],
-                                backoffs[min(attempt - 1, len(backoffs) - 1)] + 1,
-                            )
-                        )
-                        continue
-                    break
-
-                offers, auctions_only = _parse_listing_offers(html, page=1)
-                if not offers:
-                    _inc("success")
-                    status = "auctions_only" if auctions_only else "no_results"
-                    last_result = AllegroResult(
-                        price=None,
-                        sold_count=None,
-                        is_not_found=True,
-                        is_temporary_error=False,
-                        raw_payload={"provider": "brightdata", "sold_count_status": status},
-                        source="brightdata",
-                        last_checked_at=datetime.now(timezone.utc),
-                    )
-                    _cache_set(ean, last_result)
-                    rate_limiter.reset_429(host)
-                    record_outcome("no_results", time.monotonic() - started)
-                    break
-
-                priced = [o for o in offers if o.price is not None]
-                min_price = min(o.price for o in priced)
-                candidates = [o for o in priced if o.price == min_price][: _tie_break_limit()]
-                await _sleep_jitter()
-                for cand in candidates:
-                    try:
-                        if not cand.url:
-                            continue
-                        async with rate_limiter.throttle(cand.url):
-                            session.driver.get(cand.url)
-                        page_html = session.driver.page_source or ""
-                        session.mark_used()
-                        cand.sold_count = _parse_pdp_sold_count(page_html)
-                        cand.sold_count_status = "ok" if cand.sold_count is not None else "not_visible"
-                        await _sleep_jitter()
-                    except TimeoutException:
-                        _dump_artifacts(session.driver, ean, "pdp_timeout")
-                        cand.sold_count = None
-                        cand.sold_count_status = "timeout"
-                        session.mark_bad()
-                        SESSION_POOL._drop(session)
-                        retryable = True
-                        break
-                    except WebDriverException:
-                        cand.sold_count = None
-                        cand.sold_count_status = "error"
-
-                if retryable:
-                    if attempt < _max_retries():
-                        await asyncio.sleep(
-                            random.uniform(
-                                backoffs[min(attempt - 1, len(backoffs) - 1)],
-                                backoffs[min(attempt - 1, len(backoffs) - 1)] + 1,
-                            )
-                        )
-                        continue
-                    last_result = AllegroResult(
-                        price=None,
-                        sold_count=None,
-                        is_not_found=False,
-                        is_temporary_error=True,
-                        raw_payload={"error": "pdp_retry_exhausted", "provider": "brightdata"},
-                        source="brightdata",
-                        last_checked_at=datetime.now(timezone.utc),
-                        error="brightdata_error",
-                    )
-                    record_outcome("error", time.monotonic() - started)
-                    break
-
-                chosen = sorted(
-                    candidates,
-                    key=lambda o: (-(o.sold_count if o.sold_count is not None else -1), o.offer_id or ""),
-                )[0]
-
-                payload = {
-                    "provider": "brightdata",
-                    "offers": [
-                        {
-                            "offer_id": o.offer_id,
-                            "url": o.url,
-                            "price": o.price,
-                            "currency": o.currency,
-                            "sold_count": getattr(o, "sold_count", None),
-                            "sold_count_status": getattr(o, "sold_count_status", None),
-                            "page": o.page,
-                        }
-                        for o in offers
-                    ],
-                    "lowest_price_offer_id": chosen.offer_id,
-                    "lowest_price_offer_url": chosen.url,
-                    "sold_count_status": getattr(chosen, "sold_count_status", None),
-                }
-
-                last_result = AllegroResult(
-                    price=Decimal(str(chosen.price)) if chosen.price is not None else None,
-                    sold_count=getattr(chosen, "sold_count", None),
-                    is_not_found=False,
-                    is_temporary_error=False,
-                    raw_payload=payload,
-                    source="brightdata",
-                    last_checked_at=datetime.now(timezone.utc),
-                )
-                _cache_set(ean, last_result)
-                _inc("success")
-                rate_limiter.reset_429(host)
-                record_outcome("success", time.monotonic() - started)
-                break
-            except TimeoutException:
-                _dump_artifacts(session.driver, ean, "timeout")
-                session.mark_bad()
-                SESSION_POOL._drop(session)
-                retryable = True
-                _inc("timeout_nav")
-                last_result = AllegroResult(
-                    price=None,
-                    sold_count=None,
-                    is_not_found=False,
-                    is_temporary_error=True,
-                    raw_payload={"error": "timeout", "provider": "brightdata"},
-                    source="brightdata",
-                    last_checked_at=datetime.now(timezone.utc),
-                    error="brightdata_error",
-                )
-                record_outcome("error", time.monotonic() - started)
-            except RateLimited as rl:
-                # honor cooldown; no fast retry
-                _inc("blocked_429")
-                cooldown_min = rl.remaining_seconds / 60
-                last_result = AllegroResult(
-                    price=None,
-                    sold_count=None,
-                    is_not_found=False,
-                    is_temporary_error=True,
-                    raw_payload={
-                        "error": "blocked",
-                        "provider": "brightdata",
-                        "block_reason": "blocked_429_cooldown",
-                        "cooldown_minutes": cooldown_min,
-                    },
-                    source="brightdata",
-                    last_checked_at=datetime.now(timezone.utc),
-                    blocked=True,
-                )
-                record_outcome("blocked", time.monotonic() - started, blocked=True, status_code=429)
-                break
-            except WebDriverException as exc:
-                _dump_artifacts(session.driver, ean, "webdriver_error")
-                session.mark_bad()
-                SESSION_POOL._drop(session)
-                retryable = True
-                _inc("other_webdriver_error")
-                last_result = AllegroResult(
-                    price=None,
-                    sold_count=None,
-                    is_not_found=False,
-                    is_temporary_error=True,
-                    raw_payload={"error": repr(exc), "provider": "brightdata"},
-                    source="brightdata",
-                    last_checked_at=datetime.now(timezone.utc),
-                    error="brightdata_error",
-                )
-                record_outcome("error", time.monotonic() - started)
-            except Exception as exc:
-                session.mark_bad()
-                _inc("error")
-                last_result = AllegroResult(
-                    price=None,
-                    sold_count=None,
-                    is_not_found=False,
-                    is_temporary_error=True,
-                    raw_payload={"error": repr(exc), "provider": "brightdata"},
-                    source="brightdata",
-                    last_checked_at=datetime.now(timezone.utc),
-                    error="brightdata_error",
-                )
-                record_outcome("error", time.monotonic() - started)
-
-            if retryable and attempt < _max_retries():
-                await asyncio.sleep(
-                    random.uniform(
-                        backoffs[min(attempt - 1, len(backoffs) - 1)],
-                        backoffs[min(attempt - 1, len(backoffs) - 1)] + 1,
-                    )
-                )
-                continue
-            else:
-                break
-
-        return last_result or AllegroResult(
-            price=None,
-            sold_count=None,
-            is_not_found=False,
-            is_temporary_error=True,
-            raw_payload={"error": "unknown", "provider": "brightdata"},
-            source="brightdata",
-            last_checked_at=datetime.now(timezone.utc),
-            error="brightdata_error",
-        )
+    listing_url = f"https://allegro.pl/listing?string={ean}&order=qd&offerTypeBuyNow=1"
+    host = host_from_url(listing_url)
+    if _is_allegro(listing_url):
+        logger.info("FLOW_SELECT host=%s flow=browser_allegro", host)
+        return await _browser_flow_allegro(ean, listing_url, started)
+    else:
+        logger.info("FLOW_SELECT host=%s flow=unlocker_generic", host)
+        return await _unlocker_flow_generic(ean, listing_url, started)
 
 
 def brightdata_status() -> dict:

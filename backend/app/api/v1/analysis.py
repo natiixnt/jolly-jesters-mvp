@@ -24,7 +24,7 @@ from app.schemas.analysis import (
     AnalysisUploadResponse,
     AnalysisRunSummary,
 )
-from app.services import analysis_service
+from app.services import analysis_service, settings_service
 from app.core.config import settings
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
@@ -43,11 +43,11 @@ def _sse_event(event_type: str, payload: dict) -> str:
     return f"event: {event_type}\ndata: {data}\n\n"
 
 
-def _validate_strategy(mode: str, use_local_scraper: bool):
-    if mode != "offline" and not use_local_scraper:
+def _validate_strategy(mode: str, use_local_scraper: bool, use_cloud_http: bool = False):
+    if mode != "offline" and not (use_local_scraper or use_cloud_http):
         raise HTTPException(
             status_code=400,
-            detail="Tryby Standard/Zawsze online wymagają włączonego lokalnego scrapera.",
+            detail="Tryby Standard/Zawsze online wymagają włączonego lokalnego scrapera lub chmury.",
         )
 
 
@@ -67,7 +67,10 @@ def _validate_scraper_config(use_local_scraper: bool):
         )
     if not use_local_scraper:
         return
-    if os.getenv("LOCAL_SCRAPER_SKIP_HEALTHCHECK", "0").lower() in {"1", "true", "yes"}:
+    if (
+        os.getenv("LOCAL_SCRAPER_SKIP_HEALTHCHECK", "0").lower() in {"1", "true", "yes"}
+        or os.getenv("PYTEST_CURRENT_TEST")
+    ):
         return
     health = check_local_scraper_health(timeout_seconds=2.0)
     if health.get("status") != "ok":
@@ -99,8 +102,11 @@ async def upload_analysis(
     db: Session = Depends(get_db),
 ):
     mode = (mode or "mixed").lower()
-    use_cloud_http = False  # cloud/proxy scraper disabled in MVP stack
-    _validate_strategy(mode, use_local_scraper)
+    settings_record = settings_service.get_settings(db)
+    # Respect global override: when disabled, force local-only regardless of user flag.
+    requested_cloud = bool(use_cloud_http)
+    use_cloud_http = False if settings_record.cloud_scraper_disabled else requested_cloud
+    _validate_strategy(mode, use_local_scraper, use_cloud_http)
     _validate_scraper_config(use_local_scraper)
 
     try:
@@ -119,7 +125,7 @@ async def upload_analysis(
         raise HTTPException(status_code=400, detail="Plik musi być w formacie Excel (.xls/.xlsx)")
 
     strategy = ScrapingStrategyConfig(
-        use_cloud_http=False,
+        use_cloud_http=use_cloud_http,
         use_local_scraper=use_local_scraper,
     )
 
@@ -153,7 +159,9 @@ def run_from_cache(payload: AnalysisStartFromDbRequest, db: Session = Depends(ge
 def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> AnalysisUploadResponse:
     mode = (payload.mode or "mixed").lower()
     use_local_scraper = payload.use_local_scraper
-    _validate_strategy(mode, use_local_scraper)
+    settings_record = settings_service.get_settings(db)
+    use_cloud_http = False if settings_record.cloud_scraper_disabled else bool(payload.use_cloud_http)
+    _validate_strategy(mode, use_local_scraper, use_cloud_http)
     _validate_scraper_config(use_local_scraper)
 
     if mode not in {"mixed", "offline", "online"}:
@@ -164,7 +172,7 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
     strategy = ScrapingStrategyConfig(
-        use_cloud_http=False,
+        use_cloud_http=use_cloud_http,
         use_local_scraper=use_local_scraper,
     )
 

@@ -1,9 +1,10 @@
-"""Bright Data Web Unlocker provider for Allegro listings.
+"""Bright Data Web Unlocker provider for Allegro listings / PDP (request-based).
 
-This module keeps the existing scraping contract (AllegroResult) while
-implementing the "override" mode that fetches listing + PDP HTML via
-Bright Data Web Unlocker, applies Definition A tie‑break logic, and
-persists rich metadata in raw_payload for downstream analytics/UI.
+Lightweight HTML fetch (no browser) for:
+- Listing: price + offer URL
+- PDP: sold_count (when present server-side)
+
+Used by the hybrid flow: Unlocker first, Selenium only as a fallback.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import redis
 from app.core.config import settings
 from app.services.schemas import AllegroResult
 from app.utils.allegro_scraper_http import _extract_listing_state, _listing_elements_count
+from app.utils.rate_limiter import rate_limiter, RateLimited
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +159,22 @@ def _http_timeout() -> httpx.Timeout:
     total = _bd_timeout_seconds()
     connect = min(total, max(3.0, total / 3))
     read = min(total, max(5.0, total * 0.8))
-    return httpx.Timeout(total=total, connect=connect, read=read, write=read, pool=connect)
+    return httpx.Timeout(connect=connect, read=read, write=read, pool=connect)
+
+
+def _resi_proxy_url() -> Optional[str]:
+    host = os.getenv("BRD_RESI_HOST")
+    port = os.getenv("BRD_RESI_PORT")
+    user = os.getenv("BRD_RESI_USERNAME")
+    pwd = os.getenv("BRD_RESI_PASSWORD")
+    if not all([host, port, user, pwd]):
+        return None
+    return f"http://{user}:{pwd}@{host}:{port}"
+
+
+def _resi_verify() -> bool:
+    # Bright Data residential proxies often require their cert; allow opt-in verify
+    return os.getenv("BRD_RESI_VERIFY_SSL", "0") not in ("0", "false", "False")
 
 
 def _build_listing_url(ean: str, page: int = 1) -> str:
@@ -515,3 +532,134 @@ async def fetch_via_bd_unlocker(ean: str) -> AllegroResult:
         product_url=selected_offer_url,
         offers=payload.get("offers"),
     )
+
+
+# ---------- Lightweight helpers for hybrid flow (listing + pdp via unlocker) ----------
+
+
+@dataclass
+class OfferCandidate:
+    price: Optional[Decimal]
+    currency: Optional[str]
+    url: Optional[str]
+    offer_id: Optional[str]
+    seller: Optional[str] = None
+
+
+@dataclass
+class SoldCountResult:
+    sold_count: Optional[int]
+    status: str  # visible | missing | blocked | error
+    reason: Optional[str] = None
+
+
+async def fetch_listing_html_via_unlocker(ean: str) -> str:
+    url = _build_listing_url(ean)
+    cached = _read_cache(url)
+    if cached and cached.get("body"):
+        return cached["body"]
+    _wait_for_rate_limit()
+    async with httpx.AsyncClient(timeout=_http_timeout(), proxy=_resi_proxy_url(), verify=_resi_verify()) as client:
+        try:
+            async with rate_limiter.throttle(url):
+                resp = await client.get(url)
+        except RateLimited:
+            raise
+        except Exception as exc:
+            logger.warning("BD_UNLOCKER listing fetch failed url=%s err=%r", url, exc, exc_info=True)
+            raise
+    if resp.status_code == 429:
+        return ""
+    if resp.status_code == 403:
+        logger.warning("BD_UNLOCKER listing 403 url=%s", url)
+        return ""
+    resp.raise_for_status()
+    body = resp.text
+    _write_cache(url, {"body": body, "fetched_at": time.time()})
+    return body
+
+
+def parse_offers_from_listing_html(html: str, limit: int = 20) -> List[OfferCandidate]:
+    offers: List[OfferCandidate] = []
+    if not html:
+        return offers
+    try:
+        state = _extract_listing_state(html)
+    except Exception:
+        return offers
+    elements = state.get("items", {}).get("elements", [])
+    for item in elements:
+        if len(offers) >= limit:
+            break
+        price_val, currency = _extract_price_currency(item)
+        url = _normalize_url(item.get("url") or item.get("product", {}).get("url"))
+        offer_id = _extract_offer_id(item, url)
+        seller = None
+        try:
+            seller = item.get("seller", {}).get("login")
+        except Exception:
+            seller = None
+        offers.append(
+            OfferCandidate(
+                price=Decimal(str(price_val)) if price_val is not None else None,
+                currency=currency,
+                url=url,
+                offer_id=offer_id,
+                seller=seller,
+            )
+        )
+    # sort by price asc, None last
+    offers = sorted(offers, key=lambda o: (Decimal("1e9") if o.price is None else o.price))
+    return offers
+
+
+async def fetch_offer_html_via_unlocker(url: str) -> str:
+    if not url:
+        return ""
+    cached = _read_cache(url)
+    if cached and cached.get("body"):
+        return cached["body"]
+    _wait_for_rate_limit()
+    async with httpx.AsyncClient(timeout=_http_timeout(), proxy=_resi_proxy_url(), verify=_resi_verify()) as client:
+        try:
+            async with rate_limiter.throttle(url):
+                resp = await client.get(url)
+        except RateLimited:
+            raise
+        except Exception as exc:
+            logger.warning("BD_UNLOCKER offer fetch failed url=%s err=%r", url, exc, exc_info=True)
+            raise
+    if resp.status_code == 429:
+        return ""
+    resp.raise_for_status()
+    body = resp.text
+    _write_cache(url, {"body": body, "fetched_at": time.time()})
+    return body
+
+
+def parse_sold_count_from_offer_html(html: str) -> SoldCountResult:
+    if not html:
+        return SoldCountResult(sold_count=None, status="blocked", reason="empty_or_429")
+    lowered = html.lower()
+    if "datadome" in lowered:
+        return SoldCountResult(sold_count=None, status="blocked", reason="datadome")
+    if "429" in lowered or "too many requests" in lowered:
+        return SoldCountResult(sold_count=None, status="blocked", reason="429")
+    # regex heurystyki: sprzedano X, liczba sprzedanych ofert X
+    match = re.search(r"sprzedano\s*([0-9][0-9\s]*)", lowered, re.IGNORECASE)
+    sold_count = None
+    if match:
+        try:
+            sold_count = int(match.group(1).replace(" ", ""))
+        except Exception:
+            sold_count = None
+    if sold_count is None:
+        match2 = re.search(r"liczba\s+sprzedanych\s+ofert[^0-9]*([0-9][0-9\s]*)", lowered, re.IGNORECASE)
+        if match2:
+            try:
+                sold_count = int(match2.group(1).replace(" ", ""))
+            except Exception:
+                sold_count = None
+    if sold_count is not None:
+        return SoldCountResult(sold_count=sold_count, status="visible")
+    return SoldCountResult(sold_count=None, status="missing")

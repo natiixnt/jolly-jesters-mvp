@@ -31,10 +31,12 @@ from app.services.analysis_service import (
     process_analysis_run,
     record_run_task,
 )
+from app.services import settings_service
 from app.services.profitability_service import calculate_profitability
 from app.services.schemas import AllegroResult, ScrapingStrategyConfig
 from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import check_local_scraper_health, fetch_via_local_scraper
+from app.utils.decodo_client import fetch_via_decodo
 from app.utils.brightdata_browser import fetch_via_brightdata
 
 logger = logging.getLogger(__name__)
@@ -518,6 +520,7 @@ celery_app.conf.task_default_queue = ANALYSIS_QUEUE
 celery_app.conf.task_routes = {
     "app.workers.tasks.run_analysis_task": {"queue": ANALYSIS_QUEUE},
     "app.workers.tasks.scrape_one_local": {"queue": SCRAPER_LOCAL_QUEUE},
+    "app.workers.tasks.scrape_one_cloud": {"queue": ANALYSIS_QUEUE},
 }
 
 celery = celery_app  # alias for CLI
@@ -588,11 +591,20 @@ def run_analysis_task(run_id: int, mode: str = "mixed"):
             record_run_task(db, run, result.id, "local", item=item, ean=item.ean)
             return result
 
+        settings_record = settings_service.get_settings(db)
+        allow_cloud = not bool(getattr(settings_record, "cloud_scraper_disabled", True))
+
+        def _enqueue_cloud_scrape(item: AnalysisRunItem, strategy: ScrapingStrategyConfig):
+            result = scrape_one_cloud.delay(item.ean, item.id, asdict(strategy))
+            record_run_task(db, run, result.id, "cloud", item=item, ean=item.ean)
+            return result
+
         process_analysis_run(
             db,
             run_id=run_id,
             mode=mode,
             enqueue_local_scrape=_enqueue_local_scrape,
+            enqueue_cloud_scrape=_enqueue_cloud_scrape if allow_cloud else None,
         )
     finally:
         db.close()
@@ -662,6 +674,8 @@ def scrape_one_local(
         mode = _scraper_mode()
         if mode == "legacy":
             result = asyncio.run(fetch_via_local_scraper(item.ean))
+        elif mode == "decodo":
+            result = asyncio.run(fetch_via_decodo(item.ean))
         else:
             result = asyncio.run(fetch_via_brightdata(item.ean))
         if mode != "legacy" and (result.is_temporary_error or getattr(result, "blocked", False)):
@@ -743,17 +757,19 @@ def scrape_one_cloud(
             logger.info("CLOUD_SCRAPER_TASK skip run_status=%s item_id=%s", run.status, item.id)
             return
 
-        logger.info(
-            "CLOUD_SCRAPER_TASK disabled run_id=%s item_id=%s ean=%s (local-only stack)",
-            run.id,
-            item.id,
-            item.ean,
-        )
-        item.source = AnalysisItemSource.error
-        item.scrape_status = ScrapeStatus.error
-        item.error_message = "Cloud scraper wyłączony (użyj lokalnego)."
-        _finalize_item(db, run, item, prev_status)
-        return
+        settings_record = settings_service.get_settings(db)
+        if getattr(settings_record, "cloud_scraper_disabled", True):
+            logger.info(
+                "CLOUD_SCRAPER_TASK disabled run_id=%s item_id=%s ean=%s (cloud disabled)",
+                run.id,
+                item.id,
+                item.ean,
+            )
+            item.source = AnalysisItemSource.error
+            item.scrape_status = ScrapeStatus.error
+            item.error_message = "Cloud scraper wyłączony (użyj lokalnego)."
+            _finalize_item(db, run, item, prev_status)
+            return
 
         if _maybe_pause_for_blocked_item(self, scrape_one_cloud, run, item, strategy_snapshot, "CLOUD_SCRAPER_TASK"):
             return
@@ -778,7 +794,11 @@ def scrape_one_cloud(
         item.scrape_status = ScrapeStatus.in_progress
         item.error_message = None
         db.commit()
-        result = asyncio.run(fetch_via_http_scraper(item.ean))
+        mode = _scraper_mode()
+        if mode == "decodo":
+            result = asyncio.run(fetch_via_decodo(item.ean))
+        else:
+            result = asyncio.run(fetch_via_http_scraper(item.ean))
 
         if result.is_temporary_error or getattr(result, "blocked", False):
             if _should_fallback_local(strategy_snapshot):

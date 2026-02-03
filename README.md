@@ -74,7 +74,7 @@ Zalogowanie przez przeglądarkę na /login ustawia cookie `jj_session` (httpOnly
 
 1) Skonfiguruj zmienne (skopiuj `backend/.env.example` do `backend/.env` i uzupełnij hasło):
 ```
-SCRAPER_MODE=brightdata        # brightdata | legacy
+SCRAPER_MODE=brightdata        # brightdata | legacy | decodo
 BRD_SBR_USERNAME=brd-customer-hl_d5ac7890-zone-scraping_browser1
 BRD_SBR_PASSWORD=***sekret_z_BrightData***
 BRD_SBR_HOST=brd.superproxy.io
@@ -93,6 +93,21 @@ EAN_CACHE_TTL_DAYS=14
 5) Legacy scraper zostaje w repo; włączysz go przez `SCRAPER_MODE=legacy`.
 6) Status backendu + tryb scrapera: `GET /api/v1/status` albo pigułka w prawym górnym rogu UI (pokazuje mode/success%/captcha%).
    Klasyczne `GET /health` nadal sprawdza bazę + lokalny scraper.
+
+### Tryb Decodo (request-based, bez bezpośredniego ruchu na Allegro)
+
+1) W `.env` ustaw:
+```
+SCRAPER_MODE=decodo
+DECODO_TOKEN=***token_z_Decodo***
+DECODO_GEO=Poland
+DECODO_LOCALE=pl-pl
+DECODO_HEADLESS=html
+```
+2) Uruchom stack jak zwykle (`docker compose up --build`).\
+3) Flow: UI ➜ Celery ➜ Decodo (2 żądania: listing + oferta) ➜ zapis w DB ➜ UI.
+4) Provider w logach/raw_payload będzie ustawiony na `decodo`, więc UI/status pokażą aktualny tryb.
+5) Brak realnych połączeń do Allegro z aplikacji — Decodo zwraca HTML, na którym parser wybiera najtańszą ofertę i z PDP odczytuje `price` + `sold_count`.
 
 Smoke testy (wymagają uruchomionego stacka + BRD_SBR_* w env):
 ```

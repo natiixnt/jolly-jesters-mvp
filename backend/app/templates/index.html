@@ -141,8 +141,12 @@
       gap: 16px;
       align-items: start;
     }
+    .settings-panel-card {
+      grid-column: 1 / -1;
+    }
     @media (max-width: 1100px) {
       .operator-grid { grid-template-columns: 1fr 1fr; }
+      .settings-panel-card { grid-column: 1 / -1; }
     }
     @media (max-width: 860px) {
       .operator-grid { grid-template-columns: 1fr; }
@@ -1416,6 +1420,14 @@
                         </label>
                         <div class="helper">Selenium lokalnie w kontenerze.</div>
                       </div>
+                      <div>
+                        <label class="toggle">
+                          <input type="checkbox" id="cloud-override-toggle" checked />
+                          <span class="toggle__track"></span>
+                          <span class="toggle__label" data-i18n="label-cloud-override">Global override: wyłącz chmurę/BD</span>
+                        </label>
+                        <div class="helper" data-i18n="helper-cloud-override">Gdy włączone, wymusza lokalny scraper i blokuje cloud/BrightData.</div>
+                      </div>
                     </div>
                     <div class="helper">Jeśli źródło jest wyłączone, analiza korzysta tylko z danych z bazy i cache.</div>
                     <div class="helper" id="strategy-offline-hint"></div>
@@ -1863,6 +1875,7 @@
     const settingsPanel = document.getElementById('settings-panel');
     const closeSettingsBtn = document.getElementById('close-settings-btn');
     const settingsTabs = document.getElementById('settings-tabs');
+    const cloudOverrideToggle = document.getElementById('cloud-override-toggle');
     const resetSettingsBtn = document.getElementById('reset-settings-btn');
     const settingsResetSuccess = document.getElementById('settings-reset-success');
     const opsToggle = document.getElementById('ops-toggle');
@@ -1912,11 +1925,6 @@
     const backendAlert = document.getElementById('backend-alert');
     const runStage = document.getElementById('run-stage');
     const resetBtn = document.getElementById('reset-btn');
-    const resultsSearch = document.getElementById('results-search');
-    const chipProfitable = document.getElementById('chip-profitable');
-    const chipErrors = document.getElementById('chip-errors');
-    const chipMissing = document.getElementById('chip-missing');
-    const copyFailedBtn = document.getElementById('copy-failed-btn');
     const categoryDetailModal = document.getElementById('category-detail-modal');
     const categoryDetailForm = document.getElementById('category-detail-form');
     const categoryDetailError = document.getElementById('category-detail-error');
@@ -1932,7 +1940,6 @@
     const faqBtn = document.getElementById('faq-btn');
     const faqClose = document.getElementById('faq-close');
     const langToggle = document.getElementById('lang-toggle');
-    const logoutBtn = document.getElementById('logout-btn');
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebarRestore = document.getElementById('sidebar-restore');
@@ -1993,6 +2000,7 @@
     const DEFAULT_SETTINGS = {
       use_cloud_http: false,
       use_local_scraper: true,
+      cloud_scraper_disabled: true,
       local_scraper_windows: 1,
       cache_ttl_days: 30,
       db_last_days: 30,
@@ -2061,6 +2069,8 @@
         'settings-helper': 'Opcje rzadziej używane. W trybie prostym ukryte.',
         'btn-close-settings': 'Zamknij ustawienia',
         'label-advanced': 'Tryb zaawansowany',
+        'label-cloud-override': 'Global override: wyłącz chmurę/BD',
+        'helper-cloud-override': 'Gdy włączone, wymusza lokalny scraper i blokuje cloud/BrightData.',
         'btn-reset': 'Przywróć domyślne',
         'settings-sidehint': 'Kursy walut i Kategorie są dostępne w panelu bocznym po prawej.',
         'tab-sources': 'Źródło danych',
@@ -2070,10 +2080,11 @@
         'retry-local': 'Retry: lokalnie',
         'history-ops': 'Operacje ▾',
         'strategy-local': 'Local Selenium',
+        'strategy-cloud': 'Cloud / BrightData',
         'strategies-none': 'Brak',
         'history-empty-text': 'Brak wcześniejszych analiz.',
         saved: 'Zapisano',
-        'strategy-required': 'Włącz lokalny scraper dla trybu Standard/Zawsze online.',
+        'strategy-required': 'Włącz lokalny scraper lub wyłącz override chmury dla trybu Standard/Zawsze online.',
         'hint-offline': 'W trybie Tylko baza scrapowanie jest wyłączone.',
         'btn-starting': 'Wysyłanie...',
         'btn-start-db': 'Start analizy z bazy',
@@ -2209,6 +2220,8 @@
         'settings-helper': 'Less common options. Hidden in simple mode.',
         'btn-close-settings': 'Close settings',
         'label-advanced': 'Advanced mode',
+        'label-cloud-override': 'Global override: disable cloud/BD',
+        'helper-cloud-override': 'When on, forces local scraper and blocks cloud/BrightData.',
         'btn-reset': 'Restore defaults',
         'settings-sidehint': 'Currency rates and Categories are available in the right sidebar.',
         'tab-sources': 'Data source',
@@ -2218,10 +2231,11 @@
         'retry-local': 'Retry: local',
         'history-ops': 'Operations ▾',
         'strategy-local': 'Local Selenium',
+        'strategy-cloud': 'Cloud / BrightData',
         'strategies-none': 'None',
         'history-empty-text': 'No previous analyses.',
         saved: 'Saved',
-        'strategy-required': 'Enable the local scraper for Standard/Always online.',
+        'strategy-required': 'Enable local scraper or disable the cloud override for Standard/Always online.',
         'hint-offline': 'Scraping is disabled in Cache only mode.',
         'btn-starting': 'Sending...',
         'btn-start-db': 'Start DB analysis',
@@ -2612,6 +2626,7 @@
     function applyDefaults() {
       const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
       if (useLocalInput) useLocalInput.checked = settingsDefaults.use_local_scraper;
+      if (cloudOverrideToggle) cloudOverrideToggle.checked = settingsDefaults.cloud_scraper_disabled;
       if (localWindowsInput) localWindowsInput.value = settingsDefaults.local_scraper_windows;
       if (cacheTtlInput) cacheTtlInput.value = settingsDefaults.cache_ttl_days;
       if (dbLastDaysInput) dbLastDaysInput.value = settingsDefaults.db_last_days;
@@ -2854,6 +2869,7 @@
     function renderStrategies(run) {
       const strategies = [];
       if (run.use_local_scraper) strategies.push(t('strategy-local'));
+      if (run.use_cloud_http) strategies.push(t('strategy-cloud'));
       return strategies.length ? strategies.join(' · ') : t('strategies-none');
     }
 
@@ -3382,13 +3398,14 @@
     function validateStrategies() {
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
       const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
-      const checked = boxes.filter(b => b.checked);
+      const useLocal = boxes.some(b => b.name === 'use_local_scraper' && b.checked);
+      const cloudAllowed = cloudOverrideToggle ? !cloudOverrideToggle.checked : false;
       if (mode === 'offline') {
         strategyOfflineHint.textContent = t('hint-offline');
         setMessage('', strategyError);
         return true;
       }
-      if (!checked.length) {
+      if (!useLocal && !cloudAllowed) {
         strategyOfflineHint.textContent = '';
         setMessage(t('strategy-required'), strategyError);
         return false;
@@ -3403,10 +3420,14 @@
       const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
       const offline = mode === 'offline';
       boxes.forEach((box) => {
-        box.disabled = offline;
+        if (box !== cloudOverrideToggle) {
+          box.disabled = offline;
+        }
       });
       if (!offline) {
-        boxes.forEach((box) => { box.checked = true; });
+        boxes
+          .filter((box) => box.name) // keep user choice for global override
+          .forEach((box) => { box.checked = true; });
       }
       validateStrategies();
     }
@@ -3934,9 +3955,11 @@
           ...DEFAULT_SETTINGS,
           cache_ttl_days: data.cache_ttl_days ?? DEFAULT_SETTINGS.cache_ttl_days,
           local_scraper_windows: data.local_scraper_windows ?? DEFAULT_SETTINGS.local_scraper_windows,
+          cloud_scraper_disabled: data.cloud_scraper_disabled ?? DEFAULT_SETTINGS.cloud_scraper_disabled,
         };
         cacheTtlInput.value = settingsDefaults.cache_ttl_days;
         localWindowsInput.value = settingsDefaults.local_scraper_windows;
+        if (cloudOverrideToggle) cloudOverrideToggle.checked = !!settingsDefaults.cloud_scraper_disabled;
         setMessage('', settingsInfo);
         applyDefaults();
       } catch (err) {
@@ -3946,6 +3969,7 @@
           ...DEFAULT_SETTINGS,
           cache_ttl_days: Number(cacheTtlInput.value) || DEFAULT_SETTINGS.cache_ttl_days,
           local_scraper_windows: Number(localWindowsInput.value) || DEFAULT_SETTINGS.local_scraper_windows,
+          cloud_scraper_disabled: cloudOverrideToggle ? cloudOverrideToggle.checked : DEFAULT_SETTINGS.cloud_scraper_disabled,
         };
         setMessage(
           formatNetworkError(err, t('error-fetch-settings-fallback')),
@@ -3961,6 +3985,7 @@
       const payload = {
         cache_ttl_days: Number(cacheTtlInput.value) || settingsDefaults.cache_ttl_days,
         local_scraper_windows: Number(localWindowsInput.value) || settingsDefaults.local_scraper_windows,
+        cloud_scraper_disabled: cloudOverrideToggle ? cloudOverrideToggle.checked : settingsDefaults.cloud_scraper_disabled,
       };
       try {
         const res = await fetch('/api/v1/settings/', {
@@ -3977,6 +4002,10 @@
         localWindowsInput.value = data.local_scraper_windows;
         settingsDefaults.cache_ttl_days = data.cache_ttl_days;
         settingsDefaults.local_scraper_windows = data.local_scraper_windows;
+        if (cloudOverrideToggle && data.cloud_scraper_disabled !== undefined) {
+          cloudOverrideToggle.checked = data.cloud_scraper_disabled;
+          settingsDefaults.cloud_scraper_disabled = data.cloud_scraper_disabled;
+        }
         if (field === 'windows') briefSuccess(settingsWindowsSuccess);
         if (field === 'ttl') briefSuccess(settingsTtlSuccess);
         if (field === 'reset') briefSuccess(settingsResetSuccess);
@@ -4161,11 +4190,12 @@
     function getStrategyFlags() {
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
       const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
+      const cloudAllowed = cloudOverrideToggle ? !cloudOverrideToggle.checked : false;
       if (mode === 'offline') {
         return { use_cloud_http: false, use_local_scraper: false };
       }
       return {
-        use_cloud_http: false,
+        use_cloud_http: cloudAllowed,
         use_local_scraper: useLocalInput?.checked || false,
       };
     }
@@ -4332,6 +4362,12 @@
     if (advancedModeToggle) {
       advancedModeToggle.addEventListener('change', () => {
         setAdvancedMode(advancedModeToggle.checked);
+      });
+    }
+    if (cloudOverrideToggle) {
+      cloudOverrideToggle.addEventListener('change', () => {
+        saveSettings('cloud');
+        validateStrategies();
       });
     }
     if (closeSettingsBtn) {

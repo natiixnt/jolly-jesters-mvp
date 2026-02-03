@@ -463,15 +463,21 @@ def _enqueue_scrape(
         enqueue_local_scrape(item, strategy)
         return False
 
+    if strategy.use_cloud_http and enqueue_cloud_scrape:
+        item.source = AnalysisItemSource.scraping
+        _set_scrape_status(item, ScrapeStatus.pending, None)
+        enqueue_cloud_scrape(item, strategy)
+        return False
+
     item.source = AnalysisItemSource.error
-    _set_scrape_status(item, ScrapeStatus.error, "local_scraper_disabled")
+    _set_scrape_status(item, ScrapeStatus.error, "scraper_disabled")
     return True
 
 
 def _should_rescrape_cached_not_found(strategy: ScrapingStrategyConfig) -> bool:
-    if not strategy.use_local_scraper:
-        return False
-    return bool(settings.LOCAL_SCRAPER_ENABLED and settings.LOCAL_SCRAPER_URL)
+    if strategy.use_local_scraper:
+        return bool(settings.LOCAL_SCRAPER_ENABLED and settings.LOCAL_SCRAPER_URL)
+    return bool(strategy.use_cloud_http)
 
 
 def _iter_batches(items: List[AnalysisRunItem], batch_size: int) -> Iterable[List[AnalysisRunItem]]:
@@ -525,8 +531,9 @@ def process_analysis_run(
 
         settings_record = settings_service.get_settings(db)
         cutoff = _stale_cutoff(settings_record.cache_ttl_days)
+        use_cloud_http = bool(run.use_cloud_http) and not bool(getattr(settings_record, "cloud_scraper_disabled", False))
         strategy = ScrapingStrategyConfig(
-            use_cloud_http=False,
+            use_cloud_http=use_cloud_http,
             use_local_scraper=run.use_local_scraper,
         )
 
