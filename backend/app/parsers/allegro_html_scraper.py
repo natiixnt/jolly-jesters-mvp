@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 
 PRICE_REGEX = re.compile(r'([0-9][0-9\u00a0\s\.,]+)\s*zł', re.IGNORECASE)
 OFFER_LINK_REGEX = re.compile(r"(https?://)?(www\.)?allegro\.pl(/oferta/[a-z0-9\-\_]+)")
+OFFER_LINK_REL_REGEX = re.compile(r"(/oferta/[a-z0-9\-\_]+)")
 PRODUCT_LINK_REGEX = re.compile(r"(https?://)?(www\.)?allegro\.pl(/produkt/[^\"'>\s]+?offerId=[A-Za-z0-9\-]+)")
+PRODUCT_LINK_REL_REGEX = re.compile(r"(/produkt/[^\"'>\s]+?offerId=[A-Za-z0-9\-]+)")
 SOLD_PATTERNS = [
     re.compile(r"sprzedano\s*([0-9][0-9\s]*)", re.IGNORECASE),
     re.compile(r"kupiono\s*([0-9][0-9\s]*)", re.IGNORECASE),
@@ -68,9 +70,10 @@ def _normalize_url(url: Optional[str]) -> Optional[str]:
 def extract_candidate_offer_urls(listing_html: str) -> List[str]:
     urls: List[str] = []
     seen = set()
-    for regex in (OFFER_LINK_REGEX, PRODUCT_LINK_REGEX):
+    for regex in (OFFER_LINK_REGEX, OFFER_LINK_REL_REGEX, PRODUCT_LINK_REGEX, PRODUCT_LINK_REL_REGEX):
         for match in regex.finditer(listing_html or ""):
-            raw = match.group(3)
+            groups = match.groups()
+            raw = groups[-1] if groups else None
             url = _normalize_url(raw)
             if url and url not in seen:
                 seen.add(url)

@@ -30,7 +30,8 @@ make up           # docker compose up --build
 make down         # zatrzymanie stacka
 make logs         # podgląd logów (backend/worker/scraper/db/cache)
 make migrate      # alembic upgrade head (w kontenerze backend)
-make smoke        # smoke brightdata (domyślnie)
+make smoke        # smoke decodo (domyślnie)
+make smoke-decodo # smoke decodo
 make smoke-legacy # smoke legacy scraper
 ```
 
@@ -99,17 +100,17 @@ docker compose exec backend python backend/scripts/smoke_scraper.py --mode decod
 ```
 Zapis idzie do tych samych tabel (`product_market_data`) i od razu wypełnia cache Redis.
 
-Definicja wybierania oferty (jak legacy):
-- Listing sortowany rosnąco po cenie „Kup teraz”.
-- `lowest_price` = minimalna cena.
-- Tie-break: max 3 PDP, największy `sold_count`, potem min `offer_id`; statusy: ok/not_visible/no_results/auctions_only/error.
+Definicja wybierania oferty (MVP Decodo):
+- Listing (Decodo) → wyciągnięcie linków `/oferta/` i `/produkt/...offerId=` → max 8 kandydatów.
+- Dla każdego kandydata pobieramy HTML PDP (Decodo) i parsujemy cenę (JSON-LD/meta/regex) oraz `sold_count` (regex).
+- Wybieramy minimalną cenę; tie-break to kolejność kandydatów z listingu.
 
 Observability:
-- Logi zawierają provider=brightdata|legacy, outcome (success/no_results/blocked/error), licznik sesji/requests, sold_count_status.
+- Logi zawierają provider=decodo|brightdata|legacy, outcome (success/no_results/blocked/error), licznik sesji/requests, sold_count_status.
 
 Debug:
-- Klucze cache: `sbr:ean:*` w Redis.
-- Ostatni wynik: `product_market_data.raw_payload.provider=brightdata`.
+- Klucze cache Bright Data: `sbr:ean:*` w Redis; debug HTML z Decodo w `workspace/data/debug` gdy `SAVE_DEBUG_HTML=true`.
+- Ostatni wynik: `product_market_data.raw_payload.provider` odpowiada aktywnemu trybowi.
 
 ### Pliki .env
 - `backend/.env.example` – szablon bez sekretów. Skopiuj do `backend/.env` lokalnie; nie commituj sekretów.
