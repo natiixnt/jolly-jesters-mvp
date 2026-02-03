@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -12,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Optional
 
 from app.core.config import settings
 from app.providers.decodo_client import DecodoClient
