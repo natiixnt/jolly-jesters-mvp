@@ -7,7 +7,6 @@ Designed to be used as the primary fetch layer for Allegro scraping.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import random
