@@ -18,7 +18,7 @@ def status(db: Session = Depends(get_db)) -> dict:
     # DB liveness
     db.execute(text("SELECT 1"))
 
-    mode = (os.getenv("SCRAPER_MODE") or "brightdata").strip().lower()
+    mode = (os.getenv("SCRAPER_MODE") or "decodo").strip().lower()
     brightdata = brightdata_status()
     local = check_local_scraper_health()
 
@@ -26,6 +26,7 @@ def status(db: Session = Depends(get_db)) -> dict:
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "scraper_mode": mode,
+        "scraper_provider": mode,
         "brightdata": {
             "mode": brightdata.get("mode"),
             "metrics": brightdata.get("metrics"),

@@ -3,6 +3,7 @@
 Smoke test runner for both Bright Data (primary) and legacy local scraper.
 
 Usage (inside running docker compose stack):
+  docker compose exec backend python backend/scripts/smoke_scraper.py --mode decodo
   docker compose exec backend python backend/scripts/smoke_scraper.py --mode brightdata
   docker compose exec backend python backend/scripts/smoke_scraper.py --mode legacy --eans 5901234123457,5012345678900
 """
@@ -21,6 +22,7 @@ from app.models.category import Category
 from app.models.enums import ProfitabilityLabel
 from app.models.product import Product
 from app.services.analysis_service import _ensure_product_state, _persist_market_data, _update_effective_state
+from app.parsers.allegro_html_scraper import choose_lowest_offer
 from app.utils.local_scraper_client import fetch_via_local_scraper
 from app.utils.brightdata_browser import fetch_via_brightdata
 
@@ -35,7 +37,7 @@ DEFAULT_EANS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Smoke test scraper pipeline")
-    parser.add_argument("--mode", choices=["brightdata", "legacy"], default=os.getenv("SCRAPER_MODE", "brightdata"))
+    parser.add_argument("--mode", choices=["decodo", "brightdata", "legacy"], default=os.getenv("SCRAPER_MODE", "decodo"))
     parser.add_argument("--eans", help="Comma-separated EAN list (defaults to built-in sample)")
     return parser.parse_args()
 
@@ -71,9 +73,12 @@ async def scrape_one(ean: str, mode: str) -> Tuple[str, float]:
     start = time.monotonic()
     if mode == "legacy":
         result = await fetch_via_local_scraper(ean)
-    else:
+    elif mode == "brightdata":
         print("SMOKE using provider=brightdata_browser")
         result = await fetch_via_brightdata(ean)
+    else:
+        print("SMOKE using provider=decodo")
+        result = await choose_lowest_offer(ean)
     duration = time.monotonic() - start
 
     # persist into the same tables as the main pipeline

@@ -70,49 +70,32 @@ Zalogowanie przez przeglądarkę na /login ustawia cookie `jj_session` (httpOnly
 - Tylko backend jest wystawiony na hosta (`127.0.0.1:8000`); Postgres/Redis/worker/local_scraper/front nie mają mapowanych portów.
 - FastAPI ma wyłączone publiczne /docs, /redoc, /openapi.json (wymagają również Basic Auth, ale w prod są ukryte).
 
-### Tryb Bright Data Browser API (domyślny) + legacy
+### Tryb Decodo (domyślny, request-based) + opcjonalny Bright Data
 
 1) Skonfiguruj zmienne (skopiuj `backend/.env.example` do `backend/.env` i uzupełnij hasło):
 ```
-SCRAPER_MODE=brightdata        # brightdata | legacy | decodo
-BRD_SBR_USERNAME=brd-customer-hl_d5ac7890-zone-scraping_browser1
-BRD_SBR_PASSWORD=***sekret_z_BrightData***
-BRD_SBR_HOST=brd.superproxy.io
-BRD_SBR_WEBDRIVER_PORT=9515
-SBR_POOL_SIZE=2
-SBR_MAX_REQ_PER_SESSION=20
-SBR_MAX_SESSION_MINUTES=15
-SBR_COOLDOWN_MINUTES=60
-SCRAPER_CONCURRENCY=1
-EAN_CACHE_TTL_DAYS=14
-```
-2) Uruchom stack (przykład):\
-`SCRAPER_MODE=brightdata BRD_SBR_PASSWORD=*** docker compose up --build`
-3) Flow: UI ➜ Celery (`scraper_local` queue) ➜ brightdata_browser ➜ zapis w DB ➜ UI.
-4) Cache wyników EAN w Redis (TTL `EAN_CACHE_TTL_DAYS`) – jeśli hit, browser nie startuje.
-5) Legacy scraper zostaje w repo; włączysz go przez `SCRAPER_MODE=legacy`.
-6) Status backendu + tryb scrapera: `GET /api/v1/status` albo pigułka w prawym górnym rogu UI (pokazuje mode/success%/captcha%).
-   Klasyczne `GET /health` nadal sprawdza bazę + lokalny scraper.
-
-### Tryb Decodo (request-based, bez bezpośredniego ruchu na Allegro)
-
-1) W `.env` ustaw:
-```
-SCRAPER_MODE=decodo
+SCRAPER_MODE=decodo            # decodo | brightdata | legacy
 DECODO_TOKEN=***token_z_Decodo***
 DECODO_GEO=Poland
 DECODO_LOCALE=pl-pl
 DECODO_HEADLESS=html
+DECODO_MAX_CANDIDATES=8
+DECODO_EAN_TIMEOUT_SECONDS=120
+SAVE_DEBUG_HTML=false          # true zapisze HTML do workspace/data/debug
 ```
-2) Uruchom stack jak zwykle (`docker compose up --build`).\
-3) Flow: UI ➜ Celery ➜ Decodo (2 żądania: listing + oferta) ➜ zapis w DB ➜ UI.
-4) Provider w logach/raw_payload będzie ustawiony na `decodo`, więc UI/status pokażą aktualny tryb.
-5) Brak realnych połączeń do Allegro z aplikacji — Decodo zwraca HTML, na którym parser wybiera najtańszą ofertę i z PDP odczytuje `price` + `sold_count`.
+2) Uruchom stack (przykład):\
+`docker compose up --build`
+3) Flow: UI ➜ Celery ➜ Decodo (listing + oferta HTML) ➜ parser Allegro ➜ zapis w DB ➜ UI.
+4) Bright Data Browser API pozostaje dostępny po ustawieniu `SCRAPER_MODE=brightdata`.
+5) Legacy scraper zostaje w repo; włączysz go przez `SCRAPER_MODE=legacy`.
+6) Status backendu + tryb scrapera: `GET /api/v1/status` albo pigułka w prawym górnym rogu UI (pokazuje mode/success%/captcha%); pole `scraper_provider` zwraca aktualny tryb.
+   Klasyczne `GET /health` nadal sprawdza bazę + lokalny scraper.
 
-Smoke testy (wymagają uruchomionego stacka + BRD_SBR_* w env):
+Smoke testy (wymagają uruchomionego stacka):
 ```
 docker compose exec backend python backend/scripts/smoke_scraper.py --mode brightdata
 docker compose exec backend python backend/scripts/smoke_scraper.py --mode legacy
+docker compose exec backend python backend/scripts/smoke_scraper.py --mode decodo
 ```
 Zapis idzie do tych samych tabel (`product_market_data`) i od razu wypełnia cache Redis.
 

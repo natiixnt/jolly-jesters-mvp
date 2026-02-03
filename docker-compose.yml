@@ -46,7 +46,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-brightdata}
+      - SCRAPER_MODE=${SCRAPER_MODE:-decodo}
       - SBR_POOL_SIZE=${SBR_POOL_SIZE:-2}
       - SBR_MAX_REQ_PER_SESSION=${SBR_MAX_REQ_PER_SESSION:-20}
       - SBR_MAX_SESSION_MINUTES=${SBR_MAX_SESSION_MINUTES:-15}
@@ -89,7 +89,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      SCRAPER_MODE: ${SCRAPER_MODE:-brightdata}
+      SCRAPER_MODE: ${SCRAPER_MODE:-decodo}
       BRD_SBR_USERNAME: ${BRD_SBR_USERNAME:-}
       BRD_SBR_PASSWORD: ${BRD_SBR_PASSWORD:-}
       BRD_SBR_HOST: ${BRD_SBR_HOST:-brd.superproxy.io}
@@ -152,7 +152,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-brightdata}
+      - SCRAPER_MODE=${SCRAPER_MODE:-decodo}
       - SBR_POOL_SIZE=${SBR_POOL_SIZE:-2}
       - SBR_MAX_REQ_PER_SESSION=${SBR_MAX_REQ_PER_SESSION:-20}
       - SBR_MAX_SESSION_MINUTES=${SBR_MAX_SESSION_MINUTES:-15}
@@ -189,7 +189,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-brightdata}
+      - SCRAPER_MODE=${SCRAPER_MODE:-decodo}
       - BD_UNLOCKER_TOKEN=${BD_UNLOCKER_TOKEN:-}
       - BD_UNLOCKER_ZONE=${BD_UNLOCKER_ZONE:-}
       - BD_TIMEOUT_S=${BD_TIMEOUT_S:-30}

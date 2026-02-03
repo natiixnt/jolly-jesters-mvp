@@ -36,7 +36,7 @@ from app.services.profitability_service import calculate_profitability
 from app.services.schemas import AllegroResult, ScrapingStrategyConfig
 from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import check_local_scraper_health, fetch_via_local_scraper
-from app.utils.decodo_client import fetch_via_decodo
+from app.parsers.allegro_html_scraper import choose_lowest_offer
 from app.utils.brightdata_browser import fetch_via_brightdata
 
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def _status_and_error(result) -> tuple[ScrapeStatus, str | None]:
 
 
 def _scraper_mode() -> str:
-    return (os.getenv("SCRAPER_MODE") or "brightdata").strip().lower()
+    return (os.getenv("SCRAPER_MODE") or "decodo").strip().lower()
 
 
 def _cached_result_from_state(state) -> AllegroResult | None:
@@ -675,7 +675,7 @@ def scrape_one_local(
         if mode == "legacy":
             result = asyncio.run(fetch_via_local_scraper(item.ean))
         elif mode == "decodo":
-            result = asyncio.run(fetch_via_decodo(item.ean))
+            result = asyncio.run(choose_lowest_offer(item.ean))
         else:
             result = asyncio.run(fetch_via_brightdata(item.ean))
         if mode != "legacy" and (result.is_temporary_error or getattr(result, "blocked", False)):
@@ -796,7 +796,7 @@ def scrape_one_cloud(
         db.commit()
         mode = _scraper_mode()
         if mode == "decodo":
-            result = asyncio.run(fetch_via_decodo(item.ean))
+            result = asyncio.run(choose_lowest_offer(item.ean))
         else:
             result = asyncio.run(fetch_via_http_scraper(item.ean))
 
