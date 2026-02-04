@@ -99,6 +99,7 @@ async def upload_analysis(
     mode: str = Form("mixed"),
     use_cloud_http: bool = Form(False),
     use_local_scraper: bool = Form(True),
+    scraper_mode: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     mode = (mode or "mixed").lower()
@@ -124,9 +125,14 @@ async def upload_analysis(
     if not file.filename.lower().endswith((".xls", ".xlsx")):
         raise HTTPException(status_code=400, detail="Plik musi być w formacie Excel (.xls/.xlsx)")
 
+    scraper_mode_norm = (scraper_mode or "").strip().lower() or None
+    if scraper_mode_norm and scraper_mode_norm not in {"decodo", "brightdata", "local"}:
+        raise HTTPException(status_code=400, detail="Invalid scraper_mode")
+
     strategy = ScrapingStrategyConfig(
         use_cloud_http=use_cloud_http,
         use_local_scraper=use_local_scraper,
+        scraper_mode=scraper_mode_norm,
     )
 
     try:
@@ -174,6 +180,7 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
     strategy = ScrapingStrategyConfig(
         use_cloud_http=use_cloud_http,
         use_local_scraper=use_local_scraper,
+        scraper_mode=(payload.scraper_mode or "").strip().lower() or None,
     )
 
     try:
@@ -200,6 +207,7 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
         "limit": payload.limit,
         "source": payload.source,
         "ean_contains": payload.ean_contains,
+        "scraper_mode": strategy.scraper_mode,
     }
 
     run = analysis_service.prepare_cached_analysis_run(

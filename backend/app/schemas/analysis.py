@@ -27,9 +27,18 @@ class AnalysisStatusResponse(BaseModel):
     total_products: int
     processed_products: int
     error_message: Optional[str]
+    scraper_mode: Optional[str] = None
 
     class Config:
         orm_mode = True
+
+    @root_validator(pre=True)
+    def _inject_scraper_mode(cls, values):
+        if values.get("scraper_mode") is None:
+            meta = values.get("run_metadata") or {}
+            if isinstance(meta, dict) and meta.get("scraper_mode"):
+                values["scraper_mode"] = meta.get("scraper_mode")
+        return values
 
 
 class AnalysisRunItemOut(BaseModel):
@@ -68,9 +77,18 @@ class AnalysisRunSummary(BaseModel):
     use_cloud_http: bool
     use_local_scraper: bool
     error_message: Optional[str] = None
+    scraper_mode: Optional[str] = None
 
     class Config:
         orm_mode = True
+
+    @root_validator(pre=True)
+    def _inject_scraper_mode(cls, values):
+        if values.get("scraper_mode") is None:
+            meta = values.get("run_metadata") or {}
+            if isinstance(meta, dict) and meta.get("scraper_mode"):
+                values["scraper_mode"] = meta.get("scraper_mode")
+        return values
 
 
 class AnalysisRunListResponse(BaseModel):
@@ -116,6 +134,7 @@ class AnalysisStartFromDbRequest(BaseModel):
     mode: str = "mixed"
     use_cloud_http: bool = False
     use_local_scraper: bool = True
+    scraper_mode: Optional[str] = None
     cache_days: Optional[int] = 30
     include_all_cached: bool = False
     only_with_data: bool = False

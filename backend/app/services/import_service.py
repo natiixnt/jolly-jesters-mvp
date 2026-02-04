@@ -66,6 +66,7 @@ def prepare_analysis_run(
         mode=mode,
         use_cloud_http=strategy.use_cloud_http,
         use_local_scraper=strategy.use_local_scraper,
+        run_metadata={"scraper_mode": strategy.scraper_mode} if strategy.scraper_mode else None,
     )
     db.add(run)
     db.flush()

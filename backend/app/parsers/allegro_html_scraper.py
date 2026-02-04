@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import logging
 import os
 import re
@@ -11,11 +12,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from app.core.config import settings
 from app.providers.decodo_client import DecodoClient
 from app.services.schemas import AllegroResult
+from app.utils.ean import is_valid_ean13
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,6 @@ SOLD_PATTERNS = [
     re.compile(r"([0-9][0-9\s]*)\s*os[oó]b\s*kupi[łl]o", re.IGNORECASE),
     re.compile(r"liczba\s+sprzedanych\s+ofert[^0-9]*([0-9][0-9\s]*)", re.IGNORECASE),
 ]
-
 
 def _env_int(name: str, default: int) -> int:
     try:
@@ -51,6 +52,10 @@ def _bool_env(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+_FAIL_CACHE: Dict[str, float] = {}
+DECODO_SEM = asyncio.Semaphore(_env_int("DECODO_CONCURRENCY", 2))
 
 
 def _normalize_url(url: Optional[str]) -> Optional[str]:
@@ -189,19 +194,52 @@ async def choose_lowest_offer(
 ) -> AllegroResult:
     """Main flow: listing -> candidate URLs -> offer pages -> choose lowest price."""
     client = client or DecodoClient()
-    max_candidates = max_candidates or _env_int("DECODO_MAX_CANDIDATES", 8)
-    timeout_seconds = timeout_seconds or _env_float("DECODO_EAN_TIMEOUT_SECONDS", 120.0)
+    if not is_valid_ean13(ean):
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=False,
+            raw_payload={"provider": "decodo", "stage": "validation", "error": "invalid_ean"},
+            error="invalid_ean",
+            source="decodo",
+            last_checked_at=datetime.now(timezone.utc),
+        )
+
+    skip_seconds = _fail_cache_should_skip(ean)
+    if skip_seconds:
+        return AllegroResult(
+            price=None,
+            sold_count=None,
+            is_not_found=False,
+            is_temporary_error=True,
+            raw_payload={
+                "provider": "decodo",
+                "stage": "validation",
+                "error": "fail_cache_recent",
+                "retry_after_seconds": round(skip_seconds, 2),
+            },
+            error="fail_cache_recent",
+            source="decodo",
+            last_checked_at=datetime.now(timezone.utc),
+            blocked=False,
+        )
+
+    max_candidates = max_candidates or _env_int("DECODO_MAX_CANDIDATES", 3)
+    timeout_seconds = timeout_seconds or _env_float("DECODO_EAN_TIMEOUT_SECONDS", 60.0)
 
     started = time.monotonic()
     session_id = _resolve_session_id(ean)
     listing_url = f"https://allegro.pl/listing?string={ean}"
 
-    listing_fetch = await client.fetch_html(listing_url, session_id=session_id)
+    async with DECODO_SEM:
+        listing_fetch = await client.fetch_html(listing_url, session_id=session_id)
     if listing_fetch.html:
         _save_debug_html(f"debug_listing_{ean}.html", listing_fetch.html)
 
     if not listing_fetch.html:
-        payload = {"provider": "decodo", "stage": "listing", **(listing_fetch.meta or {})}
+        _fail_cache_record(ean)
+        payload = {"provider": "decodo", "stage": "listing", "failure": "provider_faulted", **(listing_fetch.meta or {})}
         return AllegroResult(
             price=None,
             sold_count=None,
@@ -221,6 +259,7 @@ async def choose_lowest_offer(
             "provider": "decodo",
             "stage": "listing",
             "listing_status": "no_candidates",
+            "failure": "no_candidates",
             "candidate_count": 0,
         } | (listing_fetch.meta or {})
         return AllegroResult(
@@ -241,8 +280,10 @@ async def choose_lowest_offer(
     for idx, url in enumerate(candidates, start=1):
         if time.monotonic() - started >= timeout_seconds:
             logger.warning("DECODO timeout budget exceeded ean=%s after %s seconds", ean, timeout_seconds)
+            _fail_cache_record(ean)
             break
-        offer_fetch = await client.fetch_html(url, session_id=session_id)
+        async with DECODO_SEM:
+            offer_fetch = await client.fetch_html(url, session_id=session_id)
         if offer_fetch.html:
             _save_debug_html(f"debug_offer_{ean}_{idx}.html", offer_fetch.html)
         if offer_fetch.blocked:
@@ -264,6 +305,7 @@ async def choose_lowest_offer(
         )
 
     if not offers:
+        _fail_cache_record(ean)
         payload = {
             "provider": "decodo",
             "stage": "offer",
@@ -271,14 +313,15 @@ async def choose_lowest_offer(
             "processed_candidates": len(candidates),
             "temp_errors": temp_errors,
             "blocked": blocked_any,
+            "failure": "budget_exceeded" if time.monotonic() - started >= timeout_seconds else "no_price",
         } | (listing_fetch.meta or {})
         return AllegroResult(
             price=None,
             sold_count=None,
-            is_not_found=True if not blocked_any else False,
-            is_temporary_error=bool(blocked_any or temp_errors),
+            is_not_found=False if blocked_any else True,
+            is_temporary_error=bool(blocked_any or temp_errors or time.monotonic() - started >= timeout_seconds),
             raw_payload=payload,
-            error="blocked" if blocked_any else None,
+            error="blocked" if blocked_any else payload.get("failure"),
             source="decodo",
             last_checked_at=datetime.now(timezone.utc),
             blocked=blocked_any,
@@ -307,3 +350,33 @@ async def choose_lowest_offer(
         product_url=winner.url,
         blocked=blocked_any,
     )
+DECODO_SEM = asyncio.Semaphore(_env_int("DECODO_CONCURRENCY", 2))
+
+
+def _fail_cache_hours() -> float:
+    try:
+        return float(os.getenv("DECODO_FAIL_CACHE_HOURS", "6"))
+    except Exception:
+        return 6.0
+
+
+def _fail_cache_should_skip(ean: str) -> Optional[float]:
+    ttl_hours = _fail_cache_hours()
+    if ttl_hours <= 0:
+        return None
+    ttl_seconds = ttl_hours * 3600
+    ts = _FAIL_CACHE.get(ean)
+    if ts is None:
+        return None
+    remaining = ttl_seconds - (time.monotonic() - ts)
+    if remaining > 0:
+        return remaining
+    _FAIL_CACHE.pop(ean, None)
+    return None
+
+
+def _fail_cache_record(ean: str) -> None:
+    ttl_hours = _fail_cache_hours()
+    if ttl_hours <= 0:
+        return
+    _FAIL_CACHE[ean] = time.monotonic()

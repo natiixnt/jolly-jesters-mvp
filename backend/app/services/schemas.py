@@ -25,3 +25,4 @@ class AllegroResult:
 class ScrapingStrategyConfig:
     use_cloud_http: bool = False
     use_local_scraper: bool = True
+    scraper_mode: Optional[str] = None

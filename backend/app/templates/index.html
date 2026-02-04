@@ -1362,6 +1362,7 @@
                   <span class="status-spinner" id="status-spinner" aria-hidden="true"></span>
                 </div>
                 <div class="status-row"><strong data-i18n="label-progress">Postęp:</strong> <span id="run-progress"></span></div>
+                <div class="status-row"><strong>Scraper:</strong> <span id="run-scraper">—</span></div>
                 <div class="status-row"><strong data-i18n="label-updated">Ostatnia aktualizacja:</strong> <span id="run-updated">—</span></div>
                 <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
                 <div class="status-row"><strong data-i18n="label-error">Błąd:</strong> <span id="run-error" class="error"></span></div>
@@ -1410,26 +1411,14 @@
                 <div class="form-options">
                   <div class="form-section-title">Opcje zachowania</div>
                   <div>
-                    <label>Źródła scrapowania</label>
-                    <div class="toggle-group" id="strategy-boxes">
-                      <div>
-                        <label class="toggle">
-                          <input type="checkbox" name="use_local_scraper" value="true" checked />
-                          <span class="toggle__track"></span>
-                          <span class="toggle__label">Local Selenium</span>
-                        </label>
-                        <div class="helper">Selenium lokalnie w kontenerze.</div>
-                      </div>
-                      <div>
-                        <label class="toggle">
-                          <input type="checkbox" id="cloud-override-toggle" checked />
-                          <span class="toggle__track"></span>
-                          <span class="toggle__label" data-i18n="label-cloud-override">Global override: wyłącz chmurę/BD</span>
-                        </label>
-                        <div class="helper" data-i18n="helper-cloud-override">Gdy włączone, wymusza lokalny scraper i blokuje cloud/BrightData.</div>
-                      </div>
-                    </div>
-                    <div class="helper">Jeśli źródło jest wyłączone, analiza korzysta tylko z danych z bazy i cache.</div>
+                    <label for="scraper-mode-select">Tryb scrapera</label>
+                    <select id="scraper-mode-select">
+                      <option value="">Auto (wg ENV)</option>
+                      <option value="decodo">Decodo (domyślny)</option>
+                      <option value="brightdata">Bright Data</option>
+                      <option value="local">Local Selenium</option>
+                    </select>
+                    <div class="helper">Wybierz dostawcę scrapingu dla tej analizy. Auto = ustawienie z serwera.</div>
                     <div class="helper" id="strategy-offline-hint"></div>
                     <div class="error" id="strategy-error"></div>
                   </div>
@@ -3397,38 +3386,16 @@
 
     function validateStrategies() {
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
-      const useLocal = boxes.some(b => b.name === 'use_local_scraper' && b.checked);
-      const cloudAllowed = cloudOverrideToggle ? !cloudOverrideToggle.checked : false;
       if (mode === 'offline') {
         strategyOfflineHint.textContent = t('hint-offline');
-        setMessage('', strategyError);
-        return true;
-      }
-      if (!useLocal && !cloudAllowed) {
+      } else {
         strategyOfflineHint.textContent = '';
-        setMessage(t('strategy-required'), strategyError);
-        return false;
       }
-      strategyOfflineHint.textContent = '';
       setMessage('', strategyError);
       return true;
     }
 
     function updateStrategiesForMode() {
-      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const boxes = Array.from(document.querySelectorAll('#strategy-boxes input[type="checkbox"]'));
-      const offline = mode === 'offline';
-      boxes.forEach((box) => {
-        if (box !== cloudOverrideToggle) {
-          box.disabled = offline;
-        }
-      });
-      if (!offline) {
-        boxes
-          .filter((box) => box.name) // keep user choice for global override
-          .forEach((box) => { box.checked = true; });
-      }
       validateStrategies();
     }
 
@@ -3651,6 +3618,13 @@
       if (statusEmpty) statusEmpty.style.display = 'none';
       if (statusDetails) statusDetails.style.display = 'grid';
       runStatusEl.textContent = statusLabel(data.status);
+      if (window.runScraperEl === undefined) {
+        window.runScraperEl = document.getElementById('run-scraper');
+      }
+      if (runScraperEl) {
+        const sm = data.scraper_mode || (data.mode === 'online' ? 'brightdata' : (data.mode === 'offline' ? 'cache' : 'decodo'));
+        runScraperEl.textContent = sm || '—';
+      }
       const processed = data.processed_products ?? 0;
       const total = data.total_products ?? 0;
       runProgressEl.textContent = `${processed}/${total}`;
@@ -4189,15 +4163,21 @@
 
     function getStrategyFlags() {
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
-      const cloudAllowed = cloudOverrideToggle ? !cloudOverrideToggle.checked : false;
+      const select = document.getElementById('scraper-mode-select');
+      const choice = (select?.value || '').toLowerCase();
       if (mode === 'offline') {
-        return { use_cloud_http: false, use_local_scraper: false };
+        return { use_cloud_http: false, use_local_scraper: false, scraper_mode_override: '' };
       }
-      return {
-        use_cloud_http: cloudAllowed,
-        use_local_scraper: useLocalInput?.checked || false,
-      };
+      if (choice === 'brightdata') {
+        return { use_cloud_http: true, use_local_scraper: false, scraper_mode_override: 'brightdata' };
+      }
+      if (choice === 'local') {
+        return { use_cloud_http: false, use_local_scraper: true, scraper_mode_override: 'local' };
+      }
+      if (choice === 'decodo') {
+        return { use_cloud_http: false, use_local_scraper: true, scraper_mode_override: 'decodo' };
+      }
+      return { use_cloud_http: false, use_local_scraper: true, scraper_mode_override: '' };
     }
 
     async function startFromDb() {
@@ -4326,6 +4306,9 @@
       const flags = getStrategyFlags();
       fd.append('use_cloud_http', flags.use_cloud_http ? 'true' : 'false');
       fd.append('use_local_scraper', flags.use_local_scraper ? 'true' : 'false');
+      if (flags.scraper_mode_override) {
+        fd.append('scraper_mode', flags.scraper_mode_override);
+      }
 
       submitBtn.disabled = true;
       submitBtn.textContent = t('btn-starting');
@@ -4351,7 +4334,8 @@
       }
     });
 
-    document.getElementById('strategy-boxes').addEventListener('change', validateStrategies);
+    const strategyBoxes = document.getElementById('strategy-boxes');
+    if (strategyBoxes) strategyBoxes.addEventListener('change', validateStrategies);
     form.querySelectorAll('input[name="mode"]').forEach((input) => {
       input.addEventListener('change', () => {
         updateStrategiesForMode();

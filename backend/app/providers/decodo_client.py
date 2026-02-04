@@ -66,9 +66,9 @@ def _decodo_timeout() -> httpx.Timeout:
 
 def _decodo_max_attempts() -> int:
     try:
-        return min(5, max(1, int(os.getenv("DECODO_MAX_RETRIES", "3"))))
+        return min(5, max(1, int(os.getenv("DECODO_MAX_RETRIES", "1"))))
     except Exception:
-        return 3
+        return 1
 
 
 def _decodo_backoff(attempt: int) -> float:

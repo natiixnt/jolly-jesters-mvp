@@ -69,7 +69,7 @@ async def test_choose_lowest_offer_picks_min_price(monkeypatch):
             body = offer_pages.get(url)
             return FetchResult(html=body, status_code=200, blocked=False, error=None, meta={"url": url})
 
-    result = await choose_lowest_offer("5901234567890", client=DummyClient(), max_candidates=8, timeout_seconds=30)
+    result = await choose_lowest_offer("5901234123457", client=DummyClient(), max_candidates=8, timeout_seconds=30)
 
     assert result.price == Decimal("149.50")
     assert result.sold_count == 12
@@ -84,7 +84,7 @@ async def test_choose_lowest_offer_blocked_listing(monkeypatch):
         async def fetch_html(self, url, session_id=None):
             return FetchResult(html=None, status_code=403, blocked=True, error="http_403", meta={"status_code": 403})
 
-    result = await choose_lowest_offer("5900000000000", client=DummyClient(), timeout_seconds=5)
+    result = await choose_lowest_offer("4006381333931", client=DummyClient(), timeout_seconds=5)
 
     assert result.is_temporary_error is True
     assert result.blocked is True

@@ -38,6 +38,7 @@ from app.utils.allegro_scraper_http import fetch_via_http_scraper
 from app.utils.local_scraper_client import check_local_scraper_health, fetch_via_local_scraper
 from app.parsers.allegro_html_scraper import choose_lowest_offer
 from app.utils.brightdata_browser import fetch_via_brightdata
+from app.utils.ean import is_valid_ean13
 
 logger = logging.getLogger(__name__)
 _REDIS_CLIENT = None
@@ -173,12 +174,21 @@ def _serialize_payload(payload: object) -> str:
 
 
 def _status_and_error(result) -> tuple[ScrapeStatus, str | None]:
+    err = _error_message_from_result(result)
+    if err == "invalid_ean":
+        return ScrapeStatus.error, err
+    if err in {"fail_cache_recent", "budget_exceeded"}:
+        return ScrapeStatus.network_error, err
+    if err in {"no_candidates", "no_price"}:
+        return ScrapeStatus.not_found, err
+    if err == "provider_faulted":
+        return ScrapeStatus.network_error, err
     if result.is_not_found:
         return ScrapeStatus.not_found, None
     if getattr(result, "blocked", False):
         return ScrapeStatus.blocked, _error_message_from_result(result) or "blocked"
 
-    error_message = _error_message_from_result(result)
+    error_message = err
     if error_message:
         lowered = error_message.lower()
         if error_message == "network_error" or "network_error" in lowered or "connecterror" in lowered:
@@ -188,8 +198,20 @@ def _status_and_error(result) -> tuple[ScrapeStatus, str | None]:
     return ScrapeStatus.ok, None
 
 
+def _attach_mode(result, mode: str):
+    payload = getattr(result, "raw_payload", None)
+    if isinstance(payload, dict):
+        payload.setdefault("scraper_mode", mode)
+
+
 def _scraper_mode() -> str:
     return (os.getenv("SCRAPER_MODE") or "decodo").strip().lower()
+
+
+def _scraper_mode_from_strategy(strategy_snapshot: dict | None) -> str:
+    if strategy_snapshot and strategy_snapshot.get("scraper_mode"):
+        return str(strategy_snapshot.get("scraper_mode")).strip().lower()
+    return _scraper_mode()
 
 
 def _cached_result_from_state(state) -> AllegroResult | None:
@@ -648,6 +670,13 @@ def scrape_one_local(
             )
             return
 
+        if not is_valid_ean13(ean):
+            item.source = AnalysisItemSource.error
+            item.scrape_status = ScrapeStatus.error
+            item.error_message = "invalid_ean"
+            _finalize_item(db, run, item, prev_status)
+            return
+
         if _maybe_pause_for_blocked_item(self, scrape_one_local, run, item, strategy_snapshot, "LOCAL_SCRAPER_TASK"):
             return
 
@@ -671,13 +700,14 @@ def scrape_one_local(
         item.scrape_status = ScrapeStatus.in_progress
         item.error_message = None
         db.commit()
-        mode = _scraper_mode()
+        mode = _scraper_mode_from_strategy(strategy_snapshot)
         if mode == "legacy":
             result = asyncio.run(fetch_via_local_scraper(item.ean))
         elif mode == "decodo":
             result = asyncio.run(choose_lowest_offer(item.ean))
         else:
             result = asyncio.run(fetch_via_brightdata(item.ean))
+        _attach_mode(result, mode)
         if mode != "legacy" and (result.is_temporary_error or getattr(result, "blocked", False)):
             cached_result = _cached_result_from_state(state)
             if cached_result:
@@ -771,6 +801,13 @@ def scrape_one_cloud(
             _finalize_item(db, run, item, prev_status)
             return
 
+        if not is_valid_ean13(ean):
+            item.source = AnalysisItemSource.error
+            item.scrape_status = ScrapeStatus.error
+            item.error_message = "invalid_ean"
+            _finalize_item(db, run, item, prev_status)
+            return
+
         if _maybe_pause_for_blocked_item(self, scrape_one_cloud, run, item, strategy_snapshot, "CLOUD_SCRAPER_TASK"):
             return
 
@@ -794,11 +831,12 @@ def scrape_one_cloud(
         item.scrape_status = ScrapeStatus.in_progress
         item.error_message = None
         db.commit()
-        mode = _scraper_mode()
+        mode = _scraper_mode_from_strategy(strategy_snapshot)
         if mode == "decodo":
             result = asyncio.run(choose_lowest_offer(item.ean))
         else:
             result = asyncio.run(fetch_via_http_scraper(item.ean))
+        _attach_mode(result, mode)
 
         if result.is_temporary_error or getattr(result, "blocked", False):
             if _should_fallback_local(strategy_snapshot):

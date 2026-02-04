@@ -160,7 +160,7 @@ services:
       - SCRAPER_CONCURRENCY=${SCRAPER_CONCURRENCY:-1}
       - EAN_CACHE_TTL_DAYS=${EAN_CACHE_TTL_DAYS:-14}
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=2 --prefetch-multiplier=1 --max-tasks-per-child=20"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1 --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - workspace_data:/workspace
     depends_on:
@@ -199,7 +199,7 @@ services:
       - BD_PDP_TIE_BREAK_LIMIT=${BD_PDP_TIE_BREAK_LIMIT:-5}
       - BD_CACHE_TTL_SECONDS=${BD_CACHE_TTL_SECONDS:-86400}
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-2} --prefetch-multiplier=1 --max-tasks-per-child=20"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-1} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - workspace_data:/workspace
     shm_size: 2gb # potrzebne dla selenium/chrome
