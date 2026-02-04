@@ -34,6 +34,15 @@ class AnalysisStatusResponse(BaseModel):
 
     @root_validator(pre=True)
     def _inject_scraper_mode(cls, values):
+        # Pydantic passes a GetterDict when using orm_mode; make a mutable copy
+        if values is None:
+            return values
+        if not isinstance(values, dict):
+            try:
+                values = dict(values)
+            except Exception:
+                values = values.copy()
+
         if values.get("scraper_mode") is None:
             meta = values.get("run_metadata") or {}
             if isinstance(meta, dict) and meta.get("scraper_mode"):
@@ -84,6 +93,14 @@ class AnalysisRunSummary(BaseModel):
 
     @root_validator(pre=True)
     def _inject_scraper_mode(cls, values):
+        if values is None:
+            return values
+        if not isinstance(values, dict):
+            try:
+                values = dict(values)
+            except Exception:
+                values = values.copy()
+
         if values.get("scraper_mode") is None:
             meta = values.get("run_metadata") or {}
             if isinstance(meta, dict) and meta.get("scraper_mode"):
