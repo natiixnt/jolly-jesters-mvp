@@ -14,85 +14,129 @@
       --panel-2: #0b1327;
       --accent: #22d3ee;
       --accent-2: #10b981;
-      --text: #e5e7eb;
-      --muted: #93a4c1;
+      --text: #e7ebf5;
+      --muted: #9aa8c3;
       --border: #1f2937;
       --danger: #f87171;
       --success: #34d399;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-7: 28px;
+      --space-8: 32px;
+      --font-sm: 13px;
+      --font-md: 15px;
+      --font-lg: 18px;
+      --radius: 12px;
+      --shadow: 0 12px 40px rgba(0,0,0,0.32);
+      --page-max: 1280px;
+      --page-max-wide: 1440px;
+      --page-pad: 24px;
+      --card-pad: 22px;
+      --section-gap: 18px;
     }
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { max-width: 100%; }
+    *, *::before, *::after { box-sizing: border-box; min-width: 0; }
+    html {
+      max-width: 100%;
+      font-size: 16px;
+      scroll-behavior: smooth;
+      scroll-padding-top: 92px;
+    }
     img, video, canvas { max-width: 100%; height: auto; }
     body {
       margin: 0;
       font-family: 'Space Grotesk', 'Segoe UI', system-ui, -apple-system, sans-serif;
       background:
-        radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.12), transparent 32%),
-        radial-gradient(circle at 80% 0%, rgba(16, 185, 129, 0.12), transparent 28%),
+        radial-gradient(circle at 20% 18%, rgba(34, 211, 238, 0.06), transparent 32%),
+        radial-gradient(circle at 82% 0%, rgba(16, 185, 129, 0.06), transparent 26%),
         var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 32px 16px 48px;
+      padding: 0;
       overflow-x: hidden;
+      line-height: 1.55;
     }
+    .page {
+      max-width: var(--page-max);
+      margin: 0 auto;
+      padding: 24px var(--page-pad) 64px;
+    }
+    .page.is-wide { max-width: var(--page-max-wide); }
     .shell {
       position: relative;
-      max-width: 1400px;
-      margin: 0 auto;
       background: var(--panel);
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.04);
       border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 20px 80px rgba(0,0,0,0.35);
+      padding: var(--card-pad);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+    }
+    @media (max-width: 480px) {
+      :root { --page-pad: 14px; --card-pad: 16px; }
+      .page { padding: 16px var(--page-pad) 80px; }
     }
     .top {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
+      gap: var(--space-4);
       align-items: flex-start;
       flex-wrap: wrap;
     }
     .top > * { min-width: 0; }
-    h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; }
-    p.lead { color: var(--muted); margin: 6px 0 0; }
+    h1 { margin: 0; font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+    h2 { margin: 0; font-size: 1.22rem; font-weight: 700; line-height: 1.25; }
+    p.lead { color: var(--muted); margin: 6px 0 0; font-size: 0.95rem; line-height: 1.5; }
     .ghost-btn {
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 14px;
-      border-radius: 10px;
+      padding: 12px 14px;
+      min-height: 40px;
+      border-radius: 12px;
       cursor: pointer;
       transition: border-color 0.2s, color 0.2s, transform 0.2s;
+      font-weight: 600;
+      font-size: 14px;
     }
     .ghost-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
-    .action-btn {
+    .action-btn,
+    .primary-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       border: 1px solid rgba(255,255,255,0.1);
       background: linear-gradient(120deg, var(--accent-2), var(--accent));
       color: #fff;
-      padding: 10px 14px;
+      padding: 12px 18px;
+      min-height: 44px;
       border-radius: 12px;
       font-weight: 700;
+      font-size: 15px;
       cursor: pointer;
       text-decoration: none;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 12px 30px rgba(34,211,238,0.18);
     }
     .action-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(34,211,238,0.25); }
-    .action-btn.secondary {
-      background: #0b152b;
-      border: 1px solid var(--border);
+    .action-btn.secondary,
+    .ghost-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.15);
       color: var(--text);
-      padding: 8px 12px;
+      padding: 12px 14px;
+      min-height: 44px;
+      border-radius: 12px;
+      font-weight: 600;
       box-shadow: none;
     }
-    .action-btn.secondary:hover {
+    .action-btn.secondary:hover,
+    .ghost-btn:hover {
       border-color: var(--accent);
       color: var(--accent);
       transform: translateY(-1px);
     }
-    .action-btn:disabled {
+    .action-btn:disabled, .primary-btn:disabled, .ghost-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
@@ -128,15 +172,13 @@
     }
     .status-pill.error { border-color: rgba(248,113,113,0.6); color: #fecaca; }
     .status-pill.error .status-dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(248,113,113,0.15); }
-    .button-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .button-row { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
     .button-row > * { min-width: 0; }
     .layout {
-      margin-top: 20px;
+      margin-top: var(--section-gap);
       display: grid;
-      gap: 16px;
-      max-width: 1400px;
-      margin-left: auto;
-      margin-right: auto;
+      gap: var(--section-gap);
+      max-width: 100%;
     }
     .wiring-alert {
       display: none;
@@ -233,7 +275,7 @@
     .wizard-step.is-active { display: block; }
     .wizard-form { display: grid; gap: 12px; min-width: 0; }
     .step-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-    .step-eyebrow { text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-size: 11px; margin: 0 0 4px; }
+    .step-eyebrow { text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-size: 12px; margin: 0 0 4px; font-weight: 700; }
     .step-lead { color: var(--muted); margin: 4px 0 0; }
     .inline-summary { color: var(--muted); font-size: 13px; text-align: right; min-width: 160px; }
     .summary-panel {
@@ -264,6 +306,10 @@
       .wizard-grid { grid-template-columns: 1fr; }
       .summary-panel { display: none; }
     }
+    @media (max-width: 900px) {
+      .top { flex-direction: column; align-items: flex-start; }
+      .top-actions { width: 100%; justify-content: flex-start; }
+    }
     @media (max-width: 768px) {
       .wizard-grid { grid-template-columns: 1fr; }
       .wizard-stepper { position: static; }
@@ -271,16 +317,33 @@
       .stepper-mobile { display: block; }
       .wizard-step { padding: 16px; }
     }
+    @media (max-width: 640px) {
+      body { padding: 28px 14px 88px; }
+      .shell { padding: 20px 18px; }
+    }
+    @media (min-width: 1100px) {
+      .filters-accordion {
+        flex: 0 0 auto;
+        padding: 0;
+        border: none;
+        background: transparent;
+      }
+      .filters-accordion summary { display: none; }
+      .filters-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
+    }
     .action-panel, .results-panel, .settings-panel-card {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: var(--panel-2);
-      padding: 18px;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 16px;
+      background: rgba(8,16,32,0.50);
+      padding: var(--card-pad);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.20);
     }
     .dropzone {
       border: 1px dashed var(--border);
       border-radius: 12px;
       padding: 16px;
+      min-height: 88px;
+      max-width: 760px;
       background: rgba(34,211,238,0.04);
       text-align: center;
       color: var(--muted);
@@ -310,35 +373,61 @@
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
-      align-items: center;
-      margin: 10px 0;
+      align-items: flex-start;
+      margin: 12px 0;
     }
     .results-toolbar input {
-      flex: 1;
-      min-width: 200px;
-      padding: 10px 12px;
-      border-radius: 10px;
+      flex: 1 1 260px;
+      min-width: 220px;
+      padding: 12px 14px;
+      border-radius: 12px;
       border: 1px solid var(--border);
       background: #0b152b;
       color: var(--text);
+      font-size: 15px;
+      min-height: 44px;
     }
+    .filters-accordion {
+      flex: 1 1 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: #0b152b;
+    }
+    .filters-accordion summary {
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      list-style: none;
+    }
+    .filters-accordion summary::-webkit-details-marker { display: none; }
+    .filters-row { margin-top: 8px; }
     .chip {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
+      gap: 8px;
+      padding: 8px 12px;
+      min-height: 36px;
       border-radius: 999px;
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.03);
       color: var(--text);
       cursor: pointer;
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
     }
     .chip.is-active {
       border-color: var(--accent);
       color: var(--accent);
       background: rgba(34,211,238,0.12);
     }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
     .backend-alert {
       display: none;
       margin-bottom: 12px;
@@ -356,10 +445,12 @@
     }
     .results-table__inner { max-height: 480px; overflow: auto; }
     .card {
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
+      background: rgba(8,16,32,0.50);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: var(--card-pad);
+      gap: var(--space-3);
+      box-shadow: none;
     }
     .card-header {
       display: flex;
@@ -370,12 +461,15 @@
     }
     form { display: grid; gap: 16px; }
     .is-hidden { display: none !important; }
+    .row-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .control { min-height: 44px; }
+    .btn { min-height: 40px; }
     label {
-      font-weight: 700;
+      font-weight: 600;
       font-size: 13px;
-      letter-spacing: 0.01em;
+      letter-spacing: 0.03em;
       color: var(--muted);
-      text-transform: uppercase;
+      text-transform: none;
       word-break: break-word;
       overflow-wrap: anywhere;
     }
@@ -431,7 +525,11 @@
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     }
     .form-grid.has-options {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    }
+    .input-grid {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      align-items: start;
     }
     .form-grid.single {
       grid-template-columns: minmax(0, 1fr);
@@ -444,6 +542,7 @@
       gap: 12px;
       min-width: 0;
     }
+    .mode-box { max-width: 560px; }
     .form-grid input,
     .form-grid select,
     .form-grid textarea {
@@ -520,6 +619,8 @@
       border-radius: 12px;
       padding: 12px 14px;
       color: var(--text);
+      min-height: 44px;
+      font-size: 0.95rem;
     }
     input::placeholder { color: rgba(255,255,255,0.45); }
     input[type="datetime-local"] {
@@ -546,43 +647,40 @@
     input[type="file"], input[type="number"], input[type="text"] { appearance: auto; background-image: none; padding-right: 14px; }
     .helper {
       color: var(--muted);
-      font-size: 13px;
+      font-size: 0.87rem;
       margin-top: 4px;
       white-space: normal;
       word-break: break-word;
       overflow-wrap: anywhere;
+      line-height: 1.45;
     }
     .segmented {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      overflow: hidden;
+      padding: 6px;
       background: #0b152b;
     }
     .segmented label {
       position: relative;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 12px;
+      padding: 12px 16px;
       font-weight: 700;
       cursor: pointer;
       color: var(--muted);
       transition: color 0.2s, background 0.2s;
-      text-transform: uppercase;
-      font-size: 12px;
-      letter-spacing: 0.06em;
-    }
-    .segmented label span {
-      pointer-events: none;
-      width: 100%;
-      text-align: center;
-      padding: 10px 12px;
-      margin: -10px -12px;
+      text-transform: none;
+      font-size: 14px;
+      min-height: 44px;
       border-radius: 10px;
-      transition: background 0.2s, color 0.2s;
+      flex: 1 1 140px;
+      white-space: nowrap;
     }
+    .segmented label span { pointer-events: none; }
     .segmented input {
       position: absolute;
       inset: 0;
@@ -592,9 +690,8 @@
     .segmented input:checked + span {
       color: var(--text);
       background: rgba(34,211,238,0.15);
-    }
-    @media (max-width: 520px) {
-      .segmented { grid-template-columns: 1fr; }
+      border-radius: 10px;
+      padding: 10px 14px;
     }
     .tabs {
       display: grid;
@@ -622,15 +719,16 @@
       background: #0b152b;
       border: 1px solid var(--border);
       color: var(--muted);
-      padding: 10px 12px;
+      padding: 12px 14px;
       border-radius: 12px;
       font-weight: 700;
       text-transform: uppercase;
-      font-size: 12px;
-      letter-spacing: 0.06em;
+      font-size: 13px;
+      letter-spacing: 0.05em;
       cursor: pointer;
       transition: border-color 0.2s, color 0.2s, transform 0.2s;
       scroll-snap-align: start;
+      min-height: 40px;
     }
     .tab-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
     .tab-btn.is-active {
@@ -795,19 +893,8 @@
       max-width: 100%;
       white-space: normal;
       text-align: center;
-      background: linear-gradient(120deg, var(--accent-2), var(--accent));
-      color: #fff;
-      border: none;
-      padding: 14px 18px;
-      border-radius: 12px;
-      font-weight: 800;
-      letter-spacing: 0.01em;
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
-      box-shadow: 0 14px 40px rgba(16, 185, 129, 0.35);
+      font-weight: 700;
     }
-    .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .primary-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 40px rgba(34, 211, 238, 0.3); }
     .status-panel {
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -815,6 +902,8 @@
       background: #0b1327;
       display: grid;
       gap: 8px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
     .status-empty { color: var(--muted); }
     .status-details { display: grid; gap: 6px; }
@@ -837,14 +926,14 @@
       margin-top: 8px;
       display: none;
       gap: 4px;
-      max-height: 140px;
+      max-height: 320px;
       overflow: auto;
       overflow-x: auto;
-      padding: 8px;
+      padding: 10px;
       border: 1px solid var(--border);
       border-radius: 10px;
       background: #0b152b;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--muted);
     }
     .status-card {
@@ -880,6 +969,8 @@
       color: var(--text);
       font-weight: 700;
       letter-spacing: 0.01em;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .muted { color: var(--muted); }
     a.download {
@@ -913,6 +1004,11 @@
       transition: max-width 0.2s ease, width 0.2s ease, opacity 0.2s;
     }
     .layout > * { min-width: 0; }
+    .layout > section,
+    .layout > details {
+      margin: 0;
+      padding: 0;
+    }
     .sidebar.collapsed {
       display: none;
     }
@@ -1059,6 +1155,7 @@
       font-size: 11px;
       color: #fff;
       display: inline-block;
+      overflow-wrap: anywhere;
     }
     .badge.pending { background: #f59e0b; }
     .badge.running { background: #22d3ee; }
@@ -1067,14 +1164,16 @@
     .badge.canceled { background: #64748b; }
     .ghost-btn--small { padding: 8px 10px; font-size: 13px; }
     .history-row .action-btn {
-      padding: 6px 10px;
-      font-size: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
       border-radius: 10px;
+      min-height: 40px;
     }
     .history-row .ghost-btn {
-      padding: 6px 10px;
-      font-size: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
       border-radius: 10px;
+      min-height: 40px;
     }
     .market-filters {
       display: grid;
@@ -1098,7 +1197,7 @@
       min-width: 760px;
       width: 100%;
       table-layout: auto;
-      font-size: 12px;
+      font-size: 13px;
     }
     .market-table table th,
     .market-table table td {
@@ -1179,7 +1278,7 @@
       border-radius: 12px;
       overflow: visible;
     }
-    .results-table table { min-width: 720px; width: 100%; border-collapse: collapse; }
+    .results-table table { min-width: 720px; width: 100%; border-collapse: collapse; font-size: 14px; }
     .results-table th,
     .results-table td {
       padding: 10px 12px;
@@ -1189,6 +1288,8 @@
       overflow: hidden;
       text-overflow: ellipsis;
       vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .results-table.is-compact table { min-width: 640px; }
     .results-table.is-compact th,
@@ -1226,6 +1327,8 @@
       border-radius: 999px;
       font-size: 12px;
       display: inline-block;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .status-chip.pending { background: rgba(245,158,11,0.2); color: #fbbf24; }
     .status-chip.in_progress { background: rgba(34,211,238,0.2); color: #67e8f9; }
@@ -1387,13 +1490,15 @@
       gap: 12px;
       flex-wrap: wrap;
     }
-    .section-heading h2 { margin: 0; }
+    .section-heading h2 { margin: 0 0 6px; font-size: 1.25rem; font-weight: 700; }
+    .section-heading .step-lead { margin: 0 0 14px; }
     .input-card, .status-card, .results-card, .history-card, .advanced-card, .market-card {
       width: 100%;
     }
+    .input-card { padding-bottom: calc(36px + env(safe-area-inset-bottom)); }
     .input-form .form-grid { margin-top: 12px; }
     .status-panel { max-width: 100%; }
-    .status-row span, .status-row strong, .pill { overflow-wrap: anywhere; }
+    .status-row span, .status-row strong, .pill { overflow-wrap: anywhere; word-break: break-word; }
     .status-log { max-height: 240px; }
     .copyable { cursor: pointer; }
     .input-cta-bar {
@@ -1402,13 +1507,17 @@
       justify-content: space-between;
       gap: 12px;
       margin-top: 12px;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: #0b1327;
+      padding: 14px 16px;
+      border: 1px solid rgba(148,163,184,0.35);
+      border-radius: 14px;
+      background: rgba(13, 22, 40, 0.92);
       position: sticky;
       bottom: 0;
-      z-index: 5;
+      padding-bottom: calc(14px + env(safe-area-inset-bottom));
+      z-index: 30;
+      box-shadow: 0 -6px 24px rgba(0,0,0,0.35);
+      backdrop-filter: blur(4px);
+      pointer-events: auto;
     }
     .input-cta-bar .cta-left { min-width: 0; }
     .input-cta-bar .cta-right { display: flex; align-items: center; gap: 8px; }
@@ -1423,12 +1532,15 @@
     }
     .start-spinner.is-active { display: inline-block; }
     @media (max-width: 640px) {
-      .input-cta-bar { position: sticky; bottom: 0; left: 0; right: 0; }
+      .input-cta-bar { position: sticky; bottom: 0; left: 0; right: 0; flex-direction: column; align-items: stretch; }
+      .input-cta-bar .cta-right { width: 100%; }
+      #submit-btn { width: 100%; min-width: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="shell" data-i18n-auto="1">
+  <div class="page" id="page">
+  <div class="shell" data-i18n-auto="1" id="shell">
     <button class="sidebar-restore" id="sidebar-restore">Panel</button>
     <div class="top">
       <div>
@@ -1441,12 +1553,11 @@
           <span id="scraper-status-text">Sprawdzanie statusu…</span>
         </div>
         <div class="button-row">
-          <button class="ghost-btn" id="lang-toggle" type="button">EN / PL</button>
           <button class="ghost-btn" id="faq-btn" data-i18n="faq-button">FAQ / pomoc</button>
           <button class="ghost-btn" id="logout-btn" type="button">Wyloguj</button>
         </div>
       </div>
-    </div>
+  </div>
 
     <div class="wiring-alert" id="wiring-alert"></div>
 
@@ -1468,7 +1579,7 @@
             <strong>Upuść plik Excel tutaj</strong><br/>
             <span class="muted">lub kliknij, aby wybrać</span>
           </div>
-          <div class="form-grid has-options">
+          <div class="form-grid has-options input-grid">
             <div class="form-filters">
               <div>
                 <label for="category-select" style="display:flex; align-items:center; gap:8px;">
@@ -1486,7 +1597,7 @@
                 <div class="error" id="file-error"></div>
               </div>
             </div>
-            <div class="form-options">
+            <div class="form-options mode-box">
               <label data-i18n="label-mode">Tryb scrapera</label>
               <div class="segmented" role="group" aria-label="Tryb analizy">
                 <label>
@@ -1508,7 +1619,6 @@
           <div class="input-cta-bar" id="input-cta-bar">
             <div class="cta-left">
               <div class="error" id="start-hint"></div>
-              <div class="mini-summary" id="start-progress-text"></div>
             </div>
             <div class="cta-right">
               <button type="button" id="submit-btn" class="primary-btn cta-btn">
@@ -1519,37 +1629,6 @@
           </div>
           <div class="helper" id="settings-summary"></div>
         </form>
-
-        <div class="advanced" id="advanced-panel" hidden>
-          <div class="settings-block settings-panel-card">
-            <div class="settings-header">
-              <div>
-                <h3 class="section-title">Ustawienia zaawansowane</h3>
-                <div class="helper">Rzadziej używane parametry. Schowaj, aby nie mieszać podstawowego flow.</div>
-              </div>
-            </div>
-            <div class="settings-panel">
-              <div class="form-grid">
-                <div>
-                  <label for="cache-ttl">Maks. wiek danych (dni)</label>
-                  <div class="slider-inline">
-                    <input type="range" id="cache-ttl" min="1" max="365" value="30" />
-                    <input type="number" id="cache-ttl-input" min="1" max="365" value="30" />
-                  </div>
-                  <div class="helper">Dotyczy online/mixed. Im mniejszy, tym częściej dogrywka online.</div>
-                  <div class="form-cta" style="margin-top:6px;">
-                    <button type="button" class="ghost-btn ghost-btn--small" id="save-ttl-btn">Zapisz TTL</button>
-                  </div>
-                </div>
-                <div>
-                  <label for="offer-limit">Limit wyników</label>
-                  <input type="number" id="offer-limit" min="0" placeholder="np. 500" />
-                  <div class="helper">0 lub puste = bez limitu.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
       <section class="card status-card" id="status-section">
@@ -1588,16 +1667,19 @@
               <button class="action-btn" id="preview-link" type="button" data-i18n="btn-preview">Podgląd wyników</button>
               <a class="action-btn secondary" id="download-link" href="#" data-i18n="btn-download">⬇ Pobierz raport</a>
             </div>
-            <div class="status-card">
-              <div class="status-row"><strong>Effective config:</strong></div>
+            <details class="status-card" id="config-details">
+              <summary class="ghost-btn" style="width:max-content;">Pokaż effective config</summary>
               <pre class="status-config" id="effective-config">—</pre>
-            </div>
-            <div class="status-log" id="status-log" aria-live="polite"></div>
+            </details>
+            <details class="status-log" id="status-log-wrapper">
+              <summary class="ghost-btn" style="width:max-content;">Pokaż log</summary>
+              <div class="status-log" id="status-log" aria-live="polite" style="display:block;"></div>
+            </details>
           </div>
         </div>
       </section>
 
-      <section class="card results-card" id="results-section">
+      <section class="card results-card" id="results-section" hidden>
         <div class="section-heading">
           <div>
             <p class="step-eyebrow">Wyniki</p>
@@ -1612,10 +1694,15 @@
         <div class="tab-panel is-active" data-tab-panel="preview">
           <div class="results-toolbar">
             <input type="search" id="results-search" placeholder="Szukaj EAN / nazwa" />
-            <button class="chip" data-filter="profitable" id="chip-profitable">Tylko opłacalne</button>
-            <button class="chip" data-filter="errors" id="chip-errors">Tylko błędy</button>
-            <button class="chip" data-filter="missing-price" id="chip-missing">Brak ceny</button>
-            <button class="ghost-btn ghost-btn--small" id="copy-failed-btn" type="button">Kopiuj EAN-y nieudane</button>
+            <details class="filters-accordion" open>
+              <summary>Filtry</summary>
+              <div class="row-wrap filters-row">
+                <button class="chip" data-filter="profitable" id="chip-profitable">Tylko opłacalne</button>
+                <button class="chip" data-filter="errors" id="chip-errors">Tylko błędy</button>
+                <button class="chip" data-filter="missing-price" id="chip-missing">Brak ceny</button>
+                <button class="ghost-btn ghost-btn--small" id="copy-failed-btn" type="button">Kopiuj EAN-y nieudane</button>
+              </div>
+            </details>
           </div>
           <div class="error" id="results-error"></div>
           <div class="results-empty" id="results-empty" style="display:none;">
@@ -1643,7 +1730,7 @@
         </div>
       </section>
 
-      <section class="card history-card history-card--analysis" id="history-section">
+      <section class="card history-card history-card--analysis" id="history-section" hidden>
         <div class="section-heading">
           <div>
             <p class="step-eyebrow">Historia</p>
@@ -1668,6 +1755,27 @@
           <div class="settings-panel" id="settings-panel">
             <div class="helper" id="settings-info"></div>
             <div class="error" id="settings-error"></div>
+            <div class="card">
+              <h3 class="section-title">Parametry analizy</h3>
+              <div class="form-grid has-options">
+                <div>
+                  <label for="cache-ttl">Maks. wiek danych (dni)</label>
+                  <div class="slider-inline">
+                    <input type="range" id="cache-ttl" min="1" max="365" value="30" />
+                    <input type="number" id="cache-ttl-input" min="1" max="365" value="30" />
+                  </div>
+                  <div class="helper">Dotyczy online/mixed. Krótszy = więcej dogrywki live.</div>
+                  <div class="form-cta" style="margin-top:6px;">
+                    <button type="button" class="ghost-btn ghost-btn--small" id="save-ttl-btn">Zapisz TTL</button>
+                  </div>
+                </div>
+                <div>
+                  <label for="offer-limit">Limit wyników</label>
+                  <input type="number" id="offer-limit" min="0" placeholder="np. 500" />
+                  <div class="helper">0 lub puste = bez limitu.</div>
+                </div>
+              </div>
+            </div>
             <div class="tabs tabs-scroll" id="settings-tabs">
               <button type="button" class="tab-btn is-active" data-tab="history" data-i18n="tab-history">Historia i dane</button>
               <button type="button" class="tab-btn" data-tab="display">Widok</button>
@@ -1791,6 +1899,11 @@
                     <button type="button" class="ghost-btn" id="lang-toggle">Przełącz PL / EN</button>
                     <div class="helper">Ustawienie lokalne (localStorage).</div>
                   </div>
+                  <div>
+                    <label>Szerokość widoku</label>
+                    <button type="button" class="ghost-btn" id="width-toggle">Comfort width</button>
+                    <div class="helper">Przełącz między comfort / wide tylko dla Ciebie.</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1858,6 +1971,7 @@
     </div>
   </div>
 
+  </div>
   </div>
 
   <div class="modal" id="category-modal">
@@ -1987,7 +2101,6 @@
     const form = document.getElementById('upload-form');
     const errorBox = document.getElementById('error');
     const startHint = document.getElementById('start-hint');
-    const startProgressText = document.getElementById('start-progress-text');
     const strategyError = document.getElementById('strategy-error');
     const strategyOfflineHint = document.getElementById('strategy-offline-hint');
     const submitBtn = document.getElementById('submit-btn');
@@ -1998,8 +2111,8 @@
     const fileInput = document.getElementById('file-input');
     const dropzone = document.getElementById('dropzone');
     const modeHelper = document.getElementById('mode-helper');
+    const modeRadios = Array.from(document.querySelectorAll('input[name="mode"]'));
     const advancedToggle = document.getElementById('advanced-toggle');
-    const advancedPanel = document.getElementById('advanced-panel');
     const settingsPanel = document.getElementById('settings-panel');
     const settingsTabs = document.getElementById('settings-tabs');
     const statusSection = document.getElementById('status-section');
@@ -2013,9 +2126,8 @@
     const quickCopyRunBtn = document.getElementById('quick-copy-run');
     const opsBody = document.getElementById('ops-body');
     const currencyBody = document.getElementById('currency-body');
+    const widthToggle = document.getElementById('width-toggle');
     const saveTtlBtn = document.getElementById('save-ttl-btn');
-    const opsBody = document.getElementById('ops-body');
-    const currencyBody = document.getElementById('currency-body');
     const statusGoResultsBtn = document.getElementById('status-go-results');
     const activeRuns = document.getElementById('active-runs');
     const activeRunsEmpty = document.getElementById('active-runs-empty');
@@ -2085,7 +2197,8 @@
     const stepperRoot = document.getElementById('stepper');
     const wiringAlert = document.getElementById('wiring-alert');
     const layout = document.getElementById('layout');
-    const shell = document.querySelector('.shell');
+    const shell = document.getElementById('shell');
+    const page = document.getElementById('page');
     const historyList = document.getElementById('history-list');
     const historyEmpty = document.getElementById('history-empty');
     const historyError = document.getElementById('history-error');
@@ -2132,6 +2245,11 @@
     const marketReset = document.getElementById('market-reset');
     let historyExpanded = true;
     const appState = { currentRunId: null, isStarting: false };
+    function stopStatusUpdates() {
+      stopRunStream();
+      stopPolling();
+      stopResultsPolling();
+    }
     let pollTimer = null;
     let refreshTimer = null;
     let refreshInFlight = false;
@@ -2690,6 +2808,13 @@
       }
     }
 
+    function applyWidthMode(mode) {
+      const normalized = mode === 'wide' ? 'wide' : 'comfort';
+      if (page) page.classList.toggle('is-wide', normalized === 'wide');
+      if (widthToggle) widthToggle.textContent = normalized === 'wide' ? 'Comfort width' : 'Wide width';
+      localStorage.setItem('ui.width', normalized);
+    }
+
     function normalizeMessage(msg) {
       if (!msg) return '';
       if (typeof msg === 'string') return msg;
@@ -2789,7 +2914,8 @@
     async function setCurrentRun(runId) {
       if (!runId) return;
       appState.currentRunId = runId;
-      if (runIdEl) runIdEl.textContent = runId;
+        if (runIdEl) runIdEl.textContent = runId;
+      stopStatusUpdates();
       startRunStream(runId);
       updateCtas();
       await loadResults(runId, 0);
@@ -2841,6 +2967,7 @@
       if (startHint) {
         if (!hasCategory) startHint.textContent = 'Wybierz kategorię.';
         else if (!hasFile && !allowNoFile) startHint.textContent = 'Dodaj plik (CSV/XLSX).';
+        else if (!hasFile && allowNoFile) startHint.textContent = 'Offline: plik opcjonalny (używam bazy).';
         else startHint.textContent = '';
       }
       if (!startTouched) {
@@ -2861,6 +2988,12 @@
       return startReady;
     }
 
+    function lockInputs(disabled) {
+      if (categorySelect) categorySelect.disabled = disabled;
+      if (fileInput) fileInput.disabled = disabled;
+      modeRadios.forEach((r) => { r.disabled = disabled; });
+    }
+
     function setStartUi(isStarting, note) {
       appState.isStarting = isStarting;
       if (submitBtn) submitBtn.disabled = isStarting || !startReady;
@@ -2868,7 +3001,10 @@
       const label = submitBtn?.querySelector('.start-label');
       if (spinner) spinner.classList.toggle('is-active', isStarting);
       if (label) label.textContent = isStarting ? 'Uruchamiam…' : 'Start analizy';
-      if (startProgressText) startProgressText.textContent = note || '';
+      if (startHint && note) {
+        startHint.textContent = note;
+      }
+      /* single-line hint only */
     }
 
     function focusStatusHeading() {
@@ -2891,9 +3027,11 @@
       if (!validateStrategies()) return;
 
       setStartUi(true, 'Tworzę run…');
+      lockInputs(true);
       if (mode === 'offline' && !hasFile) {
         await startFromDb(true);
-        setStartUi(false, startProgressText?.textContent);
+        setStartUi(false);
+        lockInputs(false);
         return;
       }
       if (runStage) runStage.textContent = 'Wysyłanie pliku…';
@@ -2912,12 +3050,13 @@
         const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(formatHttpError(res, data, t('error-run-start')), errorBox);
+          const msg = formatHttpError(res, data, t('error-run-start'));
+          setMessage(`Błąd uploadu: ${msg}`, errorBox);
           return;
         }
-        runIdEl.textContent = data.analysis_run_id;
+        if (runIdEl) runIdEl.textContent = data.analysis_run_id;
         setStartUi(true, `Run: ${data.analysis_run_id}`);
-        setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+      setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
         scrollToStatusSection();
         focusStatusHeading();
         startRunStream(data.analysis_run_id);
@@ -2926,7 +3065,8 @@
         setMessage(formatNetworkError(err, t('error-analysis')), errorBox);
         if (runStage) runStage.textContent = 'Błąd wysyłania';
       } finally {
-        setStartUi(false, startProgressText?.textContent);
+        setStartUi(false);
+        lockInputs(false);
         updateStartState();
       }
     }
@@ -3031,13 +3171,14 @@
     }
 
     function setAdvancedVisible(enabled) {
-      if (!advancedPanel) return;
-      advancedPanel.hidden = !enabled;
+      if (!settingsDetails) return;
+      settingsDetails.open = !!enabled;
       if (advancedToggle) {
         advancedToggle.textContent = enabled ? 'Ukryj zaawansowane ⚙' : 'Ustawienia zaawansowane ⚙';
         advancedToggle.setAttribute('aria-expanded', enabled ? 'true' : 'false');
       }
       localStorage.setItem('ui.advancedPanel', enabled ? '1' : '0');
+      if (enabled) settingsDetails.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function setActiveSettingsTab(tabId) {
@@ -3079,7 +3220,7 @@
     if (stepNext) stepNext.addEventListener('click', () => stepByOffset(1));
     if (quickLastRunBtn) quickLastRunBtn.addEventListener('click', () => setStep('history'));
     if (quickCopyRunBtn) quickCopyRunBtn.addEventListener('click', () => {
-      const toCopy = appState.currentRunId || runIdEl?.textContent;
+      const toCopy = appState.currentRunId;
       if (!toCopy) return;
       navigator.clipboard.writeText(String(toCopy)).catch(() => {});
     });
@@ -3805,7 +3946,7 @@
       if (cacheTtlRange) cacheTtlRange.disabled = ttlDisabled;
       if (modeHelper) {
         const helperMap = {
-          offline: 'Offline: tylko baza, brak zapytań online.',
+          offline: 'Offline: tylko baza, brak zapytań online (plik opcjonalny).',
           mixed: 'Mixed: baza + dogrywka braków online.',
           online: 'Online: zawsze świeże dane, może być wolniej/drożej.',
         };
@@ -4056,7 +4197,7 @@
       }
       if (data.id) {
         appState.currentRunId = data.id;
-        runIdEl.textContent = data.id;
+        if (runIdEl) runIdEl.textContent = data.id;
       }
       if (runScraperEl) {
         const sm = data.scraper_mode || (data.mode === 'online' ? 'brightdata' : (data.mode === 'offline' ? 'cache' : 'decodo'));
@@ -4134,6 +4275,8 @@
       if (exportXlsxBtn) exportXlsxBtn.disabled = !(payload?.id && done);
       if (exportCsvBtn) exportCsvBtn.disabled = !(payload?.id && done);
       if (copyReportLinkBtn) copyReportLinkBtn.disabled = !(payload?.id && done);
+      if (resultsSection) resultsSection.hidden = !hasRun;
+      if (historySection) historySection.hidden = !hasRun;
     }
 
     function stopPolling() {
@@ -4152,6 +4295,7 @@
       }
       runStream = null;
       runStreamState = { runId: null, since: null, sinceId: null, lastStatus: null };
+      appState.isStarting = false;
     }
 
     function stopAutoRefresh() {
@@ -4307,8 +4451,7 @@
 
     function startRunStream(runId) {
       if (!runId) return;
-      stopPolling();
-      stopResultsPolling();
+      stopStatusUpdates();
       clearStatusLog();
       runStreamState = { runId, since: null, sinceId: null, lastStatus: null };
 
@@ -4661,6 +4804,7 @@
         startDbBtn.textContent = t('btn-starting-db');
       }
       submitBtn.disabled = true;
+      lockInputs(true);
       if (fromMain) setStartUi(true, 'Tworzę run (offline)…');
 
       try {
@@ -4671,10 +4815,19 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setMessage(formatHttpError(res, data, t('error-run-db-start')), dbError);
+          const msg = formatHttpError(res, data, t('error-run-db-start'));
+          const catName = categorySelect?.selectedOptions?.[0]?.textContent || categorySelect.value || '';
+          const noData = res.status === 404 || String(msg).toLowerCase().includes('no data') || String(msg).toLowerCase().includes('brak');
+          const friendly = noData ? `Brak danych w bazie dla kategorii ${catName || ''}`.trim() : msg;
+          setMessage(friendly, dbError);
+          if (noData) {
+            dbError.innerHTML += ' <button class="ghost-btn" id="db-back-btn" type="button">Wróć do danych wejściowych</button>';
+            const backBtn = document.getElementById('db-back-btn');
+            if (backBtn) backBtn.addEventListener('click', () => document.getElementById('input-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+          }
           return;
         }
-        runIdEl.textContent = data.analysis_run_id;
+        if (runIdEl) runIdEl.textContent = data.analysis_run_id;
         if (fromMain) setStartUi(true, `Run: ${data.analysis_run_id}`);
         setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
         scrollToStatusSection();
@@ -4690,6 +4843,7 @@
           startDbBtn.textContent = t('btn-start-db');
         }
         if (fromMain) setStartUi(false);
+        lockInputs(false);
         updateStartState();
       }
     }
@@ -4697,14 +4851,18 @@
     async function cancelRun(runId) {
       if (!runId) return;
       cancelRunBtn.disabled = true;
+      if (runStage) runStage.textContent = 'Anulowanie…';
+      setSpinner('running');
       try {
         const res = await fetch(`/api/v1/analysis/${runId}/cancel`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setMessage(formatHttpError(res, data, t('error-run-cancel')), errorBox);
+          cancelRunBtn.disabled = false;
+          if (runStage) runStage.textContent = 'Bieżąca analiza';
           return;
         }
-        const isCurrent = String(runId) === String(runIdEl.textContent);
+        const isCurrent = String(runId) === String(appState.currentRunId);
         if (isCurrent) {
           setStatus(data);
           stopPolling();
@@ -4715,8 +4873,10 @@
         await loadActiveRuns();
       } catch (err) {
         setMessage(formatNetworkError(err, t('error-run-cancel-network')), errorBox);
-      } finally {
         cancelRunBtn.disabled = false;
+        if (runStage) runStage.textContent = 'Bieżąca analiza';
+      } finally {
+        setSpinner(null);
       }
     }
 
@@ -4731,7 +4891,7 @@
           return;
         }
         await loadHistory();
-        if (Number(runId) === Number(runIdEl.textContent)) {
+        if (Number(runId) === Number(appState.currentRunId)) {
           startRunStream(runId);
         }
       } catch (err) {
@@ -4762,7 +4922,7 @@
     categorySelect.addEventListener('change', updateStartState);
     if (advancedToggle) {
       advancedToggle.addEventListener('click', () => {
-        const willShow = advancedPanel ? advancedPanel.hidden : true;
+        const willShow = settingsDetails ? !settingsDetails.open : true;
         setAdvancedVisible(willShow);
       });
       const stored = localStorage.getItem('ui.advancedPanel');
@@ -4796,20 +4956,22 @@
     initTablePreferences();
     if (startDbBtn) startDbBtn.addEventListener('click', startFromDb);
     cancelRunBtn.addEventListener('click', () => {
-      const runId = cancelRunBtn.dataset.runId || runIdEl.textContent;
+      const runId = appState.currentRunId;
       if (runId) cancelRun(runId);
     });
-    if (statusStartBtn) statusStartBtn.addEventListener('click', () => {
+    const goToInput = () => {
+      stopStatusUpdates();
+      appState.currentRunId = null;
+      clearStatusLog();
+      updateStatusState(null);
       document.getElementById('input-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       categorySelect?.focus({ preventScroll: true });
-    });
-    if (statusNewRunBtn) statusNewRunBtn.addEventListener('click', () => {
-      document.getElementById('input-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      categorySelect?.focus({ preventScroll: true });
-    });
+    };
+    if (statusStartBtn) statusStartBtn.addEventListener('click', goToInput);
+    if (statusNewRunBtn) statusNewRunBtn.addEventListener('click', goToInput);
     if (runIdEl) {
       runIdEl.addEventListener('click', () => {
-        const text = (runIdEl.textContent || '').trim();
+        const text = appState.currentRunId ? String(appState.currentRunId) : (runIdEl.textContent || '').trim();
         if (text) navigator.clipboard.writeText(text).catch(() => {});
       });
     }
@@ -4819,7 +4981,7 @@
     if (previewBtn) {
       previewBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        const runId = previewBtn.dataset.runId || runIdEl.textContent;
+        const runId = appState.currentRunId;
         if (runId) openResultsModal(runId);
       });
     }
@@ -5095,6 +5257,14 @@
 
     initDropzone();
     setLanguage(currentLang);
+    const storedWidth = localStorage.getItem('ui.width') || 'comfort';
+    applyWidthMode(storedWidth);
+    if (widthToggle) {
+      widthToggle.addEventListener('click', () => {
+        const current = localStorage.getItem('ui.width') || 'comfort';
+        applyWidthMode(current === 'wide' ? 'comfort' : 'wide');
+      });
+    }
     // start step from hash if provided
     const hashStep = window.location.hash.startsWith('#step=') ? window.location.hash.replace('#step=','') : null;
     setStep(STEPS.includes(hashStep) ? hashStep : 'import');
