@@ -37,16 +37,13 @@
     }
     .shell {
       position: relative;
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 20px 80px rgba(0,0,0,0.35);
-    }
-    .shell.is-settings-wide {
-      max-width: 1400px;
     }
     .top {
       display: flex;
@@ -135,6 +132,11 @@
     .button-row > * { min-width: 0; }
     .layout {
       margin-top: 20px;
+      display: grid;
+      gap: 16px;
+      max-width: 1400px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .wiring-alert {
       display: none;
@@ -148,11 +150,10 @@
     }
     .wizard-grid {
       display: grid;
-      grid-template-columns: 240px minmax(0, 1fr) 320px;
+      grid-template-columns: 1fr;
       gap: 16px;
       align-items: start;
-      max-width: 1400px;
-      margin: 0 auto;
+      width: 100%;
       min-width: 0;
     }
     .wizard-stepper {
@@ -254,13 +255,13 @@
     .summary-card__header { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; }
     .summary-list { display: grid; gap: 6px; font-size: 14px; }
     .summary-row { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); }
-    .summary-row strong { color: var(--text); }
+    .summary-row strong { color: var(--text); max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .quick-actions-list { display: grid; gap: 8px; }
     .summary-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .wizard-main { min-width: 0; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     @media (max-width: 1100px) {
-      .wizard-grid { grid-template-columns: 200px minmax(0,1fr); }
+      .wizard-grid { grid-template-columns: 1fr; }
       .summary-panel { display: none; }
     }
     @media (max-width: 768px) {
@@ -1379,6 +1380,51 @@
       flex-wrap: wrap;
     }
     .results-step { margin-top: 16px; }
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .section-heading h2 { margin: 0; }
+    .input-card, .status-card, .results-card, .history-card, .advanced-card, .market-card {
+      width: 100%;
+    }
+    .input-form .form-grid { margin-top: 12px; }
+    .status-panel { max-width: 100%; }
+    .status-row span, .status-row strong, .pill { overflow-wrap: anywhere; }
+    .status-log { max-height: 240px; }
+    .copyable { cursor: pointer; }
+    .input-cta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #0b1327;
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+    }
+    .input-cta-bar .cta-left { min-width: 0; }
+    .input-cta-bar .cta-right { display: flex; align-items: center; gap: 8px; }
+    .start-spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
+    .start-spinner.is-active { display: inline-block; }
+    @media (max-width: 640px) {
+      .input-cta-bar { position: sticky; bottom: 0; left: 0; right: 0; }
+    }
   </style>
 </head>
 <body>
@@ -1405,683 +1451,412 @@
     <div class="wiring-alert" id="wiring-alert"></div>
 
     <div class="layout" id="layout">
-      <div class="wizard-grid" id="wizard-grid">
-        <aside class="wizard-stepper" id="wizard-stepper">
-          <div class="stepper-desktop" id="stepper">
-            <div class="stepper-label">Główny flow</div>
-            <ol class="stepper-list">
-              <li><button type="button" class="stepper-item is-active" data-step="import"><span class="num">1</span><span>Import</span></button></li>
-              <li><button type="button" class="stepper-item" data-step="config"><span class="num">2</span><span>Konfiguracja</span></button></li>
-              <li><button type="button" class="stepper-item" data-step="run"><span class="num">3</span><span>Uruchomienie</span></button></li>
-              <li><button type="button" class="stepper-item" data-step="status"><span class="num">4</span><span>Status</span></button></li>
-              <li><button type="button" class="stepper-item" data-step="results"><span class="num">5</span><span>Wyniki</span></button></li>
-            </ol>
-            <div class="stepper-label">Pozostałe</div>
-            <ol class="stepper-list">
-              <li><button type="button" class="stepper-item" data-step="history"><span class="num">6</span><span>Historia</span></button></li>
-              <li><button type="button" class="stepper-item" data-step="settings"><span class="num">7</span><span>Ustawienia</span></button></li>
-              <li><button type="button" class="stepper-item" data-step="market"><span class="num">8</span><span>Baza Allegro</span></button></li>
-            </ol>
+      <section class="card input-card" id="input-card">
+        <div class="section-heading">
+          <div>
+            <p class="step-eyebrow">Dane wejściowe</p>
+            <h2>Dane wejściowe</h2>
+            <p class="step-lead">Plik + kategoria + tryb. Start od razu, bez kolejnych kroków.</p>
           </div>
-          <div class="stepper-mobile">
-            <label class="sr-only" for="stepper-select">Wybierz krok</label>
-            <select id="stepper-select">
-              <option value="import">Import</option>
-              <option value="config">Konfiguracja</option>
-              <option value="run">Uruchomienie</option>
-              <option value="status">Status</option>
-              <option value="results">Wyniki</option>
-              <option value="history">Historia</option>
-              <option value="settings">Ustawienia</option>
-              <option value="market">Baza Allegro</option>
-            </select>
-            <div class="stepper-mobile-nav">
-              <button type="button" id="step-prev">Wstecz</button>
-              <button type="button" id="step-next">Następny</button>
+          <button type="button" class="ghost-btn" id="advanced-toggle">Ustawienia zaawansowane ⚙</button>
+        </div>
+        <form id="upload-form" class="wizard-form input-form" novalidate>
+          <div class="backend-alert" id="backend-alert">
+            Brak połączenia z backendem. Sprawdź sieć lub spróbuj ponownie.
+          </div>
+          <div class="dropzone" id="dropzone">
+            <strong>Upuść plik Excel tutaj</strong><br/>
+            <span class="muted">lub kliknij, aby wybrać</span>
+          </div>
+          <div class="form-grid has-options">
+            <div class="form-filters">
+              <div>
+                <label for="category-select" style="display:flex; align-items:center; gap:8px;">
+                  <span data-i18n="label-category">Kategoria</span>
+                  <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
+                </label>
+                <select id="category-select" name="category_id" required></select>
+                <div class="helper" id="category-info"></div>
+                <div class="error" id="category-select-error"></div>
+              </div>
+              <div>
+                <label for="file-input" data-i18n="label-file">Plik (CSV/XLSX)</label>
+                <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" />
+                <div class="helper" data-i18n="helper-file">Obsługiwane formaty: .xlsx, .xls, .csv</div>
+                <div class="error" id="file-error"></div>
+              </div>
+            </div>
+            <div class="form-options">
+              <label data-i18n="label-mode">Tryb scrapera</label>
+              <div class="segmented" role="group" aria-label="Tryb analizy">
+                <label>
+                  <input type="radio" name="mode" value="online" />
+                  <span>Online</span>
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="mixed" checked />
+                  <span>Mixed</span>
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="offline" />
+                  <span>Offline</span>
+                </label>
+              </div>
+              <div class="helper" id="mode-helper">online: zawsze live · mixed: baza + dogrywka braków online · offline: tylko baza, bez scrapowania</div>
             </div>
           </div>
-        </aside>
+          <div class="input-cta-bar" id="input-cta-bar">
+            <div class="cta-left">
+              <div class="error" id="start-hint"></div>
+              <div class="mini-summary" id="start-progress-text"></div>
+            </div>
+            <div class="cta-right">
+              <button type="button" id="submit-btn" class="primary-btn cta-btn">
+                <span class="start-label">Start analizy</span>
+                <span class="start-spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+          <div class="helper" id="settings-summary"></div>
+        </form>
 
-        <main id="wizard-main">
-          <form id="upload-form" class="wizard-form">
-            <section id="step-import" class="wizard-step is-active" data-step="import">
-              <div class="step-header">
+        <div class="advanced" id="advanced-panel" hidden>
+          <div class="settings-block settings-panel-card">
+            <div class="settings-header">
+              <div>
+                <h3 class="section-title">Ustawienia zaawansowane</h3>
+                <div class="helper">Rzadziej używane parametry. Schowaj, aby nie mieszać podstawowego flow.</div>
+              </div>
+            </div>
+            <div class="settings-panel">
+              <div class="form-grid">
                 <div>
-                  <p class="step-eyebrow">Krok 1</p>
-                  <h2>Import danych</h2>
-                  <p class="step-lead">Wgraj plik i przypisz kategorię. Oba pola są wymagane.</p>
-                </div>
-                <div class="inline-summary" id="inline-summary-import"></div>
-              </div>
-              <div class="step-body">
-                <div class="step-inner">
-                  <div class="backend-alert" id="backend-alert">
-                    Brak połączenia z backendem. Sprawdź sieć lub spróbuj ponownie.
+                  <label for="cache-ttl">Maks. wiek danych (dni)</label>
+                  <div class="slider-inline">
+                    <input type="range" id="cache-ttl" min="1" max="365" value="30" />
+                    <input type="number" id="cache-ttl-input" min="1" max="365" value="30" />
                   </div>
-                  <div class="dropzone" id="dropzone">
-                    <strong>Upuść plik Excel tutaj</strong><br/>
-                    <span class="muted">lub kliknij, aby wybrać</span>
-                  </div>
-                  <div class="form-grid">
-                    <div class="form-filters">
-                      <div>
-                        <label for="category-select" style="display:flex; align-items:center; gap:8px;">
-                          <span data-i18n="label-category">Kategoria</span>
-                          <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
-                        </label>
-                        <select id="category-select" name="category_id" required></select>
-                        <div class="helper" id="category-info"></div>
-                        <div class="error" id="category-select-error"></div>
-                      </div>
-                      <div>
-                        <label for="file-input" data-i18n="label-file">Plik (CSV/XLSX)</label>
-                        <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" required />
-                        <div class="helper" data-i18n="helper-file">Obsługiwane formaty: .xlsx, .xls, .csv</div>
-                        <div class="error" id="file-error"></div>
-                      </div>
-                    </div>
+                  <div class="helper">Dotyczy online/mixed. Im mniejszy, tym częściej dogrywka online.</div>
+                  <div class="form-cta" style="margin-top:6px;">
+                    <button type="button" class="ghost-btn ghost-btn--small" id="save-ttl-btn">Zapisz TTL</button>
                   </div>
                 </div>
-              </div>
-            </section>
-
-            <section id="step-config" class="wizard-step" data-step="config">
-              <div class="step-header">
                 <div>
-                  <p class="step-eyebrow">Krok 2</p>
-                  <h2>Konfiguracja analizy</h2>
-                  <p class="step-lead">Wybierz tryb, profil uruchomienia i podstawowe limity. Zaawansowane opcje są w Ustawieniach.</p>
-                </div>
-                <div class="inline-summary" id="inline-summary-config"></div>
-              </div>
-              <div class="step-body">
-                <div class="step-inner">
-                  <div class="form-grid">
-                    <div>
-                      <label data-i18n="label-mode">Tryb analizy</label>
-                      <div class="segmented" role="group" aria-label="Tryb analizy">
-                        <label>
-                          <input type="radio" name="mode" value="mixed" checked />
-                          <span data-i18n="mode-standard">Standard</span>
-                        </label>
-                        <label>
-                          <input type="radio" name="mode" value="offline" />
-                          <span data-i18n="mode-offline">Tylko baza</span>
-                        </label>
-                        <label>
-                          <input type="radio" name="mode" value="online" />
-                          <span data-i18n="mode-online">Zawsze online</span>
-                        </label>
-                      </div>
-                      <div class="helper" id="mode-helper" data-i18n="helper-mode">Standard = cache + odświeżanie, Tylko baza = bez scrapowania, Zawsze online = zawsze dane na żywo.</div>
-                    </div>
-                    <div>
-                      <label for="profile-select">Profil uruchomienia</label>
-                      <select id="profile-select">
-                        <option value="standard">Standard</option>
-                        <option value="conservative">Conservative</option>
-                        <option value="aggressive">Aggressive</option>
-                        <option value="custom">Custom</option>
-                      </select>
-                      <div class="helper">Profil ustawia bezpieczne wartości limitu i cache. Zmiana pola przełącza na Custom.</div>
-                      <div class="profile-summary" id="profile-summary">
-                        <strong>Co zmienia profil:</strong>
-                        <ul>
-                          <li>Standard: cache 30 dni, brak limitu</li>
-                          <li>Conservative: cache 60 dni, limit 200</li>
-                          <li>Aggressive: cache 7 dni, limit 1000</li>
-                        </ul>
-                      </div>
-                    </div>
-                    <div>
-                      <label for="cache-ttl">Cache TTL (dni)</label>
-                      <div class="slider-inline">
-                        <input type="range" id="cache-ttl" min="1" max="365" value="30" />
-                        <input type="number" id="cache-ttl-input" min="1" max="365" value="30" />
-                      </div>
-                      <div class="helper">Po ilu dniach dane z Allegro uznajemy za przestarzałe.</div>
-                    </div>
-                    <div>
-                      <label for="offer-limit">Limit wyników</label>
-                      <input type="number" id="offer-limit" min="0" placeholder="np. 500" />
-                      <div class="helper">Opcjonalne przycięcie liczby ofert. 0 lub puste = bez limitu.</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section id="step-run" class="wizard-step" data-step="run">
-              <div class="step-header">
-                <div>
-                  <p class="step-eyebrow">Krok 3</p>
-                  <h2>Uruchomienie</h2>
-                  <p class="step-lead">Sprawdź podsumowanie i wystartuj analizę.</p>
-                </div>
-                <div class="inline-summary" id="inline-summary-run"></div>
-              </div>
-              <div class="step-body">
-                <div class="step-inner">
-                  <div class="form-footer">
-                    <div class="form-cta">
-                      <button type="submit" id="submit-btn" class="primary-btn cta-btn" data-i18n="btn-start">Start analizy</button>
-                      <button type="button" id="reset-btn" class="ghost-btn" style="min-width:160px;">Reset</button>
-                    </div>
-                    <div class="error" id="error"></div>
-                    <div class="mini-summary" id="settings-summary"></div>
-                  </div>
-                  <div class="run-summary" id="run-summary">
-                    <div class="summary-row"><span>Tryb:</span><strong id="summary-mode">Standard</strong></div>
-                    <div class="summary-row"><span>Profil:</span><strong id="summary-profile">Standard</strong></div>
-                    <div class="summary-row"><span>Cache TTL:</span><strong id="summary-cache">30 dni</strong></div>
-                    <div class="summary-row"><span>Limit:</span><strong id="summary-limit">brak</strong></div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </form>
-
-          <section id="step-status" class="wizard-step" data-step="status">
-            <div class="step-header">
-              <div>
-                <p class="step-eyebrow">Krok 4</p>
-                <h2>Status runtime</h2>
-                <p class="step-lead">Bieżący postęp, log i akcje.</p>
-              </div>
-              <div class="inline-summary" id="inline-summary-status"></div>
-            </div>
-            <div class="step-body">
-              <div class="step-inner">
-                <div class="status-panel" id="status-panel">
-                  <div class="status-empty" id="status-empty" data-i18n="status-empty">Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.</div>
-                  <div class="status-details" id="status-details" style="display:none;">
-                    <div class="pill"><span data-i18n="label-run-id">Run ID:</span> <span id="run-id"></span></div>
-                    <div class="pill" id="run-stage">Gotowe do startu</div>
-                    <div class="status-row">
-                      <strong data-i18n="label-status">Status:</strong>
-                      <span id="run-status"></span>
-                      <span class="status-spinner" id="status-spinner" aria-hidden="true"></span>
-                    </div>
-                    <div class="status-row"><strong data-i18n="label-progress">Postęp:</strong> <span id="run-progress"></span></div>
-                    <div class="status-row"><strong>Scraper:</strong> <span id="run-scraper">—</span></div>
-                    <div class="status-row"><strong data-i18n="label-updated">Ostatnia aktualizacja:</strong> <span id="run-updated">—</span></div>
-                    <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
-                    <div class="status-row"><strong data-i18n="label-error">Błąd:</strong> <span id="run-error" class="error"></span></div>
-                    <div class="button-row" id="status-actions" style="margin-top:8px; display:none;">
-                      <button class="action-btn secondary" type="button" id="cancel-run-btn" data-i18n="btn-cancel">Anuluj</button>
-                      <button class="action-btn" id="status-go-results" type="button">Przejdź do wyników</button>
-                    </div>
-                    <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
-                      <button class="action-btn" id="preview-link" type="button" data-i18n="btn-preview">Podgląd wyników</button>
-                      <a class="action-btn secondary" id="download-link" href="#" data-i18n="btn-download">⬇ Pobierz raport</a>
-                    </div>
-                    <div class="status-card">
-                      <div class="status-row"><strong>Effective config:</strong></div>
-                      <pre class="status-config" id="effective-config">—</pre>
-                    </div>
-                    <div class="status-log" id="status-log" aria-live="polite"></div>
-                  </div>
+                  <label for="offer-limit">Limit wyników</label>
+                  <input type="number" id="offer-limit" min="0" placeholder="np. 500" />
+                  <div class="helper">0 lub puste = bez limitu.</div>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+        </div>
+      </section>
 
-          <section id="results-step" class="wizard-step results-step" data-step="results">
-            <div class="step-header">
-              <div>
-                <p class="step-eyebrow">Krok 5</p>
-                <h2>Wyniki</h2>
-                <p class="step-lead">Podgląd tabeli i eksport raportu.</p>
-              </div>
-              <div class="inline-summary" id="inline-summary-results"></div>
+      <section class="card status-card" id="status-section">
+        <div class="section-heading">
+          <div>
+            <p class="step-eyebrow">Bieżąca analiza</p>
+            <h2 id="current-analysis-title" tabindex="-1">Bieżąca analiza</h2>
+            <p class="step-lead">Status, postęp i log zawsze widoczne.</p>
+          </div>
+        </div>
+        <div class="status-panel" id="status-panel">
+          <div class="status-empty" id="status-empty" data-i18n="status-empty">Brak aktywnej analizy.
+            <div class="button-row" style="margin-top:8px;">
+              <button class="action-btn secondary" type="button" id="status-start-btn">Start</button>
             </div>
-            <div class="step-body">
-              <div class="step-inner">
-                <div class="tabs" id="results-tabs">
-                  <button type="button" class="tab-btn is-active" data-tab="preview">Podgląd</button>
-                  <button type="button" class="tab-btn" data-tab="export">Eksport</button>
-                </div>
-                <div class="tab-panel is-active" data-tab-panel="preview">
-                  <div class="results-toolbar">
-                    <input type="search" id="results-search" placeholder="Szukaj EAN / nazwa" />
-                    <button class="chip" data-filter="profitable" id="chip-profitable">Tylko opłacalne</button>
-                    <button class="chip" data-filter="errors" id="chip-errors">Tylko błędy</button>
-                    <button class="chip" data-filter="missing-price" id="chip-missing">Brak ceny</button>
-                    <button class="ghost-btn ghost-btn--small" id="copy-failed-btn" type="button">Kopiuj EAN-y nieudane</button>
-                  </div>
-                  <div class="error" id="results-error"></div>
-                  <div class="results-empty" id="results-empty" style="display:none;"></div>
-                  <div class="table-wrap">
-                    <div class="results-table" id="results-table"></div>
-                  </div>
-                  <div class="results-pagination">
-                    <button class="ghost-btn ghost-btn--small" id="results-prev" type="button">◀ Wstecz</button>
-                    <span class="muted" id="results-page-info"></span>
-                    <button class="ghost-btn ghost-btn--small" id="results-next" type="button">Dalej ▶</button>
-                  </div>
-                </div>
-                <div class="tab-panel" data-tab-panel="export">
-                  <div class="export-actions">
-                    <button class="action-btn" id="export-xlsx" type="button">Pobierz raport XLSX</button>
-                    <button class="action-btn secondary" id="export-csv" type="button">Pobierz raport CSV</button>
-                    <button class="ghost-btn" id="copy-report-link" type="button">Kopiuj link do raportu</button>
-                    <div class="helper" id="export-meta"></div>
-                  </div>
-                </div>
-              </div>
+          </div>
+          <div class="status-details" id="status-details" style="display:none;">
+            <div class="pill"><span data-i18n="label-run-id">Run ID:</span> <span id="run-id" class="copyable" title="Kliknij, aby skopiować"></span></div>
+            <div class="pill" id="run-stage">Gotowe do startu</div>
+            <div class="status-row">
+              <strong data-i18n="label-status">Status:</strong>
+              <span id="run-status"></span>
+              <span class="status-spinner" id="status-spinner" aria-hidden="true"></span>
             </div>
-          </section>
+            <div class="status-row"><strong data-i18n="label-progress">Postęp:</strong> <span id="run-progress"></span></div>
+            <div class="status-row"><strong>Scraper:</strong> <span id="run-scraper">—</span></div>
+            <div class="status-row"><strong data-i18n="label-updated">Ostatnia aktualizacja:</strong> <span id="run-updated">—</span></div>
+            <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+            <div class="status-row"><strong data-i18n="label-error">Błąd:</strong> <span id="run-error" class="error"></span></div>
+            <div class="button-row" id="status-actions" style="margin-top:8px; display:none;">
+              <button class="action-btn secondary" type="button" id="cancel-run-btn" data-i18n="btn-cancel">Anuluj</button>
+              <button class="action-btn" id="status-go-results" type="button">Przejdź do wyników</button>
+              <button class="ghost-btn" type="button" id="status-new-run">Nowa analiza</button>
+            </div>
+            <div id="report-links" style="display:none; margin-top:8px; gap:12px; align-items:center; flex-wrap:wrap;" class="button-row">
+              <button class="action-btn" id="preview-link" type="button" data-i18n="btn-preview">Podgląd wyników</button>
+              <a class="action-btn secondary" id="download-link" href="#" data-i18n="btn-download">⬇ Pobierz raport</a>
+            </div>
+            <div class="status-card">
+              <div class="status-row"><strong>Effective config:</strong></div>
+              <pre class="status-config" id="effective-config">—</pre>
+            </div>
+            <div class="status-log" id="status-log" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
 
-          <section id="step-history" class="wizard-step" data-step="history">
-            <div class="step-header">
-              <div>
-                <p class="step-eyebrow">Krok 6</p>
-                <h2>Historia</h2>
-                <p class="step-lead">Ostatnie runy z filtrowaniem.</p>
-              </div>
+      <section class="card results-card" id="results-section">
+        <div class="section-heading">
+          <div>
+            <p class="step-eyebrow">Wyniki</p>
+            <h2>Wyniki</h2>
+            <p class="step-lead">Podgląd i eksport bez zmiany kroku.</p>
+          </div>
+        </div>
+        <div class="tabs" id="results-tabs">
+          <button type="button" class="tab-btn is-active" data-tab="preview">Podgląd</button>
+          <button type="button" class="tab-btn" data-tab="export">Eksport</button>
+        </div>
+        <div class="tab-panel is-active" data-tab-panel="preview">
+          <div class="results-toolbar">
+            <input type="search" id="results-search" placeholder="Szukaj EAN / nazwa" />
+            <button class="chip" data-filter="profitable" id="chip-profitable">Tylko opłacalne</button>
+            <button class="chip" data-filter="errors" id="chip-errors">Tylko błędy</button>
+            <button class="chip" data-filter="missing-price" id="chip-missing">Brak ceny</button>
+            <button class="ghost-btn ghost-btn--small" id="copy-failed-btn" type="button">Kopiuj EAN-y nieudane</button>
+          </div>
+          <div class="error" id="results-error"></div>
+          <div class="results-empty" id="results-empty" style="display:none;">
+            Brak wyników do pokazania.
+            <div class="button-row" style="margin-top:8px;">
+              <button class="ghost-btn" type="button" id="results-back">Wróć do bieżącej analizy</button>
             </div>
-            <div class="step-body">
-              <div class="step-inner">
-                <div class="history-list" id="history-list"></div>
-                <div class="helper" id="history-empty" style="display:none;">Brak wcześniejszych analiz.</div>
-                <div class="helper" id="history-error" style="display:none;">Nie udało się pobrać historii.</div>
-              </div>
+          </div>
+          <div class="table-wrap">
+            <div class="results-table" id="results-table"></div>
+          </div>
+          <div class="results-pagination">
+            <button class="ghost-btn ghost-btn--small" id="results-prev" type="button">◀ Wstecz</button>
+            <span class="muted" id="results-page-info"></span>
+            <button class="ghost-btn ghost-btn--small" id="results-next" type="button">Dalej ▶</button>
+          </div>
+        </div>
+        <div class="tab-panel" data-tab-panel="export">
+          <div class="export-actions">
+            <button class="action-btn" id="export-xlsx" type="button" disabled>Pobierz raport XLSX</button>
+            <button class="action-btn secondary" id="export-csv" type="button" disabled>Pobierz raport CSV</button>
+            <button class="ghost-btn" id="copy-report-link" type="button" disabled>Kopiuj link do raportu</button>
+            <div class="helper" id="export-meta"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card history-card history-card--analysis" id="history-section">
+        <div class="section-heading">
+          <div>
+            <p class="step-eyebrow">Historia</p>
+            <h2>Historia</h2>
+            <p class="step-lead">Ostatnie runy, bez przełączania widoków.</p>
+          </div>
+        </div>
+        <div class="history-list" id="history-list"></div>
+        <div class="helper" id="history-empty" style="display:none;">Brak wcześniejszych analiz.</div>
+        <div class="helper" id="history-error" style="display:none;">Nie udało się pobrać historii.</div>
+      </section>
+
+      <details class="card advanced-card" id="settings-details">
+        <summary class="section-heading" style="cursor:pointer;">
+          <div>
+            <p class="step-eyebrow">Advanced</p>
+            <h2>Ustawienia zaawansowane (opcjonalne)</h2>
+            <p class="step-lead">Opcje rzadziej używane. Zwijane, by nie mieszać UI.</p>
+          </div>
+        </summary>
+        <div class="settings-block settings-panel-card" id="settings-block">
+          <div class="settings-panel" id="settings-panel">
+            <div class="helper" id="settings-info"></div>
+            <div class="error" id="settings-error"></div>
+            <div class="tabs tabs-scroll" id="settings-tabs">
+              <button type="button" class="tab-btn is-active" data-tab="history" data-i18n="tab-history">Historia i dane</button>
+              <button type="button" class="tab-btn" data-tab="display">Widok</button>
+              <button type="button" class="tab-btn" data-tab="meta">Meta</button>
             </div>
-          </section>
-
-          <section id="step-settings" class="wizard-step" data-step="settings">
-            <div class="step-header">
-              <div>
-                <p class="step-eyebrow">Krok 7</p>
-                <h2>Ustawienia (advanced)</h2>
-                <p class="step-lead">Rzadziej używane opcje źródeł, wydajności i widoku.</p>
-              </div>
-            </div>
-            <div class="step-body">
-              <div class="step-inner">
-                <div class="settings-block settings-panel-card" id="settings-block">
-                  <div class="settings-header">
-                    <div>
-                      <h3 class="section-title" data-i18n="settings-title">Ustawienia</h3>
-                      <div class="helper" data-i18n="settings-helper">Opcje rzadziej używane. W trybie prostym ukryte.</div>
-                    </div>
-                  </div>
-                  <div class="settings-panel" id="settings-panel">
-                    <div class="helper" id="settings-info"></div>
-                    <div class="error" id="settings-error"></div>
-                    <div class="tabs tabs-scroll" id="settings-tabs">
-                      <button type="button" class="tab-btn is-active" data-tab="history" data-i18n="tab-history">Historia i dane</button>
-                      <button type="button" class="tab-btn" data-tab="display">Widok</button>
-                      <button type="button" class="tab-btn" data-tab="meta">Meta</button>
-                    </div>
-                    <div class="tab-panel is-active" data-tab-panel="history">
-                      <div class="card">
-                        <h3 class="section-title">Analiza z bazy</h3>
-                        <div class="form-grid has-options">
-                          <div class="form-filters">
-                            <div class="form-section-title">Parametry</div>
-                            <div>
-                              <label for="db-last-days">Ostatnie dni cache</label>
-                              <input type="number" id="db-last-days" min="1" max="365" value="30" />
-                              <div class="helper">Zakres danych do analizy (dni wstecz).</div>
-                            </div>
-                            <div>
-                              <label for="db-limit">Limit pozycji</label>
-                              <input type="number" id="db-limit" min="1" max="10000" placeholder="np. 200" />
-                              <div class="helper">Ogranicza liczbę rekordów do analizy.</div>
-                            </div>
-                            <div>
-                              <label for="db-ean-contains">EAN zawiera</label>
-                              <input type="text" id="db-ean-contains" placeholder="np. 590" />
-                              <div class="helper">Pozwala zawęzić listę do fragmentu EAN.</div>
-                            </div>
-                          </div>
-                          <div class="form-options">
-                            <div class="form-section-title">Opcje</div>
-                            <div class="toggle-group">
-                              <div>
-                                <label class="toggle">
-                                  <input type="checkbox" id="db-only-success" />
-                                  <span class="toggle__track"></span>
-                                  <span class="toggle__label">Tylko produkty z danymi</span>
-                                </label>
-                                <div class="helper">Pomiń wpisy bez ceny/sprzedaży.</div>
-                              </div>
-                              <div>
-                                <label class="toggle">
-                                  <input type="checkbox" id="db-all-cached" />
-                                  <span class="toggle__track"></span>
-                                  <span class="toggle__label">Wszystkie zapisane produkty</span>
-                                </label>
-                                <div class="helper">Ignoruje pole „Ostatnie dni cache”.</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="form-footer">
-                          <div class="helper" id="db-info">Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w kroku 1.</div>
-                          <div class="form-cta">
-                            <button type="button" id="start-db-btn" class="action-btn cta-btn" data-i18n="btn-start-db">Start analizy z bazy</button>
-                          </div>
-                          <div class="error" id="db-error"></div>
-                        </div>
-                      </div>
-
-                      <div class="card">
-                        <div class="card-header">
-                          <h3 class="section-title">Kursy walut</h3>
-                          <button type="button" class="ghost-btn ghost-btn--small" id="add-currency-btn">+ Dodaj walutę</button>
-                        </div>
-                        <div class="helper">Stawki konwersji do PLN na potrzeby raportów.</div>
-                        <div class="currency-list" id="currency-list"></div>
-                        <div class="helper" id="currency-helper"></div>
-                        <div class="success" id="currency-success"></div>
-                        <div class="error" id="currency-error"></div>
-                        <div class="form-cta" style="margin-top:12px;">
-                          <button type="button" class="action-btn secondary" id="save-currencies-btn">Zapisz kursy</button>
-                        </div>
-                      </div>
-
-                      <div class="card">
-                        <div class="card-header">
-                          <h3 class="section-title">Kategorie</h3>
-                          <button type="button" class="ghost-btn ghost-btn--small" id="add-category-btn">+ Dodaj kategorię</button>
-                        </div>
-                        <div class="helper">Zarządzaj kategoriami używanymi przy imporcie.</div>
-                        <div class="categories-list" id="categories-list"></div>
-                        <div class="success" id="category-success"></div>
-                        <div class="error" id="category-error"></div>
-                      </div>
-                    </div>
-                    <div class="tab-panel" data-tab-panel="display">
-                      <div class="card">
-                        <h3 class="section-title">Widok tabel</h3>
-                        <div class="column-picker">
-                          <div>
-                            <div class="form-section-title">Tryb kompaktowy</div>
-                            <label class="toggle">
-                              <input type="checkbox" id="compact-table-toggle" />
-                              <span class="toggle__track"></span>
-                              <span class="toggle__label">Tryb kompaktowy tabel</span>
-                            </label>
-                            <div class="helper">Zmniejsza padding i szerokości kolumn EAN/Nazwa.</div>
-                          </div>
-                          <div>
-                            <div class="form-section-title">Kolumny - Wyniki analizy</div>
-                            <div class="checkboxes" id="results-columns"></div>
-                            <div class="column-picker__actions">
-                              <button type="button" class="ghost-btn ghost-btn--small" id="results-columns-reset">Przywróć domyślne</button>
-                            </div>
-                          </div>
-                          <div>
-                            <div class="form-section-title">Kolumny - Baza Allegro</div>
-                            <div class="checkboxes" id="market-columns"></div>
-                            <div class="column-picker__actions">
-                              <button type="button" class="ghost-btn ghost-btn--small" id="market-columns-reset">Przywróć domyślne</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="tab-panel" data-tab-panel="meta">
-                      <div class="card">
-                        <h3 class="section-title">Język UI</h3>
-                        <div class="form-grid single">
-                          <div>
-                            <label>Aktualny język</label>
-                            <button type="button" class="ghost-btn" id="lang-toggle">Przełącz PL / EN</button>
-                            <div class="helper">Ustawienie lokalne (localStorage).</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section id="step-settings" class="wizard-step" data-step="settings">
-            <div class="step-header">
-              <div>
-                <p class="step-eyebrow">Krok 7</p>
-                <h2>Ustawienia (advanced)</h2>
-                <p class="step-lead">Bezpieczne opcje UI, historii i widoku. Parametry runtime są tylko do odczytu na statusie.</p>
-              </div>
-            </div>
-            <div class="step-body">
-              <div class="step-inner">
-                <div class="settings-block settings-panel-card" id="settings-block">
-                  <div class="settings-header">
-                    <div>
-                      <h3 class="section-title" data-i18n="settings-title">Ustawienia</h3>
-                      <div class="helper" data-i18n="settings-helper">Opcje rzadziej używane. W trybie prostym ukryte.</div>
-                    </div>
-                  </div>
-                  <div class="settings-panel" id="settings-panel">
-                    <div class="helper" id="settings-info"></div>
-                    <div class="error" id="settings-error"></div>
-                    <div class="tabs tabs-scroll" id="settings-tabs">
-                      <button type="button" class="tab-btn is-active" data-tab="history" data-i18n="tab-history">Historia i dane</button>
-                      <button type="button" class="tab-btn" data-tab="display">Widok</button>
-                      <button type="button" class="tab-btn" data-tab="meta">Meta</button>
-                    </div>
-                    <div class="tab-panel is-active" data-tab-panel="history">
-                      <div class="card">
-                        <h3 class="section-title">Analiza z bazy</h3>
-                        <div class="form-grid has-options">
-                          <div class="form-filters">
-                            <div class="form-section-title">Parametry</div>
-                            <div>
-                              <label for="db-last-days">Ostatnie dni cache</label>
-                              <input type="number" id="db-last-days" min="1" max="365" value="30" />
-                              <div class="helper">Zakres danych do analizy (dni wstecz).</div>
-                            </div>
-                            <div>
-                              <label for="db-limit">Limit pozycji</label>
-                              <input type="number" id="db-limit" min="1" max="10000" placeholder="np. 200" />
-                              <div class="helper">Ogranicza liczbę rekordów do analizy.</div>
-                            </div>
-                            <div>
-                              <label for="db-ean-contains">EAN zawiera</label>
-                              <input type="text" id="db-ean-contains" placeholder="np. 590" />
-                              <div class="helper">Pozwala zawęzić listę do fragmentu EAN.</div>
-                            </div>
-                          </div>
-                          <div class="form-options">
-                            <div class="form-section-title">Opcje</div>
-                            <div class="toggle-group">
-                              <div>
-                                <label class="toggle">
-                                  <input type="checkbox" id="db-only-success" />
-                                  <span class="toggle__track"></span>
-                                  <span class="toggle__label">Tylko produkty z danymi</span>
-                                </label>
-                                <div class="helper">Pomiń wpisy bez ceny/sprzedaży.</div>
-                              </div>
-                              <div>
-                                <label class="toggle">
-                                  <input type="checkbox" id="db-all-cached" />
-                                  <span class="toggle__track"></span>
-                                  <span class="toggle__label">Wszystkie zapisane produkty</span>
-                                </label>
-                                <div class="helper">Ignoruje pole „Ostatnie dni cache”.</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="form-footer">
-                          <div class="helper" id="db-info">Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w kroku 1.</div>
-                          <div class="form-cta">
-                            <button type="button" id="start-db-btn" class="action-btn cta-btn" data-i18n="btn-start-db">Start analizy z bazy</button>
-                          </div>
-                          <div class="error" id="db-error"></div>
-                        </div>
-                      </div>
-
-                      <div class="card">
-                        <div class="card-header">
-                          <h3 class="section-title">Kursy walut</h3>
-                          <button type="button" class="ghost-btn ghost-btn--small" id="add-currency-btn">+ Dodaj walutę</button>
-                        </div>
-                        <div class="helper">Stawki konwersji do PLN na potrzeby raportów.</div>
-                        <div class="currency-list" id="currency-list"></div>
-                        <div class="helper" id="currency-helper"></div>
-                        <div class="success" id="currency-success"></div>
-                        <div class="error" id="currency-error"></div>
-                        <div class="form-cta" style="margin-top:12px;">
-                          <button type="button" class="action-btn secondary" id="save-currencies-btn">Zapisz kursy</button>
-                        </div>
-                      </div>
-
-                      <div class="card">
-                        <div class="card-header">
-                          <h3 class="section-title">Kategorie</h3>
-                          <button type="button" class="ghost-btn ghost-btn--small" id="add-category-btn">+ Dodaj kategorię</button>
-                        </div>
-                        <div class="helper">Zarządzaj kategoriami używanymi przy imporcie.</div>
-                        <div class="categories-list" id="categories-list"></div>
-                        <div class="success" id="category-success"></div>
-                        <div class="error" id="category-error"></div>
-                      </div>
-                    </div>
-                    <div class="tab-panel" data-tab-panel="display">
-                      <div class="card">
-                        <h3 class="section-title">Widok tabel</h3>
-                        <div class="column-picker">
-                          <div>
-                            <div class="form-section-title">Tryb kompaktowy</div>
-                            <label class="toggle">
-                              <input type="checkbox" id="compact-table-toggle" />
-                              <span class="toggle__track"></span>
-                              <span class="toggle__label">Tryb kompaktowy tabel</span>
-                            </label>
-                            <div class="helper">Zmniejsza padding i szerokości kolumn EAN/Nazwa.</div>
-                          </div>
-                          <div>
-                            <div class="form-section-title">Kolumny - Wyniki analizy</div>
-                            <div class="checkboxes" id="results-columns"></div>
-                            <div class="column-picker__actions">
-                              <button type="button" class="ghost-btn ghost-btn--small" id="results-columns-reset">Przywróć domyślne</button>
-                            </div>
-                          </div>
-                          <div>
-                            <div class="form-section-title">Kolumny - Baza Allegro</div>
-                            <div class="checkboxes" id="market-columns"></div>
-                            <div class="column-picker__actions">
-                              <button type="button" class="ghost-btn ghost-btn--small" id="market-columns-reset">Przywróć domyślne</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="tab-panel" data-tab-panel="meta">
-                      <div class="card">
-                        <h3 class="section-title">Język UI</h3>
-                        <div class="form-grid single">
-                          <div>
-                            <label>Aktualny język</label>
-                            <button type="button" class="ghost-btn" id="lang-toggle">Przełącz PL / EN</button>
-                            <div class="helper">Ustawienie lokalne (localStorage).</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section id="step-market" class="wizard-step" data-step="market">
-            <div class="step-header">
-              <div>
-                <p class="step-eyebrow">Krok 8</p>
-                <h2>Baza Allegro</h2>
-                <p class="step-lead">Podgląd ostatnich danych rynkowych.</p>
-              </div>
-            </div>
-            <div class="step-body">
-              <div class="step-inner">
-                <div class="form-grid single">
+            <div class="tab-panel is-active" data-tab-panel="history">
+              <div class="card">
+                <h3 class="section-title">Analiza z bazy</h3>
+                <div class="form-grid has-options">
                   <div class="form-filters">
-                    <div class="market-filters">
+                    <div class="form-section-title">Parametry</div>
+                    <div>
+                      <label for="db-last-days">Ostatnie dni cache</label>
+                      <input type="number" id="db-last-days" min="1" max="365" value="30" />
+                      <div class="helper">Zakres danych do analizy (dni wstecz).</div>
+                    </div>
+                    <div>
+                      <label for="db-limit">Limit pozycji</label>
+                      <input type="number" id="db-limit" min="1" max="10000" placeholder="np. 200" />
+                      <div class="helper">Ogranicza liczbę rekordów do analizy.</div>
+                    </div>
+                    <div>
+                      <label for="db-ean-contains">EAN zawiera</label>
+                      <input type="text" id="db-ean-contains" placeholder="np. 590" />
+                      <div class="helper">Pozwala zawęzić listę do fragmentu EAN.</div>
+                    </div>
+                  </div>
+                  <div class="form-options">
+                    <div class="form-section-title">Opcje</div>
+                    <div class="toggle-group">
                       <div>
-                        <label for="market-category">Kategoria</label>
-                        <select id="market-category">
-                          <option value="">Dowolna</option>
-                        </select>
-                        <div class="helper">Filtrowanie po wybranej kategorii.</div>
+                        <label class="toggle">
+                          <input type="checkbox" id="db-only-success" />
+                          <span class="toggle__track"></span>
+                          <span class="toggle__label">Tylko produkty z danymi</span>
+                        </label>
+                        <div class="helper">Pomiń wpisy bez ceny/sprzedaży.</div>
                       </div>
                       <div>
-                        <label for="market-ean">EAN</label>
-                        <input id="market-ean" type="text" placeholder="fragment EAN" />
-                        <div class="helper">Może być fragmentem kodu.</div>
-                      </div>
-                      <div>
-                        <label for="market-source">Źródło danych</label>
-                        <select id="market-source">
-                          <option value="">Dowolna</option>
-                          <option value="local">Local Selenium</option>
-                          <option value="scraping">Scraping (inne)</option>
-                        </select>
-                        <div class="helper">Skąd pochodziły dane rynkowe.</div>
-                      </div>
-                      <div>
-                        <label for="market-date">Od kiedy</label>
-                        <input id="market-date" type="datetime-local" />
-                        <div class="helper">Filtruj po dacie aktualizacji.</div>
+                        <label class="toggle">
+                          <input type="checkbox" id="db-all-cached" />
+                          <span class="toggle__track"></span>
+                          <span class="toggle__label">Wszystkie zapisane produkty</span>
+                        </label>
+                        <div class="helper">Ignoruje pole „Ostatnie dni cache”.</div>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div class="form-footer">
+                  <div class="helper" id="db-info">Uruchamia analizę na danych zapisanych w bazie (bez pliku). Używa kategorii wybranej w danych wejściowych.</div>
                   <div class="form-cta">
-                    <button class="action-btn cta-btn" id="market-search" type="button">Szukaj</button>
-                    <button class="ghost-btn ghost-btn--small" id="market-reset" type="button">Reset</button>
+                    <button type="button" id="start-db-btn" class="action-btn cta-btn" data-i18n="btn-start-db">Start analizy z bazy</button>
                   </div>
+                  <div class="error" id="db-error"></div>
                 </div>
-                <div id="market-error" class="error"></div>
-                <div class="table-wrap">
-                  <div class="results-table market-table" id="market-table"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <h3 class="section-title">Kursy walut</h3>
+                  <button type="button" class="ghost-btn ghost-btn--small" id="add-currency-btn">+ Dodaj walutę</button>
                 </div>
-                <div class="results-pagination">
-                  <button class="ghost-btn ghost-btn--small" id="market-prev" type="button">◀ Wstecz</button>
-                  <span class="muted" id="market-page-info"></span>
-                  <button class="ghost-btn ghost-btn--small" id="market-next" type="button">Dalej ▶</button>
+                <div class="helper">Stawki konwersji do PLN na potrzeby raportów.</div>
+                <div class="currency-list" id="currency-list"></div>
+                <div class="helper" id="currency-helper"></div>
+                <div class="success" id="currency-success"></div>
+                <div class="error" id="currency-error"></div>
+                <div class="form-cta" style="margin-top:12px;">
+                  <button type="button" class="action-btn secondary" id="save-currencies-btn">Zapisz kursy</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <h3 class="section-title">Kategorie</h3>
+                  <button type="button" class="ghost-btn ghost-btn--small" id="add-category-btn">+ Dodaj kategorię</button>
+                </div>
+                <div class="helper">Zarządzaj kategoriami używanymi przy imporcie.</div>
+                <div class="categories-list" id="categories-list"></div>
+                <div class="success" id="category-success"></div>
+                <div class="error" id="category-error"></div>
+              </div>
+            </div>
+            <div class="tab-panel" data-tab-panel="display">
+              <div class="card">
+                <h3 class="section-title">Widok tabel</h3>
+                <div class="column-picker">
+                  <div>
+                    <div class="form-section-title">Tryb kompaktowy</div>
+                    <label class="toggle">
+                      <input type="checkbox" id="compact-table-toggle" />
+                      <span class="toggle__track"></span>
+                      <span class="toggle__label">Tryb kompaktowy tabel</span>
+                    </label>
+                    <div class="helper">Zmniejsza padding i szerokości kolumn EAN/Nazwa.</div>
+                  </div>
+                  <div>
+                    <div class="form-section-title">Kolumny - Wyniki analizy</div>
+                    <div class="checkboxes" id="results-columns"></div>
+                    <div class="column-picker__actions">
+                      <button type="button" class="ghost-btn ghost-btn--small" id="results-columns-reset">Przywróć domyślne</button>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="form-section-title">Kolumny - Baza Allegro</div>
+                    <div class="checkboxes" id="market-columns"></div>
+                    <div class="column-picker__actions">
+                      <button type="button" class="ghost-btn ghost-btn--small" id="market-columns-reset">Przywróć domyślne</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </section>
-        </main>
+            <div class="tab-panel" data-tab-panel="meta">
+              <div class="card">
+                <h3 class="section-title">Język UI</h3>
+                <div class="form-grid single">
+                  <div>
+                    <label>Aktualny język</label>
+                    <button type="button" class="ghost-btn" id="lang-toggle">Przełącz PL / EN</button>
+                    <div class="helper">Ustawienie lokalne (localStorage).</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
 
-        <aside class="summary-panel" id="summary-panel">
-        <div class="summary-card">
-          <div class="summary-card__header">
-            <span>Podsumowanie</span>
-            <button class="ghost-btn ghost-btn--small" id="summary-refresh" type="button">Odśwież</button>
+      <details class="card market-card" id="market-details">
+        <summary class="section-heading" style="cursor:pointer;">
+          <div>
+            <p class="step-eyebrow">Baza Allegro / Market</p>
+            <h2>Baza Allegro</h2>
+            <p class="step-lead">Schowane, by nie mieszać podstawowego flow.</p>
           </div>
-          <div class="summary-list" id="summary-list">
-            <div class="summary-row"><span>Kategoria</span><strong id="summary-category">—</strong></div>
-            <div class="summary-row"><span>Plik</span><strong id="summary-file">—</strong></div>
-            <div class="summary-row"><span>Tryb</span><strong id="summary-mode-pill">Standard</strong></div>
-            <div class="summary-row"><span>Profil</span><strong id="summary-profile-pill">Standard</strong></div>
-            <div class="summary-row"><span>Cache TTL</span><strong id="summary-cache-pill">30d</strong></div>
+        </summary>
+        <div class="form-grid single">
+          <div class="form-filters">
+            <div class="market-filters">
+              <div>
+                <label for="market-category">Kategoria</label>
+                <select id="market-category">
+                  <option value="">Dowolna</option>
+                </select>
+                <div class="helper">Filtrowanie po wybranej kategorii.</div>
+              </div>
+              <div>
+                <label for="market-ean">EAN</label>
+                <input id="market-ean" type="text" placeholder="fragment EAN" />
+                <div class="helper">Może być fragmentem kodu.</div>
+              </div>
+              <div>
+                <label for="market-source">Źródło danych</label>
+                <select id="market-source">
+                  <option value="">Dowolna</option>
+                  <option value="local">Local Selenium</option>
+                  <option value="scraping">Scraping (inne)</option>
+                </select>
+                <div class="helper">Skąd pochodziły dane rynkowe.</div>
+              </div>
+              <div>
+                <label for="market-date">Od kiedy</label>
+                <input id="market-date" type="datetime-local" />
+                <div class="helper">Filtruj po dacie aktualizacji.</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="summary-card">
-          <div class="summary-card__header"><span>Quick actions</span></div>
-          <div class="quick-actions-list" id="quick-actions-list"></div>
+        <div class="form-footer">
+          <div class="form-cta">
+            <button class="action-btn cta-btn" id="market-search" type="button">Szukaj</button>
+            <button class="ghost-btn ghost-btn--small" id="market-reset" type="button">Reset</button>
+          </div>
         </div>
-        <div class="summary-card" id="panel-ops">
-          <div class="summary-card__header"><span>Aktywne runy</span><button class="ghost-btn ghost-btn--small" type="button" id="more-history-btn">Zobacz więcej</button></div>
-          <div id="active-runs"></div>
-          <div class="helper" id="active-runs-empty">Brak aktywnych analiz.</div>
-          <div class="error" id="active-runs-error"></div>
+        <div id="market-error" class="error"></div>
+        <div class="table-wrap">
+          <div class="results-table market-table" id="market-table"></div>
         </div>
-        </aside>
-      </div>
+        <div class="results-pagination">
+          <button class="ghost-btn ghost-btn--small" id="market-prev" type="button">◀ Wstecz</button>
+          <span class="muted" id="market-page-info"></span>
+          <button class="ghost-btn ghost-btn--small" id="market-next" type="button">Dalej ▶</button>
+        </div>
+      </details>
+
     </div>
+  </div>
 
   </div>
 
@@ -2168,8 +1943,8 @@
       </div>
       <div class="modal-body">
         <div class="faq-item">
-          <strong>Różnice między trybami Standard, Tylko baza, Zawsze online</strong>
-          <div>Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.</div>
+          <strong>Różnice między trybami Online, Mixed, Offline</strong>
+          <div>Online – zawsze live. Mixed – baza + dogrywka braków online. Offline – tylko baza, bez scrapowania.</div>
         </div>
         <div class="faq-item">
           <strong>Źródła danych (Local Selenium)</strong>
@@ -2211,6 +1986,8 @@
     const scraperStatusDot = document.getElementById('scraper-status-dot');
     const form = document.getElementById('upload-form');
     const errorBox = document.getElementById('error');
+    const startHint = document.getElementById('start-hint');
+    const startProgressText = document.getElementById('start-progress-text');
     const strategyError = document.getElementById('strategy-error');
     const strategyOfflineHint = document.getElementById('strategy-offline-hint');
     const submitBtn = document.getElementById('submit-btn');
@@ -2221,23 +1998,24 @@
     const fileInput = document.getElementById('file-input');
     const dropzone = document.getElementById('dropzone');
     const modeHelper = document.getElementById('mode-helper');
-    const advancedModeToggle = document.getElementById('advanced-mode-toggle');
+    const advancedToggle = document.getElementById('advanced-toggle');
+    const advancedPanel = document.getElementById('advanced-panel');
     const settingsPanel = document.getElementById('settings-panel');
-    const closeSettingsBtn = document.getElementById('close-settings-btn');
     const settingsTabs = document.getElementById('settings-tabs');
-    const cloudOverrideToggle = document.getElementById('cloud-override-toggle');
-    const resetSettingsBtn = document.getElementById('reset-settings-btn');
-    const settingsResetSuccess = document.getElementById('settings-reset-success');
-    const opsToggle = document.getElementById('ops-toggle');
-    const opsBody = document.getElementById('ops-body');
-    const currencyToggle = document.getElementById('currency-toggle');
-    const currencyBody = document.getElementById('currency-body');
-    const categoriesToggle = document.getElementById('categories-toggle');
-    const categoriesBody = document.getElementById('categories-body');
+    const statusSection = document.getElementById('status-section');
+    const resultsSection = document.getElementById('results-section');
+    const settingsDetails = document.getElementById('settings-details');
+    const marketDetails = document.getElementById('market-details');
+    const quickActionsList = document.getElementById('quick-actions-list');
     const quickStartBtn = document.getElementById('quick-start');
     const quickResetBtn = document.getElementById('quick-reset');
     const quickLastRunBtn = document.getElementById('quick-last-run');
     const quickCopyRunBtn = document.getElementById('quick-copy-run');
+    const opsBody = document.getElementById('ops-body');
+    const currencyBody = document.getElementById('currency-body');
+    const saveTtlBtn = document.getElementById('save-ttl-btn');
+    const opsBody = document.getElementById('ops-body');
+    const currencyBody = document.getElementById('currency-body');
     const statusGoResultsBtn = document.getElementById('status-go-results');
     const activeRuns = document.getElementById('active-runs');
     const activeRunsEmpty = document.getElementById('active-runs-empty');
@@ -2248,18 +2026,19 @@
     const runErrorEl = document.getElementById('run-error');
     const progressBar = document.getElementById('progress-bar');
     const statusActions = document.getElementById('status-actions');
+    const statusStartBtn = document.getElementById('status-start-btn');
+    const statusNewRunBtn = document.getElementById('status-new-run');
     const cancelRunBtn = document.getElementById('cancel-run-btn');
     const downloadLink = document.getElementById('download-link');
     const reportLinks = document.getElementById('report-links');
     const startDbBtn = document.getElementById('start-db-btn');
     const dbLastDaysInput = document.getElementById('db-last-days');
-    const dbAllCachedInput = document.getElementById('db-all-cached');
-    const dbOnlySuccessInput = document.getElementById('db-only-success');
+    const dbAllCachedInput = null;
+    const dbOnlySuccessInput = null;
     const dbLimitInput = document.getElementById('db-limit');
     const dbSourceInput = document.getElementById('db-source');
     const dbEanContainsInput = document.getElementById('db-ean-contains');
     const dbError = document.getElementById('db-error');
-    const localWindowsInput = document.getElementById('local-windows');
     const cacheTtlRange = document.getElementById('cache-ttl');
     const cacheTtlInput = document.getElementById('cache-ttl-input');
     const settingsInfo = document.getElementById('settings-info');
@@ -2274,8 +2053,6 @@
     const categoryError = document.getElementById('category-error');
     const categoryCancel = document.getElementById('category-cancel');
     const logoutBtn = document.getElementById('logout-btn');
-    const profileSelect = document.getElementById('profile-select');
-    const profileSummary = document.getElementById('profile-summary');
     const offerLimitInput = document.getElementById('offer-limit');
     const settingsSummary = document.getElementById('settings-summary');
     const backendAlert = document.getElementById('backend-alert');
@@ -2322,6 +2099,7 @@
     const resultsBanner = document.getElementById('results-banner');
     const resultsError = document.getElementById('results-error');
     const resultsEmpty = document.getElementById('results-empty');
+    const resultsBackBtn = document.getElementById('results-back');
     const resultsPageInfo = document.getElementById('results-page-info');
     const resultsPrev = document.getElementById('results-prev');
     const resultsNext = document.getElementById('results-next');
@@ -2353,7 +2131,7 @@
     const marketSearch = document.getElementById('market-search');
     const marketReset = document.getElementById('market-reset');
     let historyExpanded = true;
-    const appState = { currentRunId: null };
+    const appState = { currentRunId: null, isStarting: false };
     let pollTimer = null;
     let refreshTimer = null;
     let refreshInFlight = false;
@@ -2420,10 +2198,10 @@
         'label-file': 'Plik (CSV/XLSX)',
         'helper-file': 'Obsługiwane formaty: .xlsx, .xls, .csv',
         'label-mode': 'Tryb analizy',
-        'mode-standard': 'Standard',
-        'mode-offline': 'Tylko baza',
-        'mode-online': 'Zawsze online',
-        'helper-mode': 'Standard = cache + odświeżanie, Tylko baza = bez scrapowania, Zawsze online = zawsze dane na żywo.',
+        'mode-standard': 'Mixed',
+        'mode-offline': 'Offline',
+        'mode-online': 'Online',
+        'helper-mode': 'Online: zawsze live · Mixed: baza + dogrywka braków online · Offline: tylko baza, bez scrapowania.',
         'btn-start': 'Start analizy',
         'status-empty': 'Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.',
         'label-run-id': 'Run ID:',
@@ -2454,8 +2232,8 @@
         'strategies-none': 'Brak',
         'history-empty-text': 'Brak wcześniejszych analiz.',
         saved: 'Zapisano',
-        'strategy-required': 'Włącz lokalny scraper lub wyłącz override chmury dla trybu Standard/Zawsze online.',
-        'hint-offline': 'W trybie Tylko baza scrapowanie jest wyłączone.',
+        'strategy-required': 'Włącz lokalny scraper lub wyłącz override chmury dla trybu Mixed/Online.',
+        'hint-offline': 'W trybie Offline scrapowanie jest wyłączone.',
         'btn-starting': 'Wysyłanie...',
         'btn-start-db': 'Start analizy z bazy',
         'btn-starting-db': 'Uruchamianie...',
@@ -2464,9 +2242,9 @@
         'category-removed': 'Kategoria usunięta',
         'category-added': 'Kategoria dodana.',
         'category-saved': 'Zapisano zmiany.',
-        'mode_mixed_label': 'Standard',
-        'mode_offline_label': 'Tylko baza',
-        'mode_online_label': 'Zawsze online',
+        'mode_mixed_label': 'Mixed',
+        'mode_offline_label': 'Offline',
+        'mode_online_label': 'Online',
         'analysis-canceled': 'Analiza została anulowana.',
         'analysis-failed': 'Analiza przerwana.',
         'no-data': 'Brak danych do wyświetlenia.',
@@ -2571,10 +2349,10 @@
         'label-file': 'File (CSV/XLSX)',
         'helper-file': 'Supported formats: .xlsx, .xls, .csv',
         'label-mode': 'Analysis mode',
-        'mode-standard': 'Standard',
-        'mode-offline': 'Cache only',
-        'mode-online': 'Always online',
-        'helper-mode': 'Standard = cache + refresh, Cache only = no scraping, Always online = live data only.',
+        'mode-standard': 'Mixed',
+        'mode-offline': 'Offline',
+        'mode-online': 'Online',
+        'helper-mode': 'Online: always live · Mixed: cache + online gap fill · Offline: DB only, no scraping.',
         'btn-start': 'Start analysis',
         'status-empty': 'No active analysis. Once started you will see status, progress, and links to results.',
         'label-run-id': 'Run ID:',
@@ -2946,16 +2724,8 @@
       'preview-link',
       'results-tabs',
       'start-db-btn',
-      'run-summary',
-      'summary-list',
       'market-table',
     ];
-    const PROFILES = {
-      standard: { label: 'Standard', cache: 30, limit: '', notes: ['Cache 30 dni', 'Brak limitu wyników'] },
-      conservative: { label: 'Conservative', cache: 60, limit: 200, notes: ['Cache 60 dni', 'Limit 200 rekordów'] },
-      aggressive: { label: 'Aggressive', cache: 7, limit: 1000, notes: ['Cache 7 dni', 'Limit 1000 rekordów'] },
-      custom: { label: 'Custom', cache: null, limit: null, notes: ['Własne ustawienia'] },
-    };
 
     function validateWiring() {
       const missing = REQUIRED_IDS.filter((id) => !document.getElementById(id));
@@ -3020,10 +2790,10 @@
       if (!runId) return;
       appState.currentRunId = runId;
       if (runIdEl) runIdEl.textContent = runId;
-      setStep('status');
       startRunStream(runId);
       updateCtas();
       await loadResults(runId, 0);
+      scrollToStatusSection();
     }
 
     function setMessage(msg, target) {
@@ -3054,18 +2824,25 @@
       setTimeout(() => { target.textContent = ''; }, 2000);
     }
 
-    function scrollToResults() {
-      if (resultsStep && resultsStep.scrollIntoView) {
-        resultsStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    function scrollToStatusSection() {
+      if (statusSection && statusSection.scrollIntoView) {
+        statusSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
 
     function updateStartState() {
       const hasCategory = Boolean(categorySelect.value) && !categorySelect.disabled;
       const hasFile = Boolean(fileInput.files && fileInput.files.length);
-      startReady = hasCategory && hasFile;
-      submitBtn.disabled = !startReady;
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const allowNoFile = mode === 'offline';
+      startReady = hasCategory && (hasFile || allowNoFile);
+      submitBtn.disabled = appState.isStarting || !startReady;
       if (startDbBtn) startDbBtn.disabled = !hasCategory;
+      if (startHint) {
+        if (!hasCategory) startHint.textContent = 'Wybierz kategorię.';
+        else if (!hasFile && !allowNoFile) startHint.textContent = 'Dodaj plik (CSV/XLSX).';
+        else startHint.textContent = '';
+      }
       if (!startTouched) {
         categorySelectError.textContent = '';
         fileError.textContent = '';
@@ -3079,9 +2856,79 @@
       } else {
         categorySelectError.textContent = t('select-category');
       }
-      fileError.textContent = hasFile ? '' : t('select-file');
+      fileError.textContent = hasFile || allowNoFile ? '' : t('select-file');
       renderQuickActions();
       return startReady;
+    }
+
+    function setStartUi(isStarting, note) {
+      appState.isStarting = isStarting;
+      if (submitBtn) submitBtn.disabled = isStarting || !startReady;
+      const spinner = submitBtn?.querySelector('.start-spinner');
+      const label = submitBtn?.querySelector('.start-label');
+      if (spinner) spinner.classList.toggle('is-active', isStarting);
+      if (label) label.textContent = isStarting ? 'Uruchamiam…' : 'Start analizy';
+      if (startProgressText) startProgressText.textContent = note || '';
+    }
+
+    function focusStatusHeading() {
+      const heading = document.getElementById('current-analysis-title');
+      if (heading) heading.focus({ preventScroll: true });
+    }
+
+    async function startAnalysis() {
+      if (appState.isStarting) return;
+      startTouched = true;
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const hasFile = Boolean(fileInput.files && fileInput.files.length);
+      console.info('START_CLICK', {
+        mode,
+        hasFile,
+        category: categorySelect.value || null,
+        endpoint: mode === 'offline' && !hasFile ? '/api/v1/analysis/run_from_cache' : '/api/v1/analysis/upload',
+      });
+      if (!updateStartState()) return;
+      if (!validateStrategies()) return;
+
+      setStartUi(true, 'Tworzę run…');
+      if (mode === 'offline' && !hasFile) {
+        await startFromDb(true);
+        setStartUi(false, startProgressText?.textContent);
+        return;
+      }
+      if (runStage) runStage.textContent = 'Wysyłanie pliku…';
+
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      fd.append('category_id', categorySelect.value);
+      fd.append('mode', mode);
+      fd.append('scrape_mode', mode);
+      const limitVal = Number(offerLimitInput?.value || 0);
+      if (Number.isFinite(limitVal) && limitVal > 0) fd.append('limit', String(limitVal));
+
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setMessage(formatHttpError(res, data, t('error-run-start')), errorBox);
+          return;
+        }
+        runIdEl.textContent = data.analysis_run_id;
+        setStartUi(true, `Run: ${data.analysis_run_id}`);
+        setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
+        scrollToStatusSection();
+        focusStatusHeading();
+        startRunStream(data.analysis_run_id);
+        await loadHistory();
+      } catch (err) {
+        setMessage(formatNetworkError(err, t('error-analysis')), errorBox);
+        if (runStage) runStage.textContent = 'Błąd wysyłania';
+      } finally {
+        setStartUi(false, startProgressText?.textContent);
+        updateStartState();
+      }
     }
 
     function initDropzone() {
@@ -3104,10 +2951,6 @@
     }
 
     function applyDefaults() {
-      const useLocalInput = document.querySelector('input[name="use_local_scraper"]');
-      if (useLocalInput) useLocalInput.checked = settingsDefaults.use_local_scraper;
-      if (cloudOverrideToggle) cloudOverrideToggle.checked = settingsDefaults.cloud_scraper_disabled;
-      if (localWindowsInput) localWindowsInput.value = settingsDefaults.local_scraper_windows;
       if (cacheTtlRange) cacheTtlRange.value = settingsDefaults.cache_ttl_days;
       if (cacheTtlInput) cacheTtlInput.value = settingsDefaults.cache_ttl_days;
       if (offerLimitInput) offerLimitInput.value = '';
@@ -3127,60 +2970,13 @@
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
       const cache = cacheTtlInput?.value || '-';
       const limit = offerLimitInput?.value || 'brak';
-      const profile = profileSelect?.value || 'standard';
-      settingsSummary.textContent = `Tryb: ${mode} · Profil: ${profile} · Cache TTL: ${cache}d · Limit: ${limit}`;
-      const modeLabelEl = document.getElementById('summary-mode');
-      const modePillEl = document.getElementById('summary-mode-pill');
-      const cacheEl = document.getElementById('summary-cache');
-      const cachePillEl = document.getElementById('summary-cache-pill');
-      const profilePillEl = document.getElementById('summary-profile-pill');
-      const summaryLimitEl = document.getElementById('summary-limit');
-      if (modeLabelEl) modeLabelEl.textContent = modeLabel(mode);
-      if (modePillEl) modePillEl.textContent = modeLabel(mode);
-      if (cacheEl) cacheEl.textContent = `${cache} dni`;
-      if (cachePillEl) cachePillEl.textContent = `${cache}d`;
-      if (profilePillEl) profilePillEl.textContent = profile;
-      if (summaryLimitEl) summaryLimitEl.textContent = limit || 'brak';
+      settingsSummary.textContent = `Tryb: ${mode} · Cache TTL: ${cache}d · Limit: ${limit}`;
     }
 
-    function renderProfileSummary(profileId) {
-      if (!profileSummary) return;
-      const profile = PROFILES[profileId] || PROFILES.standard;
-      profileSummary.innerHTML = `
-        <strong>Co zmienia profil:</strong>
-        <ul>
-          ${profile.notes.map(n => `<li>${n}</li>`).join('')}
-        </ul>
-      `;
-    }
-
-    function applyProfile(profileId, skipOverride = false) {
-      const profile = PROFILES[profileId] || PROFILES.standard;
-      if (profileSelect) profileSelect.value = profileId;
-      if (!skipOverride) {
-        if (cacheTtlRange && profile.cache !== null && profile.cache !== undefined) {
-          cacheTtlRange.value = profile.cache;
-        }
-        if (cacheTtlInput && profile.cache !== null && profile.cache !== undefined) {
-          cacheTtlInput.value = profile.cache;
-        }
-        if (offerLimitInput && profile.limit !== null && profile.limit !== undefined) {
-          offerLimitInput.value = profile.limit;
-        } else if (offerLimitInput) {
-          offerLimitInput.value = '';
-        }
-      }
-      renderProfileSummary(profileId);
-      updateSettingsSummary();
-    }
+    function applyProfile() {}
 
     function updateCtas() {
-      if (quickCopyRunBtn) {
-        quickCopyRunBtn.disabled = !appState.currentRunId;
-      }
-      if (statusGoResultsBtn) {
-        statusGoResultsBtn.disabled = !appState.currentRunId;
-      }
+      if (statusGoResultsBtn) statusGoResultsBtn.disabled = !appState.currentRunId;
     }
 
     function renderQuickActions() {
@@ -3234,18 +3030,14 @@
       }
     }
 
-    function setAdvancedMode(enabled) {
-      if (!settingsPanel || !advancedModeToggle) return;
-      settingsPanel.classList.toggle('is-hidden', !enabled);
-      advancedModeToggle.checked = enabled;
-      localStorage.setItem('ui.advancedMode', enabled ? '1' : '0');
-      updateSettingsWideMode(enabled);
-    }
-
-    function updateSettingsWideMode(enabled) {
-      if (layout) layout.classList.toggle('is-settings-wide', enabled);
-      if (shell) shell.classList.toggle('is-settings-wide', enabled);
-      if (closeSettingsBtn) closeSettingsBtn.classList.toggle('is-hidden', !enabled);
+    function setAdvancedVisible(enabled) {
+      if (!advancedPanel) return;
+      advancedPanel.hidden = !enabled;
+      if (advancedToggle) {
+        advancedToggle.textContent = enabled ? 'Ukryj zaawansowane ⚙' : 'Ustawienia zaawansowane ⚙';
+        advancedToggle.setAttribute('aria-expanded', enabled ? 'true' : 'false');
+      }
+      localStorage.setItem('ui.advancedPanel', enabled ? '1' : '0');
     }
 
     function setActiveSettingsTab(tabId) {
@@ -3292,7 +3084,8 @@
       navigator.clipboard.writeText(String(toCopy)).catch(() => {});
     });
     if (statusGoResultsBtn) statusGoResultsBtn.addEventListener('click', () => {
-      setStep('results');
+      resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      focusStatusHeading();
       if (appState.currentRunId) openResultsModal(appState.currentRunId);
     });
     if (exportXlsxBtn) exportXlsxBtn.addEventListener('click', () => exportReport('xlsx'));
@@ -3467,6 +3260,7 @@
     }
 
     function renderActiveRuns(runs) {
+      if (!activeRuns || !activeRunsError || !activeRunsEmpty) return;
       activeRuns.innerHTML = '';
       activeRunsError.textContent = '';
       if (!runs.length) {
@@ -3512,6 +3306,7 @@
     }
 
     async function loadActiveRuns() {
+      if (!activeRuns || !activeRunsEmpty || !activeRunsError) return;
       activeRunsError.textContent = '';
       try {
         const res = await fetch('/api/v1/analysis/active');
@@ -4004,6 +3799,18 @@
 
     function updateStrategiesForMode() {
       validateStrategies();
+      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const ttlDisabled = mode === 'offline';
+      if (cacheTtlInput) cacheTtlInput.disabled = ttlDisabled;
+      if (cacheTtlRange) cacheTtlRange.disabled = ttlDisabled;
+      if (modeHelper) {
+        const helperMap = {
+          offline: 'Offline: tylko baza, brak zapytań online.',
+          mixed: 'Mixed: baza + dogrywka braków online.',
+          online: 'Online: zawsze świeże dane, może być wolniej/drożej.',
+        };
+        modeHelper.textContent = helperMap[mode] || '';
+      }
     }
 
     function setAccordionState(toggle, body, open, storageKey) {
@@ -4026,11 +3833,8 @@
     }
 
     function toggleDbFilters() {
-      const allCached = dbAllCachedInput.checked;
-      dbLastDaysInput.disabled = allCached;
-      if (allCached) {
-        dbLastDaysInput.value = dbLastDaysInput.value || settingsDefaults.db_last_days;
-      }
+      const allCached = false;
+      dbLastDaysInput.disabled = false;
     }
 
     function defaultColumnSet(columns) {
@@ -4302,17 +4106,34 @@
       // quick summary pill updates
       const fileLabel = fileInput?.files?.[0]?.name || '—';
       const categoryLabel = categorySelect?.selectedOptions?.[0]?.textContent || '—';
-      const modeLabelText = modeLabel(data.mode || form.querySelector('input[name="mode"]:checked')?.value);
-      const profileLabel = profileSelect?.value || 'Standard';
+      const effectiveMode = data.scrape_mode || data.mode || form.querySelector('input[name="mode"]:checked')?.value;
+      const modeLabelText = modeLabel(effectiveMode);
       const summaryCategoryEl = document.getElementById('summary-category');
       const summaryFileEl = document.getElementById('summary-file');
       const summaryModePillEl = document.getElementById('summary-mode-pill');
-      const summaryProfilePillEl = document.getElementById('summary-profile-pill');
       if (summaryCategoryEl) summaryCategoryEl.innerText = categoryLabel;
       if (summaryFileEl) summaryFileEl.innerText = fileLabel;
       if (summaryModePillEl) summaryModePillEl.innerText = modeLabelText;
-      if (summaryProfilePillEl) summaryProfilePillEl.innerText = profileLabel;
       updateCtas();
+      updateStatusState(data);
+    }
+
+    function updateStatusState(payload) {
+      const status = (payload?.status || '').toLowerCase();
+      const hasRun = Boolean(payload?.id);
+      const done = status === 'completed';
+      const finished = status === 'completed' || status === 'failed' || status === 'canceled';
+      const running = status === 'pending' || status === 'running';
+      if (statusEmpty) statusEmpty.style.display = hasRun ? 'none' : 'block';
+      if (statusDetails) statusDetails.style.display = hasRun ? 'grid' : 'none';
+      if (statusActions) statusActions.style.display = hasRun ? 'flex' : 'none';
+      if (cancelRunBtn) cancelRunBtn.style.display = running ? 'inline-flex' : 'none';
+      if (statusGoResultsBtn) statusGoResultsBtn.style.display = hasRun ? 'inline-flex' : 'none';
+      if (statusNewRunBtn) statusNewRunBtn.style.display = finished ? 'inline-flex' : 'none';
+      if (statusGoResultsBtn) statusGoResultsBtn.disabled = !(payload?.id && done);
+      if (exportXlsxBtn) exportXlsxBtn.disabled = !(payload?.id && done);
+      if (exportCsvBtn) exportCsvBtn.disabled = !(payload?.id && done);
+      if (copyReportLinkBtn) copyReportLinkBtn.disabled = !(payload?.id && done);
     }
 
     function stopPolling() {
@@ -4349,8 +4170,8 @@
       refreshInFlight = true;
       const tasks = [];
       if (historyExpanded) tasks.push(loadHistory());
-      if (!opsBody.classList.contains('is-hidden')) tasks.push(loadActiveRuns());
-      if (!currencyBody.classList.contains('is-hidden')) tasks.push(loadCurrencyRates());
+      if (opsBody && !opsBody.classList.contains('is-hidden')) tasks.push(loadActiveRuns());
+      if (currencyBody && !currencyBody.classList.contains('is-hidden')) tasks.push(loadCurrencyRates());
       if (!isEditingMarketFilters()) tasks.push(loadMarketData(marketState.offset, true));
       await Promise.allSettled(tasks);
       refreshInFlight = false;
@@ -4585,24 +4406,17 @@
         settingsDefaults = {
           ...DEFAULT_SETTINGS,
           cache_ttl_days: data.cache_ttl_days ?? DEFAULT_SETTINGS.cache_ttl_days,
-          local_scraper_windows: data.local_scraper_windows ?? DEFAULT_SETTINGS.local_scraper_windows,
-          cloud_scraper_disabled: data.cloud_scraper_disabled ?? DEFAULT_SETTINGS.cloud_scraper_disabled,
         };
         if (cacheTtlInput) cacheTtlInput.value = settingsDefaults.cache_ttl_days;
         if (cacheTtlRange) cacheTtlRange.value = settingsDefaults.cache_ttl_days;
-        if (localWindowsInput) localWindowsInput.value = settingsDefaults.local_scraper_windows;
-        if (cloudOverrideToggle) cloudOverrideToggle.checked = !!settingsDefaults.cloud_scraper_disabled;
         setMessage('', settingsInfo);
         applyDefaults();
       } catch (err) {
         if (cacheTtlInput) cacheTtlInput.value = cacheTtlInput.value || DEFAULT_SETTINGS.cache_ttl_days;
         if (cacheTtlRange && cacheTtlInput) cacheTtlRange.value = cacheTtlInput.value;
-        if (localWindowsInput) localWindowsInput.value = localWindowsInput.value || DEFAULT_SETTINGS.local_scraper_windows;
         settingsDefaults = {
           ...DEFAULT_SETTINGS,
           cache_ttl_days: Number(cacheTtlInput?.value) || DEFAULT_SETTINGS.cache_ttl_days,
-          local_scraper_windows: Number(localWindowsInput?.value) || DEFAULT_SETTINGS.local_scraper_windows,
-          cloud_scraper_disabled: cloudOverrideToggle ? cloudOverrideToggle.checked : DEFAULT_SETTINGS.cloud_scraper_disabled,
         };
         setMessage(
           formatNetworkError(err, t('error-fetch-settings-fallback')),
@@ -4614,11 +4428,8 @@
 
     async function saveSettings(field) {
       setMessage('', settingsError);
-      settingsResetSuccess.textContent = '';
       const payload = {
         cache_ttl_days: Number(cacheTtlInput.value) || settingsDefaults.cache_ttl_days,
-        local_scraper_windows: Number(localWindowsInput.value) || settingsDefaults.local_scraper_windows,
-        cloud_scraper_disabled: cloudOverrideToggle ? cloudOverrideToggle.checked : settingsDefaults.cloud_scraper_disabled,
       };
       try {
         const res = await fetch('/api/v1/settings/', {
@@ -4632,16 +4443,8 @@
           return;
         }
         cacheTtlInput.value = data.cache_ttl_days;
-        localWindowsInput.value = data.local_scraper_windows;
         settingsDefaults.cache_ttl_days = data.cache_ttl_days;
-        settingsDefaults.local_scraper_windows = data.local_scraper_windows;
-        if (cloudOverrideToggle && data.cloud_scraper_disabled !== undefined) {
-          cloudOverrideToggle.checked = data.cloud_scraper_disabled;
-          settingsDefaults.cloud_scraper_disabled = data.cloud_scraper_disabled;
-        }
-        if (field === 'windows') briefSuccess(settingsWindowsSuccess);
-        if (field === 'ttl') briefSuccess(settingsTtlSuccess);
-        if (field === 'reset') briefSuccess(settingsResetSuccess);
+        if (field === 'ttl') briefSuccess(settingsInfo);
       } catch (err) {
         setMessage(formatNetworkError(err, t('error-save-settings-network')), settingsError);
       }
@@ -4823,39 +4626,42 @@
 
     function getStrategyFlags() { return {}; }
 
-    async function startFromDb() {
+    async function startFromDb(fromMain = false) {
       setMessage('', errorBox);
       setMessage('', dbError);
       setMessage('', strategyError);
       downloadLink.style.display = 'none';
 
       if (!validateStrategies()) {
+        if (fromMain) setStartUi(false);
         return;
       }
       if (!categorySelect.value) {
         setMessage(t('error-db-select-category'), dbError);
+        if (fromMain) setStartUi(false);
         return;
       }
 
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const cacheDays = dbAllCachedInput.checked ? null : (Number(dbLastDaysInput.value) || settingsDefaults.db_last_days);
+      const cacheDays = Number(dbLastDaysInput.value) || settingsDefaults.db_last_days;
       const limitValue = Number(dbLimitInput.value);
       const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : null;
       const payload = {
         category_id: categorySelect.value,
         mode,
-        profile: profileSelect?.value || 'standard',
+        scrape_mode: mode,
         cache_days: cacheDays,
-        include_all_cached: dbAllCachedInput.checked,
-        only_with_data: dbOnlySuccessInput.checked,
         limit,
         source: dbSourceInput?.value || 'any',
         ean_contains: (dbEanContainsInput?.value || '').trim() || null,
       };
 
-      startDbBtn.disabled = true;
+      if (startDbBtn && !fromMain) {
+        startDbBtn.disabled = true;
+        startDbBtn.textContent = t('btn-starting-db');
+      }
       submitBtn.disabled = true;
-      startDbBtn.textContent = t('btn-starting-db');
+      if (fromMain) setStartUi(true, 'Tworzę run (offline)…');
 
       try {
         const res = await fetch('/api/v1/analysis/run_from_cache', {
@@ -4869,18 +4675,22 @@
           return;
         }
         runIdEl.textContent = data.analysis_run_id;
+        if (fromMain) setStartUi(true, `Run: ${data.analysis_run_id}`);
         setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
-        scrollToResults();
+        scrollToStatusSection();
+        focusStatusHeading();
         startRunStream(data.analysis_run_id);
         await loadHistory();
-        await loadActiveRuns();
         await loadActiveRuns();
       } catch (err) {
         setMessage(formatNetworkError(err, t('error-analysis')), dbError);
       } finally {
-        startDbBtn.disabled = false;
+        if (startDbBtn && !fromMain) {
+          startDbBtn.disabled = false;
+          startDbBtn.textContent = t('btn-start-db');
+        }
+        if (fromMain) setStartUi(false);
         updateStartState();
-        startDbBtn.textContent = t('btn-start-db');
       }
     }
 
@@ -4929,110 +4739,59 @@
       }
     }
 
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
-      setMessage('', errorBox);
-      setMessage('', strategyError);
-      downloadLink.style.display = 'none';
-
-      startTouched = true;
-      if (!updateStartState()) return;
-      if (!validateStrategies()) return;
-      if (runStage) runStage.textContent = 'Wysyłanie pliku…';
-
-      const fd = new FormData();
-      fd.append('file', fileInput.files[0]);
-      fd.append('category_id', categorySelect.value);
-      fd.append('mode', form.querySelector('input[name="mode"]:checked')?.value || 'mixed');
-      fd.append('profile', profileSelect?.value || 'standard');
-      const limitVal = Number(offerLimitInput?.value || 0);
-      if (Number.isFinite(limitVal) && limitVal > 0) fd.append('limit', String(limitVal));
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = t('btn-starting');
-
-      try {
-        const res = await fetch('/api/v1/analysis/upload', { method: 'POST', body: fd });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setMessage(formatHttpError(res, data, t('error-run-start')), errorBox);
-          return;
-        }
-        runIdEl.textContent = data.analysis_run_id;
-        setStatus({ id: data.analysis_run_id, status: data.status, processed_products: 0, total_products: 0, error_message: '' });
-        scrollToResults();
-        startRunStream(data.analysis_run_id);
-        await loadHistory();
-      } catch (err) {
-        setMessage(formatNetworkError(err, t('error-analysis')), errorBox);
-        if (runStage) runStage.textContent = 'Błąd wysyłania';
-      } finally {
-        submitBtn.textContent = t('btn-start');
-        updateStartState();
-      }
+      startAnalysis();
     });
+    if (submitBtn) {
+      submitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        startAnalysis();
+      });
+    }
 
     const strategyBoxes = document.getElementById('strategy-boxes');
     if (strategyBoxes) strategyBoxes.addEventListener('change', validateStrategies);
     form.querySelectorAll('input[name="mode"]').forEach((input) => {
       input.addEventListener('change', () => {
         updateStrategiesForMode();
+        updateStartState();
       });
     });
     fileInput.addEventListener('change', updateStartState);
     categorySelect.addEventListener('change', updateStartState);
-    if (advancedModeToggle) {
-      advancedModeToggle.addEventListener('change', () => {
-        setAdvancedMode(advancedModeToggle.checked);
+    if (advancedToggle) {
+      advancedToggle.addEventListener('click', () => {
+        const willShow = advancedPanel ? advancedPanel.hidden : true;
+        setAdvancedVisible(willShow);
       });
-    }
-    if (cloudOverrideToggle) {
-      cloudOverrideToggle.addEventListener('change', () => {
-        saveSettings('cloud');
-        validateStrategies();
-      });
-    }
-    if (closeSettingsBtn) {
-      closeSettingsBtn.addEventListener('click', () => {
-        setAdvancedMode(false);
-      });
-    }
-    if (resetSettingsBtn) {
-      resetSettingsBtn.addEventListener('click', async () => {
-        applyDefaults();
-        await saveSettings('reset');
-      });
+      const stored = localStorage.getItem('ui.advancedPanel');
+      setAdvancedVisible(stored === '1');
     }
     form.addEventListener('change', updateSettingsSummary);
-    if (profileSelect) {
-      profileSelect.addEventListener('change', (e) => {
-        const val = e.target.value;
-        applyProfile(val);
-      });
-    }
-    const markCustom = () => {
-      if (profileSelect && profileSelect.value !== 'custom') profileSelect.value = 'custom';
-      renderProfileSummary(profileSelect?.value || 'custom');
-      updateSettingsSummary();
-    };
     if (cacheTtlInput) cacheTtlInput.addEventListener('input', () => {
       if (cacheTtlRange) cacheTtlRange.value = cacheTtlInput.value;
-      markCustom();
+      updateSettingsSummary();
     });
     if (cacheTtlRange) cacheTtlRange.addEventListener('input', (e) => {
       if (cacheTtlInput) cacheTtlInput.value = e.target.value;
-      markCustom();
+      updateSettingsSummary();
     });
-    if (offerLimitInput) offerLimitInput.addEventListener('input', markCustom);
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        form.reset();
-        applyDefaults();
-        updateStartState();
-        if (settingsSummary) settingsSummary.textContent = '';
-        applyProfile('standard', true);
+    if (saveTtlBtn) {
+      saveTtlBtn.addEventListener('click', async () => {
+        if (!cacheTtlInput.value) cacheTtlInput.value = settingsDefaults.cache_ttl_days;
+        await saveSettings('ttl');
       });
     }
+    if (offerLimitInput) offerLimitInput.addEventListener('input', updateSettingsSummary);
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          form.reset();
+          applyDefaults();
+          updateStartState();
+          if (settingsSummary) settingsSummary.textContent = '';
+        });
+      }
     initSettingsTabs();
     initTablePreferences();
     if (startDbBtn) startDbBtn.addEventListener('click', startFromDb);
@@ -5040,15 +4799,22 @@
       const runId = cancelRunBtn.dataset.runId || runIdEl.textContent;
       if (runId) cancelRun(runId);
     });
-    if (dbAllCachedInput) dbAllCachedInput.addEventListener('change', toggleDbFilters);
-    initAccordion(opsToggle, opsBody, 'ui.ops', true);
-    initAccordion(currencyToggle, currencyBody, 'ui.currency', false);
-    initAccordion(categoriesToggle, categoriesBody, 'ui.categories', false);
-    toggleDbFilters();
+    if (statusStartBtn) statusStartBtn.addEventListener('click', () => {
+      document.getElementById('input-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      categorySelect?.focus({ preventScroll: true });
+    });
+    if (statusNewRunBtn) statusNewRunBtn.addEventListener('click', () => {
+      document.getElementById('input-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      categorySelect?.focus({ preventScroll: true });
+    });
+    if (runIdEl) {
+      runIdEl.addEventListener('click', () => {
+        const text = (runIdEl.textContent || '').trim();
+        if (text) navigator.clipboard.writeText(text).catch(() => {});
+      });
+    }
     updateStrategiesForMode();
-    applyProfile('standard', true);
     updateStartState();
-    setAdvancedMode(localStorage.getItem('ui.advancedMode') === '1');
 
     if (previewBtn) {
       previewBtn.addEventListener('click', (e) => {
@@ -5071,6 +4837,12 @@
         loadResults(previewState.runId, nextOffset);
       }
     });
+    if (resultsBackBtn) {
+      resultsBackBtn.addEventListener('click', () => {
+        scrollToStatusSection();
+        focusStatusHeading();
+      });
+    }
 
     if (resultsSearch) {
       resultsSearch.addEventListener('input', (e) => {
@@ -5132,20 +4904,6 @@
       });
     });
 
-    const saveWindowsBtn = document.getElementById('save-windows-btn');
-    if (saveWindowsBtn) {
-      saveWindowsBtn.addEventListener('click', async () => {
-        if (!localWindowsInput.value) localWindowsInput.value = 1;
-        await saveSettings('windows');
-      });
-    }
-    const saveTtlBtn = document.getElementById('save-ttl-btn');
-    if (saveTtlBtn) {
-      saveTtlBtn.addEventListener('click', async () => {
-        if (!cacheTtlInput.value) cacheTtlInput.value = 30;
-        await saveSettings('ttl');
-      });
-    }
     if (addCurrencyBtn) {
       addCurrencyBtn.addEventListener('click', () => {
         const payload = readCurrencyPayload();
@@ -5342,6 +5100,7 @@
     setStep(STEPS.includes(hashStep) ? hashStep : 'import');
     validateWiring();
     updateCtas();
+    updateStatusState(null);
     refreshScraperStatus();
     setInterval(refreshScraperStatus, 30000);
     loadCategories();
