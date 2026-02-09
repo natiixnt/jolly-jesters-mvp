@@ -10,8 +10,6 @@ class ProfitabilityLabel(str, enum.Enum):
 class MarketDataSource(str, enum.Enum):
     scraping = "scraping"
     api = "api"
-    cloud_http = "cloud_http"
-    local = "local"
 
 
 class AnalysisStatus(str, enum.Enum):

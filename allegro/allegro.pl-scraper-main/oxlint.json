@@ -1,0 +1,75 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": [
+        "typescript",
+        "unicorn",
+        "oxc"
+    ],
+    "rules": {
+        "no-restricted-imports": [
+            "error",
+            {
+                "patterns": [
+                    {
+                        "group": [
+                            "./*",
+                            "../*"
+                        ],
+                        "message": "Use '@/...' absolute imports instead of relative paths."
+                    }
+                ]
+            }
+        ],
+        "typescript/no-unused-vars": [
+            "error",
+            {
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_",
+                "caughtErrorsIgnorePattern": "^_"
+            }
+        ],
+        "typescript/no-explicit-any": "error",
+        "typescript/no-unsafe-assignment": "error",
+        "typescript/no-unsafe-member-access": "error",
+        "typescript/no-unsafe-call": "error",
+        "typescript/no-unsafe-return": "error",
+        "typescript/no-unsafe-argument": "error",
+        "typescript/no-non-null-assertion": "error",
+        "typescript/no-floating-promises": "error",
+        "typescript/prefer-nullish-coalescing": "error",
+        "typescript/restrict-template-expressions": "error",
+        "typescript/array-type": [
+            "error",
+            {
+                "default": "array"
+            }
+        ],
+        "typescript/require-await": "error",
+        "typescript/return-await": [
+            "error",
+            "always"
+        ]
+    },
+    "overrides": [
+        {
+            "files": [
+                "**/*.test.ts",
+                "**/__tests__/**"
+            ],
+            "rules": {
+                "typescript/no-explicit-any": "off",
+                "typescript/no-unsafe-assignment": "off",
+                "typescript/no-unsafe-member-access": "off",
+                "typescript/no-unsafe-call": "off",
+                "typescript/no-unsafe-return": "off",
+                "typescript/no-unsafe-argument": "off",
+                "typescript/no-non-null-assertion": "off"
+            }
+        }
+    ],
+    "ignorePatterns": [
+        "dist/**",
+        "node_modules/**",
+        "coverage/**"
+    ]
+}

@@ -12,10 +12,8 @@ python-dotenv
 requests
 openpyxl
 pydantic<2
-uvicorn
 python-multipart
 blinker==1.6.2
-seleniumbase
 httpx
 pytest
 pytest-asyncio

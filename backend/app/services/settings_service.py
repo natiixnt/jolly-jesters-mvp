@@ -24,8 +24,6 @@ def get_settings(db: Session) -> Setting:
 
     record = Setting(
         cache_ttl_days=app_config.stale_days,
-        local_scraper_windows=1,
-        cloud_scraper_disabled=True,
     )
     db.add(record)
     db.commit()
@@ -36,13 +34,9 @@ def get_settings(db: Session) -> Setting:
 def update_settings(
     db: Session,
     cache_ttl_days: int,
-    local_scraper_windows: int,
-    cloud_scraper_disabled: bool,
 ) -> Setting:
     record = get_settings(db)
     record.cache_ttl_days = max(1, cache_ttl_days)
-    record.local_scraper_windows = max(1, local_scraper_windows)
-    record.cloud_scraper_disabled = bool(cloud_scraper_disabled)
     db.commit()
     db.refresh(record)
     return record

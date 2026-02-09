@@ -1,0 +1,41 @@
+{
+    "name": "allegro.pl-scraper",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.mjs",
+    "scripts": {
+        "build": "tsdown",
+        "start": "tsdown && node dist/index.mjs",
+        "dev": "tsdown --watch --on-success \"node dist/index.mjs\"",
+        "exec": "tsdown && node dist/executor.mjs",
+        "lint": "oxlint -c oxlint.json --tsconfig tsconfig.json src",
+        "type-check": "tsc --noEmit"
+    },
+    "type": "module",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "packageManager": "pnpm@10.28.2",
+    "dependencies": {
+        "@hono/node-server": "^1.19.9",
+        "@types/node": "^25.2.1",
+        "async-mutex": "^0.5.0",
+        "cheerio": "^1.2.0",
+        "dotenv": "^17.2.4",
+        "hono": "^4.11.8",
+        "ink": "^6.6.0",
+        "ink-table": "^3.1.0",
+        "nanoid": "^5.1.6",
+        "react": "^19.2.4",
+        "set-cookie-parser": "^3.0.1",
+        "tlsclientwrapper": "^4.1.2",
+        "undici": "^7.21.0"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.13",
+        "@types/set-cookie-parser": "^2.4.10",
+        "oxlint": "^1.43.0",
+        "tsdown": "^0.20.3",
+        "typescript": "^5.9.3"
+    }
+}

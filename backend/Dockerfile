@@ -1,74 +1,32 @@
-# uzywamy pelnego obrazu debian  aby moc zainstalowac chrome
-FROM python:3.11-bookworm
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# krok 1: instalacja podstawowych zaleznosci
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     curl \
     git \
-    postgresql-client \
-    --no-install-recommends \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# krok 2: dodanie repo google chrome (tylko dla amd64)
-RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
-      && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list; \
-    else \
-      echo "Pominieto repo Google Chrome dla arch $(dpkg --print-architecture)"; \
-    fi
-
-# krok 3: instalacja przegladarki (chrome dla amd64, chromium dla pozostalych)
-RUN if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-      apt-get update && apt-get install -y \
-        google-chrome-stable \
-        libvulkan1 \
-        libnss3 \
-        fonts-liberation \
-        --no-install-recommends; \
-    else \
-      apt-get update && apt-get install -y \
-        chromium \
-        chromium-driver \
-        libvulkan1 \
-        libnss3 \
-        fonts-liberation \
-        --no-install-recommends; \
-    fi \
-    && rm -rf /var/lib/apt/lists/*
-
-
-# krok 4: skopiowanie i instalacja zaleznosci pythona
 COPY requirements.txt .
-# usunieto: COPY vendor ./vendor (juz niepotrzebne)
 ENV PIP_DEFAULT_TIMEOUT=120 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN pip install --no-cache-dir --upgrade pip --retries 5 --timeout 120 \
-    && pip install --no-cache-dir -r requirements.txt --retries 5 --timeout 120 \
-    && pip install --no-cache-dir python-dotenv alembic psycopg2-binary --retries 5 --timeout 120
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# usunieto: linie zwiazane z antibot.exe (juz niepotrzebne)
-  
-# kopiowanie kodu i migracji
 COPY alembic.ini .
 COPY alembic ./alembic
 COPY ./app ./app
-# helper scripts (smoke tests, maintenance)
 COPY ./scripts ./scripts
 
-# expose fastapi port
-EXPOSE 8000
-
-# ustawienie pythonpath
 ENV PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# ta komenda cmd jest dla backendu, worker nadpisze ja w docker-compose
+EXPOSE 8000
+
 CMD ["sh", "-c", "\
 cd /app && \
 until pg_isready -h postgres -p 5432; do echo 'Waiting for Postgres...'; sleep 2; done; \

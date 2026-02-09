@@ -1,15 +1,11 @@
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.settings import CurrencyRates, SettingsRead, SettingsUpdate
 from app.services import settings_service
-from app.utils.local_scraper_client import update_local_scraper_windows
 
 router = APIRouter(tags=["settings"])
-logger = logging.getLogger(__name__)
 
 
 @router.get("/", response_model=SettingsRead)
@@ -25,16 +21,7 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
     record = settings_service.update_settings(
         db=db,
         cache_ttl_days=payload.cache_ttl_days,
-        local_scraper_windows=payload.local_scraper_windows,
-        cloud_scraper_disabled=payload.cloud_scraper_disabled,
     )
-    update_result = update_local_scraper_windows(record.local_scraper_windows)
-    if update_result.get("status") == "error":
-        logger.warning(
-            "LOCAL_SCRAPER_CONFIG_UPDATE failed url=%s error=%s",
-            update_result.get("url"),
-            update_result.get("error"),
-        )
     return record
 
 

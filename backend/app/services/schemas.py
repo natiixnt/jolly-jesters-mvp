@@ -6,23 +6,17 @@ from typing import Any, Dict, Optional
 
 @dataclass
 class AllegroResult:
+    ean: str
+    status: str
+    total_offer_count: Optional[int]
+    products: list[dict]
     price: Optional[Decimal]
     sold_count: Optional[int]
     is_not_found: bool
     is_temporary_error: bool
     raw_payload: Dict[str, Any]
     error: Optional[str] = None
-    source: str = "scraping"
-    last_checked_at: Optional[datetime] = None
-    product_title: Optional[str] = None
-    product_url: Optional[str] = None
-    offers: Optional[list[dict]] = None
-    blocked: bool = False
-    fingerprint_id: Optional[str] = None
-
-
-@dataclass
-class ScrapingStrategyConfig:
-    use_cloud_http: bool = False
-    use_local_scraper: bool = True
-    scraper_mode: Optional[str] = None
+    source: str = "allegro_scraper"
+    scraped_at: Optional[datetime] = None
+    duration_ms: Optional[int] = None
+    captcha_solves: Optional[int] = None

@@ -1,9 +1,9 @@
 from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
-from pydantic import BaseSettings, Field, validator
+from pydantic import BaseSettings, Field
 
 
 class Settings(BaseSettings):
@@ -24,18 +24,12 @@ class Settings(BaseSettings):
     data_root: Path = Field(default=Path("/workspace"), env="WORKSPACE")
     upload_dir_name: str = Field(default="uploads")
     export_dir_name: str = Field(default="exports")
+    scraper_proxies_file: str = Field(default="/workspace/data/proxies.txt", env="SCRAPER_PROXIES_FILE")
 
-    proxy_list_raw: Optional[str] = Field(default=None, env="PROXY_LIST")
-    proxy_timeout: float = Field(default=15.0)
-    local_scraper_timeout: float = Field(default=90.0, env="LOCAL_SCRAPER_TIMEOUT")
-    scraping_retries: int = Field(default=2)
-    local_scraper_enabled: bool = Field(default=True, env="LOCAL_SCRAPER_ENABLED")
-    local_scraper_url: Optional[str] = Field(default="http://local_scraper:5050", env="LOCAL_SCRAPER_URL")
-    local_scraper_windows: int = Field(default=1, env="LOCAL_SCRAPER_WINDOWS")
-
-    # Bright Data Web Unlocker
-    bd_unlocker_token: Optional[str] = Field(default=None, env="BD_UNLOCKER_TOKEN")
-    bd_unlocker_zone: Optional[str] = Field(default=None, env="BD_UNLOCKER_ZONE")
+    # Single scraper service (allegro.pl-scraper-main)
+    allegro_scraper_url: str = Field(default="http://allegro_scraper:3000", env="ALLEGRO_SCRAPER_URL")
+    allegro_scraper_poll_interval: float = Field(default=1.0, env="ALLEGRO_SCRAPER_POLL_INTERVAL")
+    allegro_scraper_timeout_seconds: float = Field(default=90.0, env="ALLEGRO_SCRAPER_TIMEOUT_SECONDS")
 
     sqlalchemy_echo: bool = Field(default=False)
 
@@ -48,27 +42,6 @@ class Settings(BaseSettings):
         env_file = Path(__file__).resolve().parents[2] / ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
-
-    @validator("local_scraper_enabled", pre=True, always=True)
-    def _coerce_local_scraper_enabled(cls, value: object) -> bool:
-        """
-        Allow missing/blank LOCAL_SCRAPER_ENABLED values to default to False.
-        """
-        if value is None:
-            return False
-        if isinstance(value, str):
-            if not value.strip():
-                return False
-            return value.strip().lower() in {"1", "true", "yes", "on"}
-        return bool(value)
-
-    @property
-    def proxy_list(self) -> List[str]:
-        if not self.proxy_list_raw:
-            return []
-        if isinstance(self.proxy_list_raw, list):
-            return self.proxy_list_raw
-        return [item.strip() for item in str(self.proxy_list_raw).split(",") if item.strip()]
 
     @property
     def upload_dir(self) -> Path:
@@ -83,32 +56,18 @@ class Settings(BaseSettings):
         return path
 
     @property
+    def proxies_file(self) -> Path:
+        path = Path(self.scraper_proxies_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
     def celery_broker(self) -> str:
         return self.celery_broker_url or self.redis_url
 
     @property
     def celery_backend(self) -> str:
         return self.celery_result_backend or self.redis_url
-
-    # Friendly aliases mirroring env var names (used by some callers/tests)
-    @property
-    def PROXY_LIST(self) -> List[str]:
-        return self.proxy_list
-
-    @property
-    def LOCAL_SCRAPER_ENABLED(self) -> bool:
-        return bool(self.local_scraper_enabled)
-
-    @property
-    def LOCAL_SCRAPER_URL(self) -> Optional[str]:
-        return self.local_scraper_url
-
-    @property
-    def LOCAL_SCRAPER_WINDOWS(self) -> int:
-        try:
-            return max(1, int(self.local_scraper_windows))
-        except Exception:
-            return 1
 
 
 settings = Settings()

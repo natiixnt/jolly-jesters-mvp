@@ -13,7 +13,6 @@ from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
 from app.models.enums import AnalysisItemSource, AnalysisStatus, ScrapeStatus
 from app.models.product import Product
-from app.services.schemas import ScrapingStrategyConfig
 from app.services import settings_service
 from app.utils.excel_reader import InputRow, read_excel_file
 
@@ -54,8 +53,7 @@ def prepare_analysis_run(
     category: Category,
     rows: List[InputRow],
     filename: str,
-    strategy: ScrapingStrategyConfig,
-    mode: str = "mixed",
+    mode: str = "live",
 ) -> AnalysisRun:
     run = AnalysisRun(
         category_id=category.id,
@@ -64,9 +62,7 @@ def prepare_analysis_run(
         total_products=len(rows),
         processed_products=0,
         mode=mode,
-        use_cloud_http=strategy.use_cloud_http,
-        use_local_scraper=strategy.use_local_scraper,
-        run_metadata={"scraper_mode": strategy.scraper_mode} if strategy.scraper_mode else None,
+        run_metadata=None,
     )
     db.add(run)
     db.flush()
@@ -120,8 +116,7 @@ async def handle_upload(
     db: Session,
     category: Category,
     upload_file: UploadFile,
-    strategy: ScrapingStrategyConfig,
-    mode: str = "mixed",
+    mode: str = "live",
 ) -> AnalysisRun:
     data = await upload_file.read()
     rates, default_currency = settings_service.get_currency_rate_map(db)
@@ -132,5 +127,5 @@ async def handle_upload(
         file_name=upload_file.filename,
     )
     saved_path = store_uploaded_file_bytes(data, upload_file.filename)
-    run = prepare_analysis_run(db, category, rows, saved_path.name, strategy, mode=mode)
+    run = prepare_analysis_run(db, category, rows, saved_path.name, mode=mode)
     return run

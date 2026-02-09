@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.session import get_db
-from app.utils.local_scraper_client import check_local_scraper_health
+from app.utils.allegro_scraper_client import check_scraper_health
 
 
 FAILED_AUTH: dict[str, list[float]] = {}
@@ -131,15 +131,6 @@ async def enforce_basic_auth(request: Request, call_next):
     return _unauthorized()
 
 
-@app.on_event("startup")
-def _log_local_scraper_config() -> None:
-    logger.info(
-        "LOCAL_SCRAPER_CONFIG enabled=%s url=%s",
-        settings.LOCAL_SCRAPER_ENABLED,
-        settings.LOCAL_SCRAPER_URL,
-    )
-
-
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -148,8 +139,8 @@ def index(request: Request):
 @app.get("/health")
 def healthcheck(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
-    local_scraper = check_local_scraper_health()
-    return {"status": "ok", "local_scraper": local_scraper}
+    scraper = check_scraper_health()
+    return {"status": "ok", "scraper": scraper}
 
 
 @app.get("/healthz")

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -17,20 +15,16 @@ from app.models.category import Category
 from app.models.enums import AnalysisStatus, ScrapeStatus
 from app.schemas.analysis import (
     AnalysisResultsResponse,
-    AnalysisRetryResponse,
     AnalysisRunListResponse,
+    AnalysisRunSummary,
     AnalysisStartFromDbRequest,
     AnalysisStatusResponse,
     AnalysisUploadResponse,
-    AnalysisRunSummary,
 )
-from app.services import analysis_service, settings_service
-from app.core.config import settings
+from app.services import analysis_service
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
-from app.services.schemas import ScrapingStrategyConfig
-from app.utils.local_scraper_client import check_local_scraper_health
-from app.workers.tasks import celery_app, run_analysis_task, scrape_one_local
+from app.workers.tasks import celery_app, run_analysis_task
 
 router = APIRouter(tags=["analysis"])
 
@@ -43,73 +37,12 @@ def _sse_event(event_type: str, payload: dict) -> str:
     return f"event: {event_type}\ndata: {data}\n\n"
 
 
-def _validate_strategy(mode: str, use_local_scraper: bool, use_cloud_http: bool = False):
-    if mode != "offline" and not (use_local_scraper or use_cloud_http):
-        raise HTTPException(
-            status_code=400,
-            detail="Tryby Standard/Zawsze online wymagają włączonego lokalnego scrapera lub chmury.",
-        )
-
-
-def _validate_scraper_config(use_local_scraper: bool):
-    if use_local_scraper and not settings.LOCAL_SCRAPER_URL:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Brak adresu usługi lokalnego scrapera (LOCAL_SCRAPER_URL). "
-                "Ustaw np. LOCAL_SCRAPER_URL=http://local_scraper:5050 w docker-compose."
-            ),
-        )
-    if use_local_scraper and not settings.LOCAL_SCRAPER_ENABLED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Lokalny scraper jest wyłączony (LOCAL_SCRAPER_ENABLED=false). Włącz go, aby scrapować.",
-        )
-    if not use_local_scraper:
-        return
-    if (
-        os.getenv("LOCAL_SCRAPER_SKIP_HEALTHCHECK", "0").lower() in {"1", "true", "yes"}
-        or os.getenv("PYTEST_CURRENT_TEST")
-    ):
-        return
-    health = check_local_scraper_health(timeout_seconds=2.0)
-    if health.get("status") != "ok":
-        url = health.get("url") or settings.LOCAL_SCRAPER_URL or "LOCAL_SCRAPER_URL"
-        status_label = health.get("status") or "unknown"
-        status_code = health.get("status_code")
-        error = health.get("error")
-        suffix = f", status_code={status_code}" if status_code else ""
-        if error:
-            suffix += f", error={error}"
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Local scraper niedostepny lub niezdrowy "
-                f"(status={status_label}{suffix}). "
-                f"Sprawdz usluge pod {url} albo wylacz 'Local scraper (Selenium)' "
-                "i uruchom analizę w trybie 'Tylko baza'."
-            ),
-        )
-
-
 @router.post("/upload", response_model=AnalysisUploadResponse)
 async def upload_analysis(
     file: UploadFile = File(...),
     category_id: str = Form(...),
-    mode: str = Form("mixed"),
-    use_cloud_http: bool = Form(False),
-    use_local_scraper: bool = Form(True),
-    scraper_mode: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
-    mode = (mode or "mixed").lower()
-    settings_record = settings_service.get_settings(db)
-    # Respect global override: when disabled, force local-only regardless of user flag.
-    requested_cloud = bool(use_cloud_http)
-    use_cloud_http = False if settings_record.cloud_scraper_disabled else requested_cloud
-    _validate_strategy(mode, use_local_scraper, use_cloud_http)
-    _validate_scraper_config(use_local_scraper)
-
     try:
         category_uuid = uuid.UUID(category_id)
     except ValueError:
@@ -119,111 +52,21 @@ async def upload_analysis(
     if not category or not category.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
-    if mode not in {"mixed", "offline", "online"}:
-        raise HTTPException(status_code=400, detail="Mode must be 'mixed', 'offline' or 'online'")
-
     if not file.filename.lower().endswith((".xls", ".xlsx")):
         raise HTTPException(status_code=400, detail="Plik musi być w formacie Excel (.xls/.xlsx)")
 
-    scraper_mode_norm = (scraper_mode or "").strip().lower() or None
-    if scraper_mode_norm and scraper_mode_norm not in {"decodo", "brightdata", "local"}:
-        raise HTTPException(status_code=400, detail="Invalid scraper_mode")
-
-    strategy = ScrapingStrategyConfig(
-        use_cloud_http=use_cloud_http,
-        use_local_scraper=use_local_scraper,
-        scraper_mode=scraper_mode_norm,
-    )
-
-    try:
-        run = await handle_upload(db, category, file, strategy, mode=mode)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    result = run_analysis_task.delay(run.id, mode=mode)
+    run = await handle_upload(db, category, file)
+    result = run_analysis_task.delay(run.id)
     run.root_task_id = result.id
     analysis_service.record_run_task(db, run, result.id, "run_analysis")
     db.commit()
 
     return AnalysisUploadResponse(analysis_run_id=run.id, status=run.status)
-
-
-@router.post("/start_from_db", response_model=AnalysisUploadResponse)
-def start_from_db(payload: AnalysisStartFromDbRequest, db: Session = Depends(get_db)):
-    return _start_cached_analysis(payload, db)
 
 
 @router.post("/run_from_db", response_model=AnalysisUploadResponse)
 def run_from_db(payload: AnalysisStartFromDbRequest, db: Session = Depends(get_db)):
     return _start_cached_analysis(payload, db)
-
-
-@router.post("/run_from_cache", response_model=AnalysisUploadResponse)
-def run_from_cache(payload: AnalysisStartFromDbRequest, db: Session = Depends(get_db)):
-    return _start_cached_analysis(payload, db)
-
-def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> AnalysisUploadResponse:
-    mode = (payload.mode or "mixed").lower()
-    use_local_scraper = payload.use_local_scraper
-    settings_record = settings_service.get_settings(db)
-    use_cloud_http = False if settings_record.cloud_scraper_disabled else bool(payload.use_cloud_http)
-    _validate_strategy(mode, use_local_scraper, use_cloud_http)
-    _validate_scraper_config(use_local_scraper)
-
-    if mode not in {"mixed", "offline", "online"}:
-        raise HTTPException(status_code=400, detail="Mode must be 'mixed', 'offline' or 'online'")
-
-    category = db.query(Category).filter(Category.id == payload.category_id).first()
-    if not category or not category.is_active:
-        raise HTTPException(status_code=404, detail="Category not found or inactive")
-
-    strategy = ScrapingStrategyConfig(
-        use_cloud_http=use_cloud_http,
-        use_local_scraper=use_local_scraper,
-        scraper_mode=(payload.scraper_mode or "").strip().lower() or None,
-    )
-
-    try:
-        products = analysis_service.build_cached_worklist(
-            db,
-            category_id=category.id,
-            cache_days=payload.cache_days,
-            include_all_cached=payload.include_all_cached,
-            only_with_data=payload.only_with_data,
-            limit=payload.limit,
-            source=payload.source,
-            ean_contains=payload.ean_contains,
-        )
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Nieprawidłowy filtr źródła danych.")
-
-    if not products:
-        raise HTTPException(status_code=400, detail="Brak produktów w bazie spełniających filtry.")
-
-    run_metadata = {
-        "cache_days": payload.cache_days,
-        "include_all_cached": payload.include_all_cached,
-        "only_with_data": payload.only_with_data,
-        "limit": payload.limit,
-        "source": payload.source,
-        "ean_contains": payload.ean_contains,
-        "scraper_mode": strategy.scraper_mode,
-    }
-
-    run = analysis_service.prepare_cached_analysis_run(
-        db,
-        category,
-        products,
-        strategy,
-        mode=mode,
-        run_metadata=run_metadata,
-    )
-    result = run_analysis_task.delay(run.id, mode=mode)
-    run.root_task_id = result.id
-    analysis_service.record_run_task(db, run, result.id, "run_analysis")
-    db.commit()
-
-    return AnalysisUploadResponse(analysis_run_id=run.id, status=run.status)
 
 
 @router.get("", response_model=list[AnalysisRunSummary])
@@ -235,6 +78,7 @@ def list_runs(db: Session = Depends(get_db), limit: int = 20):
 def list_active_runs(db: Session = Depends(get_db), limit: int = 20):
     runs = analysis_service.list_active_runs(db, limit=limit)
     return {"runs": runs}
+
 
 @router.get("/latest", response_model=AnalysisStatusResponse)
 def latest_run(db: Session = Depends(get_db)):
@@ -264,7 +108,7 @@ def download_results(run_id: int, inline: bool = False, db: Session = Depends(ge
     if content is None:
         raise HTTPException(status_code=404, detail="Analysis not found")
     filename = f"analysis_{run_id}.xlsx"
-    disposition = "inline" if inline else f'attachment; filename=\"{filename}\"'
+    disposition = "inline" if inline else f'attachment; filename="{filename}"'
     headers = {"Content-Disposition": disposition}
     return StreamingResponse(
         iter([content]),
@@ -433,27 +277,46 @@ def cancel_analysis_run(run_id: int, db: Session = Depends(get_db)):
     return run
 
 
-@router.post("/{run_id}/retry_failed", response_model=AnalysisRetryResponse)
-def retry_failed_items(
-    run_id: int,
-    strategy: str = "local",
-    db: Session = Depends(get_db),
-):
-    run = analysis_service.get_run_status(db, run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-    if run.status == AnalysisStatus.canceled:
-        raise HTTPException(status_code=400, detail="Analysis was canceled")
+def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> AnalysisUploadResponse:
+    category = db.query(Category).filter(Category.id == payload.category_id).first()
+    if not category or not category.is_active:
+        raise HTTPException(status_code=404, detail="Category not found or inactive")
 
-    strategy = (strategy or "local").lower()
-    if strategy != "local":
-        raise HTTPException(status_code=400, detail="Obsługiwany jest tylko lokalny scraper.")
+    try:
+        products = analysis_service.build_cached_worklist(
+            db,
+            category_id=category.id,
+            cache_days=payload.cache_days,
+            include_all_cached=payload.include_all_cached,
+            only_with_data=payload.only_with_data,
+            limit=payload.limit,
+            source=payload.source,
+            ean_contains=payload.ean_contains,
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Nieprawidłowy filtr źródła danych.")
 
-    _validate_scraper_config(True)
+    if not products:
+        raise HTTPException(status_code=400, detail="Brak produktów w bazie spełniających filtry.")
 
-    def _enqueue(item):
-        result = scrape_one_local.delay(item.ean, item.id, {"use_cloud_http": False, "use_local_scraper": True})
-        return result.id
+    run_metadata = {
+        "cache_days": payload.cache_days,
+        "include_all_cached": payload.include_all_cached,
+        "only_with_data": payload.only_with_data,
+        "limit": payload.limit,
+        "source": payload.source,
+        "ean_contains": payload.ean_contains,
+    }
 
-    scheduled = analysis_service.retry_failed_items(db, run_id, enqueue=_enqueue)
-    return AnalysisRetryResponse(run_id=run.id, status=run.status, scheduled=scheduled)
+    run = analysis_service.prepare_cached_analysis_run(
+        db,
+        category,
+        products,
+        run_metadata=run_metadata,
+    )
+    result = run_analysis_task.delay(run.id)
+    run.root_task_id = result.id
+    analysis_service.record_run_task(db, run, result.id, "run_analysis")
+    db.commit()
+
+    return AnalysisUploadResponse(analysis_run_id=run.id, status=run.status)

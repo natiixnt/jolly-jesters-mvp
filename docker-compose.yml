@@ -1,6 +1,3 @@
-# Plik: docker-compose.yml
-# usunieto 'version: "3.9"' (przestarzale)
-
 services:
   postgres:
     image: postgres:15
@@ -9,7 +6,6 @@ services:
       POSTGRES_USER: mvp
       POSTGRES_PASSWORD: mvp
       POSTGRES_DB: mvpdb
-      SELENIUM_HEADED: "true"
     volumes:
       - mvp_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -39,6 +35,24 @@ services:
       postgres:
         condition: service_healthy
 
+  allegro_scraper:
+    build:
+      context: ./allegro/allegro.pl-scraper-main
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=3000
+      - WORKER_COUNT=${SCRAPER_WORKER_COUNT:-1}
+      - CONCURRENCY_PER_WORKER=${SCRAPER_CONCURRENCY_PER_WORKER:-1}
+      - MAX_TASK_RETRIES=${SCRAPER_MAX_TASK_RETRIES:-3}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 7s
+      retries: 5
+      start_period: 20s
+
   backend:
     build:
       context: ./backend
@@ -46,24 +60,15 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-decodo}
-      - SBR_POOL_SIZE=${SBR_POOL_SIZE:-2}
-      - SBR_MAX_REQ_PER_SESSION=${SBR_MAX_REQ_PER_SESSION:-20}
-      - SBR_MAX_SESSION_MINUTES=${SBR_MAX_SESSION_MINUTES:-15}
-      - SBR_COOLDOWN_MINUTES=${SBR_COOLDOWN_MINUTES:-60}
-      - SCRAPER_CONCURRENCY=${SCRAPER_CONCURRENCY:-1}
-      - EAN_CACHE_TTL_DAYS=${EAN_CACHE_TTL_DAYS:-14}
-      - UI_BASIC_AUTH_USER=${UI_BASIC_AUTH_USER:-admin}
-      - UI_BASIC_AUTH_PASSWORD=${UI_BASIC_AUTH_PASSWORD:-1234}
+      - ALLEGRO_SCRAPER_URL=http://allegro_scraper:3000
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - workspace_data:/workspace
-    ports: []
     depends_on:
       migrations:
         condition: service_completed_successfully
-      local_scraper:
+      allegro_scraper:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -78,73 +83,6 @@ services:
       retries: 5
       start_period: 25s
 
-  local_scraper:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.local_scraper
-      args:
-        WITH_VNC: 1
-    container_name: local_scraper
-    restart: unless-stopped
-    env_file:
-      - ./backend/.env
-    environment:
-      SCRAPER_MODE: ${SCRAPER_MODE:-decodo}
-      BRD_SBR_USERNAME: ${BRD_SBR_USERNAME:-}
-      BRD_SBR_PASSWORD: ${BRD_SBR_PASSWORD:-}
-      BRD_SBR_HOST: ${BRD_SBR_HOST:-brd.superproxy.io}
-      BRD_SBR_WEBDRIVER_PORT: ${BRD_SBR_WEBDRIVER_PORT:-9515}
-      SBR_POOL_SIZE: ${SBR_POOL_SIZE:-2}
-      SBR_MAX_REQ_PER_SESSION: ${SBR_MAX_REQ_PER_SESSION:-20}
-      SBR_MAX_SESSION_MINUTES: ${SBR_MAX_SESSION_MINUTES:-15}
-      SBR_COOLDOWN_MINUTES: ${SBR_COOLDOWN_MINUTES:-60}
-      SCRAPER_CONCURRENCY: ${SCRAPER_CONCURRENCY:-1}
-      EAN_CACHE_TTL_DAYS: ${EAN_CACHE_TTL_DAYS:-14}
-      DISPLAY: ":99"
-      SELENIUM_HEADED: "true"
-      SELENIUM_USER_DATA_DIR: /data/chrome-profile
-      SELENIUM_KILL_EXISTING: 1
-      SELENIUM_PROFILE_FALLBACK: ${SELENIUM_PROFILE_FALLBACK:-1}
-      SELENIUM_FORCE_TEMP_PROFILE: ${SELENIUM_FORCE_TEMP_PROFILE:-1}
-      SELENIUM_TEMP_PROFILE_DIR: ${SELENIUM_TEMP_PROFILE_DIR:-/data/chrome-profile}
-      SELENIUM_PROFILE_ROTATE_MIN_REQUESTS: ${SELENIUM_PROFILE_ROTATE_MIN_REQUESTS:-4}
-      SELENIUM_PROFILE_ROTATE_MAX_REQUESTS: ${SELENIUM_PROFILE_ROTATE_MAX_REQUESTS:-7}
-      LOCAL_SCRAPER_ENABLE_VNC: 1
-      SELENIUM_CHROME_LOG_PATH: ${SELENIUM_CHROME_LOG_PATH:-}
-      SELENIUM_CHROMEDRIVER_LOG_PATH: ${SELENIUM_CHROMEDRIVER_LOG_PATH:-}
-      LOCAL_SCRAPER_LISTING_TIMEOUT: ${LOCAL_SCRAPER_LISTING_TIMEOUT:-50}
-      LOCAL_SCRAPER_PAGELOAD_TIMEOUT: ${LOCAL_SCRAPER_PAGELOAD_TIMEOUT:-45}
-      LOCAL_SCRAPER_MIN_INTERVAL_SECONDS: ${LOCAL_SCRAPER_MIN_INTERVAL_SECONDS:-2}
-      LOCAL_SCRAPER_COOLDOWN_SECONDS: ${LOCAL_SCRAPER_COOLDOWN_SECONDS:-5}
-      LOCAL_SCRAPER_CAPTCHA_COOLDOWN_SECONDS: ${LOCAL_SCRAPER_CAPTCHA_COOLDOWN_SECONDS:-10}
-      LOCAL_SCRAPER_REQUEST_DELAY: ${LOCAL_SCRAPER_REQUEST_DELAY:-3}
-      LOCAL_SCRAPER_WINDOWS: ${LOCAL_SCRAPER_WINDOWS:-1}
-      LOCAL_SCRAPER_MAX_ATTEMPTS: ${LOCAL_SCRAPER_MAX_ATTEMPTS:-2}
-      LOCAL_SCRAPER_RATE_JITTER_SECONDS: ${LOCAL_SCRAPER_RATE_JITTER_SECONDS:-0.7}
-      LOCAL_SCRAPER_RETRY_BACKOFF: ${LOCAL_SCRAPER_RETRY_BACKOFF:-2.0}
-      FINGERPRINT_ROTATION_ENABLED: ${FINGERPRINT_ROTATION_ENABLED:-1}
-      FINGERPRINT_ROTATION_EVERY_MIN: ${FINGERPRINT_ROTATION_EVERY_MIN:-3}
-      FINGERPRINT_ROTATION_EVERY_MAX: ${FINGERPRINT_ROTATION_EVERY_MAX:-5}
-      FINGERPRINT_PRESET_SEED: ${FINGERPRINT_PRESET_SEED:-}
-      DEBUG_SELENIUM_REQUESTS: ${DEBUG_SELENIUM_REQUESTS:-0}
-      DEBUG_SKIP_EARLY_BLOCK: ${DEBUG_SKIP_EARLY_BLOCK:-0}
-      DEBUG_PAUSE_ON_BLOCK: ${DEBUG_PAUSE_ON_BLOCK:-0}
-      LOCAL_SCRAPER_DATADOME_WAIT: ${LOCAL_SCRAPER_DATADOME_WAIT:-0}
-      USE_UNDETECTED_CHROMEDRIVER: ${USE_UNDETECTED_CHROMEDRIVER:-0}
-      USE_PROXY_FORWARDER: ${USE_PROXY_FORWARDER:-0}
-    ports: []
-    volumes:
-      - local_scraper_profile:/data/chrome-profile
-      # Optional (bind mount host profile; ensure permissions):
-      # - ~/.local-scraper-profile:/data/chrome-profile
-    shm_size: 2gb # needed for Chrome
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:5050/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-      
   worker:
     build:
       context: ./backend
@@ -152,13 +90,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-decodo}
-      - SBR_POOL_SIZE=${SBR_POOL_SIZE:-2}
-      - SBR_MAX_REQ_PER_SESSION=${SBR_MAX_REQ_PER_SESSION:-20}
-      - SBR_MAX_SESSION_MINUTES=${SBR_MAX_SESSION_MINUTES:-15}
-      - SBR_COOLDOWN_MINUTES=${SBR_COOLDOWN_MINUTES:-60}
-      - SCRAPER_CONCURRENCY=${SCRAPER_CONCURRENCY:-1}
-      - EAN_CACHE_TTL_DAYS=${EAN_CACHE_TTL_DAYS:-14}
+      - ALLEGRO_SCRAPER_URL=http://allegro_scraper:3000
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1 --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
@@ -166,7 +98,7 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
-      local_scraper:
+      allegro_scraper:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -181,58 +113,6 @@ services:
       retries: 5
       start_period: 30s
 
-  scraper_worker:
-    build:
-      context: ./backend
-    restart: unless-stopped
-    # --- POPRAWKA: dodalem env_file zeby wczytac proxy ---
-    env_file:
-      - ./backend/.env
-    environment:
-      - SCRAPER_MODE=${SCRAPER_MODE:-decodo}
-      - BD_UNLOCKER_TOKEN=${BD_UNLOCKER_TOKEN:-}
-      - BD_UNLOCKER_ZONE=${BD_UNLOCKER_ZONE:-}
-      - BD_TIMEOUT_S=${BD_TIMEOUT_S:-30}
-      - BD_MAX_RETRIES=${BD_MAX_RETRIES:-3}
-      - BD_QPS=${BD_QPS:-1.0}
-      - BD_LISTING_MAX_PAGES=${BD_LISTING_MAX_PAGES:-3}
-      - BD_PDP_TIE_BREAK_LIMIT=${BD_PDP_TIE_BREAK_LIMIT:-5}
-      - BD_CACHE_TTL_SECONDS=${BD_CACHE_TTL_SECONDS:-86400}
-    command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q scraper_local --concurrency=${SCRAPER_LOCAL_CONCURRENCY:-1} --prefetch-multiplier=1 --max-tasks-per-child=20"
-    volumes:
-      - workspace_data:/workspace
-    shm_size: 2gb # potrzebne dla selenium/chrome
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    dns:
-      - 8.8.8.8
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
-      local_scraper:
-        condition: service_healthy
-      postgres: 
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A app.workers.tasks inspect ping -d celery@$${HOSTNAME} >/tmp/scraper_worker_health || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-  frontend:
-    build:
-      context: ./frontend
-    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0
-    profiles:
-      - legacy-ui
-    volumes:
-      - ./frontend:/app
-    ports: []
-
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -246,4 +126,3 @@ services:
 volumes:
   mvp_pgdata:
   workspace_data: {}
-  local_scraper_profile: {}

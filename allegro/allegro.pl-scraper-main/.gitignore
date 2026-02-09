@@ -1,0 +1,8 @@
+/node_modules
+/output
+/lib
+/dist
+/.env
+/2.html
+/proxies.txt
+/eans.txt

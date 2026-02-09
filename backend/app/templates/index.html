@@ -9,6 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
+      --container: 1240px;
+      --container-wide: 1400px;
+      --gutter: 28px;
+      --card-pad: 24px;
+      --card-r: 16px;
+      --row-gap: 16px;
+      --section-gap: 22px;
       --bg: #0c1121;
       --panel: #0f172a;
       --panel-2: #0c172e;
@@ -16,28 +23,18 @@
       --accent-2: #10b981;
       --text: #e7ebf5;
       --muted: #9aa8c3;
-      --border: rgba(255,255,255,0.12);
+      --border: rgba(255,255,255,0.08);
       --border-soft: rgba(255,255,255,0.08);
       --danger: #f87171;
       --success: #34d399;
-      --space-2: 8px;
-      --space-3: 12px;
-      --space-4: 16px;
-      --space-5: 20px;
-      --space-6: 24px;
-      --space-7: 28px;
-      --space-8: 32px;
-      --font-sm: 13px;
-      --font-md: 15px;
-      --font-lg: 18px;
-      --radius-card: 14px;
-      --radius-control: 12px;
       --shadow: 0 14px 32px rgba(0,0,0,0.28);
-      --page-max: 1240px;
-      --page-max-wide: 1400px;
-      --page-pad: 28px;
-      --card-pad: 26px;
-      --section-gap: 22px;
+      --radius-card: var(--card-r);
+      --radius-control: 12px;
+      --btn-primary-bg: linear-gradient(135deg, #22c55e, #22d3ee);
+      --btn-primary-fg: #ffffff;
+    }
+    @media (max-width: 900px){
+      :root{ --gutter: 16px; --card-pad: 18px; }
     }
     *, *::before, *::after { box-sizing: border-box; min-width: 0; }
     html {
@@ -60,36 +57,33 @@
       overflow-x: hidden;
       line-height: 1.55;
     }
-    .page {
-      max-width: var(--page-max);
+    .page { width: 100%; }
+    .shell{
+      max-width: var(--container);
       margin: 0 auto;
-      padding: 28px var(--page-pad) 72px;
-    }
-    .page.is-wide { max-width: var(--page-max-wide); }
-    .shell {
+      padding: 28px var(--gutter) 64px;
       position: relative;
       background: linear-gradient(180deg, rgba(18,27,48,0.94), rgba(10,17,34,0.94));
       border: 1px solid var(--border-soft);
       border-radius: var(--radius-card);
-      padding: var(--card-pad);
       box-shadow: var(--shadow);
     }
+    *::before, *::after { pointer-events: none; }
     @media (max-width: 480px) {
-      :root { --page-pad: 16px; --card-pad: 20px; }
-      .page { padding: 18px var(--page-pad) 88px; }
+      :root { --card-pad: 18px; }
     }
     .top {
       display: flex;
       justify-content: space-between;
-      gap: var(--space-4);
+      gap: 16px;
       align-items: flex-start;
       flex-wrap: wrap;
       padding-bottom: 6px;
     }
     .top > * { min-width: 0; }
-    h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.18; }
-    h2 { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.25; }
-    p.lead { color: var(--muted); margin: 8px 0 0; font-size: 16px; line-height: 1.55; }
+    h1 { margin: 0 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+    h2 { margin: 0 0 10px; font-size: 20px; font-weight: 700; line-height: 1.25; }
+    p.lead { color: var(--muted); margin: 0; font-size: 15px; line-height: 1.55; opacity: 0.85; }
     .ghost-btn {
       background: transparent;
       border: 1px solid var(--border-soft);
@@ -109,8 +103,8 @@
       align-items: center;
       gap: 8px;
       border: 1px solid rgba(255,255,255,0.1);
-      background: linear-gradient(120deg, var(--accent-2), var(--accent));
-      color: #fff;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-fg) !important;
       padding: 12px 18px;
       min-height: 44px;
       border-radius: 12px;
@@ -148,7 +142,7 @@
     .top-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
       justify-content: flex-end;
     }
@@ -175,13 +169,16 @@
     }
     .status-pill.error { border-color: rgba(248,113,113,0.6); color: #fecaca; }
     .status-pill.error .status-dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(248,113,113,0.15); }
-    .button-row { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .button-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
     .button-row > * { min-width: 0; }
     .layout {
       margin-top: var(--section-gap);
       display: grid;
       gap: var(--section-gap);
-      max-width: 100%;
+      max-width: var(--container);
+      margin-left: auto;
+      margin-right: auto;
+      padding: 0 var(--gutter);
     }
     .wiring-alert {
       display: none;
@@ -335,7 +332,7 @@
       .filters-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
     }
     .action-panel, .results-panel, .settings-panel-card {
-      border: 1px solid var(--border-soft);
+      border: 1px solid var(--border);
       border-radius: var(--radius-card);
       background: rgba(16,24,44,0.82);
       padding: var(--card-pad);
@@ -375,7 +372,6 @@
       align-items: center;
       margin-top: 8px;
     }
-    .preset-select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b152b; color: var(--text); }
     .mini-summary { color: var(--muted); font-size: 13px; margin-top: 6px; }
     .results-panel .status-panel { margin-bottom: 12px; }
     .results-toolbar {
@@ -453,9 +449,9 @@
       z-index: 2;
     }
     .results-table__inner { max-height: 480px; overflow: auto; }
-    .card {
+    .card, .panel, .section-card {
       background: rgba(18,26,46,0.86);
-      border: 1px solid var(--border-soft);
+      border: 1px solid var(--border);
       border-radius: var(--radius-card);
       padding: var(--card-pad);
       gap: 20px;
@@ -492,7 +488,7 @@
     label {
       font-weight: 600;
       font-size: 13px;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.02em;
       color: #cfd7e8;
       text-transform: none;
       word-break: break-word;
@@ -547,7 +543,7 @@
     .step-body { display: grid; gap: 12px; }
     .form-grid {
       display: grid;
-      gap: 18px;
+      gap: var(--row-gap);
       align-items: start;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
@@ -674,61 +670,42 @@
     input[type="file"], input[type="number"], input[type="text"] { appearance: auto; background-image: none; padding-right: 14px; }
     .helper {
       color: var(--muted);
-      font-size: 13.5px;
+      font-size: 13px;
       margin-top: 8px;
       white-space: normal;
       word-break: break-word;
       overflow-wrap: anywhere;
       line-height: 1.5;
+      opacity: 0.8;
     }
     #mode-helper { max-width: 520px; }
-    .segmented {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-card);
-      padding: 8px;
-      background: #0f1a32;
-    }
-    .segmented label {
+    .segmented{ display:flex; gap:10px; flex-wrap:wrap; }
+    .segmented label{
       position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 16px;
-      font-weight: 700;
-      cursor: pointer;
-      color: var(--muted);
-      transition: color 0.2s, background 0.2s, border-color 0.2s;
-      text-transform: none;
-      font-size: 15px;
-      min-height: 44px;
-      border-radius: var(--radius-control);
       flex: 1 1 140px;
-      white-space: nowrap;
-      border: 1px solid transparent;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      height: 42px;
+      border:1px solid var(--border);
+      border-radius: 12px;
+      cursor:pointer;
+      user-select:none;
       background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size:14px;
+      font-weight:600;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
     }
-    .segmented label span { pointer-events: none; }
-    .segmented input {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-    }
-    .segmented input:checked + span {
+    .segmented span{ pointer-events:none; }
+    .segmented input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+    .segmented input:checked + span{
+      background: rgba(46, 212, 160, .18);
+      border-radius: 10px;
+      padding: 10px 14px;
       color: #0b152b;
-      background: linear-gradient(120deg, rgba(34,211,238,0.22), rgba(16,185,129,0.22));
-      border-radius: var(--radius-control);
-      padding: 0 2px;
       border: 1px solid rgba(34,211,238,0.6);
-      box-shadow: 0 6px 18px rgba(34,211,238,0.18);
-      width: 100%;
-      height: 100%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      box-shadow: 0 6px 14px rgba(34,211,238,0.18);
     }
     .tabs {
       display: grid;
@@ -1549,40 +1526,33 @@
     .status-row span, .status-row strong, .pill { overflow-wrap: anywhere; word-break: break-word; }
     .status-log { max-height: 240px; }
     .copyable { cursor: pointer; }
-    .input-cta-bar {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
+    .input-footer{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
       gap: 12px;
-      margin-top: 12px;
-      padding: 0;
-      border: none;
-      border-radius: var(--radius-card);
-      background: transparent;
-      position: static;
-      box-shadow: none;
-      pointer-events: auto;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
     }
-    .input-cta-bar .cta-left { min-width: 0; flex: 1; }
-    .input-cta-bar .cta-right { display: flex; align-items: center; gap: 10px; }
-    @media (max-width: 900px) {
-      .input-cta-bar {
+    .input-footer .hint{ font-size: 13px; opacity:.85; min-height: 18px; }
+    .input-footer .cta-right{ display:flex; align-items:center; gap:10px; }
+    @media (max-width: 700px){
+      .input-footer{
         position: sticky;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 14px 16px;
-        padding-bottom: calc(14px + env(safe-area-inset-bottom));
-        background: rgba(10, 18, 34, 0.78);
-        border: 1px solid rgba(148,163,184,0.28);
-        box-shadow: 0 -10px 26px rgba(0,0,0,0.32);
-        backdrop-filter: blur(6px);
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
+        bottom: 12px;
+        background: rgba(10,16,28,.82);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+        z-index: 50;
+        flex-wrap: wrap;
       }
-      .input-cta-bar .cta-right { width: 100%; }
-      #submit-btn { width: 100%; min-width: 0; }
+      .input-footer .cta-right,
+      #submit-btn{
+        width: 100%;
+      }
     }
     .start-spinner {
       display: none;
@@ -1638,51 +1608,48 @@
           <div class="backend-alert" id="backend-alert">
             Brak połączenia z backendem. Sprawdź sieć lub spróbuj ponownie.
           </div>
-          <div class="dropzone" id="dropzone">
-            <strong>Upuść plik Excel tutaj</strong><br/>
-            <span class="muted">lub kliknij, aby wybrać</span>
-          </div>
-          <div class="form-grid has-options input-grid">
-            <div class="form-filters">
-              <div>
-                <label for="category-select" style="display:flex; align-items:center; gap:8px;">
-                  <span data-i18n="label-category">Kategoria</span>
-                  <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
-                </label>
-                <select id="category-select" name="category_id" required></select>
-                <div class="helper" id="category-info"></div>
-                <div class="error" id="category-select-error"></div>
-              </div>
-              <div>
-                <label for="file-input" data-i18n="label-file">Plik (CSV/XLSX)</label>
-                <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" />
-                <div class="helper" data-i18n="helper-file">Obsługiwane formaty: .xlsx, .xls, .csv</div>
-                <div class="error" id="file-error"></div>
+          <input type="hidden" name="mode" value="live" checked />
+
+          <div class="form-grid input-row">
+            <div>
+              <div class="dropzone" id="dropzone">
+                <strong>Upuść plik Excel tutaj</strong><br/>
+                <span class="muted">lub kliknij, aby wybrać</span>
               </div>
             </div>
             <div class="form-options mode-box">
-              <label data-i18n="label-mode">Tryb scrapera</label>
-              <div class="segmented" role="group" aria-label="Tryb analizy">
-                <label>
-                  <input type="radio" name="mode" value="online" />
-                  <span>Online</span>
-                </label>
-                <label>
-                  <input type="radio" name="mode" value="mixed" checked />
-                  <span>Mixed</span>
-                </label>
-                <label>
-                  <input type="radio" name="mode" value="offline" />
-                  <span>Offline</span>
-                </label>
+              <label>Scraper</label>
+              <div class="helper" id="mode-helper">
+                Jedyny aktywny scraper: allegro.pl-scraper-main (TLS client z solverem captcha). Brak wyboru trybu ani providera.
               </div>
-              <div class="helper" id="mode-helper">online: zawsze live · mixed: baza + dogrywka braków online · offline: tylko baza, bez scrapowania</div>
+              <ul class="helper" style="margin:8px 0 0 0; padding-left:18px;">
+                <li>Timeout: <span id="scraper-timeout-label">90s</span></li>
+                <li>Polling: <span id="scraper-poll-label">1s</span></li>
+                <li>Workerzy: <span id="scraper-workers-label">1</span> × <span id="scraper-concurrency-label">1</span> wątki</li>
+              </ul>
             </div>
           </div>
-          <div class="input-cta-bar" id="input-cta-bar">
-            <div class="cta-left">
-              <div class="error" id="start-hint"></div>
+
+          <div class="form-grid single">
+            <div>
+              <label for="category-select" style="display:flex; align-items:center; gap:8px;">
+                <span data-i18n="label-category">Kategoria</span>
+                <button type="button" class="icon-btn" id="main-add-category" title="Dodaj nową kategorię">+</button>
+              </label>
+              <select id="category-select" name="category_id" required></select>
+              <div class="helper" id="category-info"></div>
+              <div class="error" id="category-select-error"></div>
             </div>
+            <div>
+              <label for="file-input" data-i18n="label-file">Plik (CSV/XLSX)</label>
+              <input id="file-input" type="file" name="file" accept=".xlsx,.xls,.csv" />
+              <div class="helper" data-i18n="helper-file">Obsługiwane formaty: .xlsx, .xls, .csv</div>
+              <div class="error" id="file-error"></div>
+            </div>
+          </div>
+
+          <div class="input-footer">
+            <div class="hint error" id="start-hint"></div>
             <div class="cta-right">
               <button type="button" id="submit-btn" class="primary-btn cta-btn">
                 <span class="start-label">Start analizy</span>
@@ -1704,9 +1671,6 @@
         </div>
         <div class="status-panel" id="status-panel">
           <div class="status-empty" id="status-empty" data-i18n="status-empty">Brak aktywnej analizy.
-            <div class="button-row" style="margin-top:8px;">
-              <button class="action-btn secondary" type="button" id="status-start-btn">Start</button>
-            </div>
           </div>
           <div class="status-details" id="status-details" style="display:none;">
             <div class="pill"><span data-i18n="label-run-id">Run ID:</span> <span id="run-id" class="copyable" title="Kliknij, aby skopiować"></span></div>
@@ -1757,7 +1721,7 @@
         <div class="tab-panel is-active" data-tab-panel="preview">
           <div class="results-toolbar">
             <input type="search" id="results-search" placeholder="Szukaj EAN / nazwa" />
-            <details class="filters-accordion" open>
+            <details class="filters-accordion">
               <summary>Filtry</summary>
               <div class="row-wrap filters-row">
                 <button class="chip" data-filter="profitable" id="chip-profitable">Tylko opłacalne</button>
@@ -1962,11 +1926,6 @@
                     <button type="button" class="ghost-btn" id="lang-toggle">Przełącz PL / EN</button>
                     <div class="helper">Ustawienie lokalne (localStorage).</div>
                   </div>
-                  <div>
-                    <label>Szerokość widoku</label>
-                    <button type="button" class="ghost-btn" id="width-toggle">Comfort width</button>
-                    <div class="helper">Przełącz między comfort / wide tylko dla Ciebie.</div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2001,10 +1960,9 @@
                 <label for="market-source">Źródło danych</label>
                 <select id="market-source">
                   <option value="">Dowolna</option>
-                  <option value="local">Local Selenium</option>
-                  <option value="scraping">Scraping (inne)</option>
+                  <option value="scraping">Scraper</option>
                 </select>
-                <div class="helper">Skąd pochodziły dane rynkowe.</div>
+                <div class="helper">Dane pochodzą z jednego scrapera Allegro.</div>
               </div>
               <div>
                 <label for="market-date">Od kiedy</label>
@@ -2120,12 +2078,12 @@
       </div>
       <div class="modal-body">
         <div class="faq-item">
-          <strong>Różnice między trybami Online, Mixed, Offline</strong>
-          <div>Online – zawsze live. Mixed – baza + dogrywka braków online. Offline – tylko baza, bez scrapowania.</div>
+          <strong>Jak działa scraper?</strong>
+          <div>Wszystkie zapytania idą przez jeden scraper <em>allegro.pl-scraper-main</em> (TLS client + AnySolver). Nie ma wyboru trybu ani providera.</div>
         </div>
         <div class="faq-item">
-          <strong>Źródła danych (Local Selenium)</strong>
-          <div>Local Selenium – lokalny scraper z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.</div>
+          <strong>Proxy / limity</strong>
+          <div>Scraper wymaga listy proxy HTTP(S). Ustaw je zmienną <code>PROXIES</code> lub podaj plik <code>proxies.txt</code>. Domyślne timeouty i polling zobaczysz w sekcji statusu.</div>
         </div>
         <div class="faq-item">
           <strong>Jak dodać nową kategorię</strong>
@@ -2160,6 +2118,10 @@
     const categoriesList = document.getElementById('categories-list');
     const scraperStatus = document.getElementById('scraper-status');
     const scraperStatusText = document.getElementById('scraper-status-text');
+    const scraperTimeoutLabel = document.getElementById('scraper-timeout-label');
+    const scraperPollLabel = document.getElementById('scraper-poll-label');
+    const scraperWorkersLabel = document.getElementById('scraper-workers-label');
+    const scraperConcurrencyLabel = document.getElementById('scraper-concurrency-label');
     const scraperStatusDot = document.getElementById('scraper-status-dot');
     const form = document.getElementById('upload-form');
     const errorBox = document.getElementById('error');
@@ -2189,7 +2151,6 @@
     const quickCopyRunBtn = document.getElementById('quick-copy-run');
     const opsBody = document.getElementById('ops-body');
     const currencyBody = document.getElementById('currency-body');
-    const widthToggle = document.getElementById('width-toggle');
     const saveTtlBtn = document.getElementById('save-ttl-btn');
     const statusGoResultsBtn = document.getElementById('status-go-results');
     const activeRuns = document.getElementById('active-runs');
@@ -2201,7 +2162,6 @@
     const runErrorEl = document.getElementById('run-error');
     const progressBar = document.getElementById('progress-bar');
     const statusActions = document.getElementById('status-actions');
-    const statusStartBtn = document.getElementById('status-start-btn');
     const statusNewRunBtn = document.getElementById('status-new-run');
     const cancelRunBtn = document.getElementById('cancel-run-btn');
     const downloadLink = document.getElementById('download-link');
@@ -2327,10 +2287,6 @@
     let startReady = false;
     let activeStep = 'import';
     const DEFAULT_SETTINGS = {
-      use_cloud_http: false,
-      use_local_scraper: true,
-      cloud_scraper_disabled: true,
-      local_scraper_windows: 1,
       cache_ttl_days: 30,
       db_last_days: 30,
       db_only_success: false,
@@ -2378,11 +2334,11 @@
         'label-category': 'Kategoria',
         'label-file': 'Plik (CSV/XLSX)',
         'helper-file': 'Obsługiwane formaty: .xlsx, .xls, .csv',
-        'label-mode': 'Tryb analizy',
-        'mode-standard': 'Mixed',
-        'mode-offline': 'Offline',
-        'mode-online': 'Online',
-        'helper-mode': 'Online: zawsze live · Mixed: baza + dogrywka braków online · Offline: tylko baza, bez scrapowania.',
+        'label-mode': 'Scraper',
+        'mode-standard': 'Na żywo',
+        'mode-offline': 'Na żywo',
+        'mode-online': 'Na żywo',
+        'helper-mode': 'Stały scraper Allegro (TLS client + captcha solver).',
         'btn-start': 'Start analizy',
         'status-empty': 'Brak aktywnej analizy. Po starcie zobaczysz status, postęp i link do wyników.',
         'label-run-id': 'Run ID:',
@@ -2398,8 +2354,6 @@
         'settings-helper': 'Opcje rzadziej używane. W trybie prostym ukryte.',
         'btn-close-settings': 'Zamknij ustawienia',
         'label-advanced': 'Tryb zaawansowany',
-        'label-cloud-override': 'Global override: wyłącz chmurę/BD',
-        'helper-cloud-override': 'Gdy włączone, wymusza lokalny scraper i blokuje cloud/BrightData.',
         'btn-reset': 'Przywróć domyślne',
         'settings-sidehint': 'Kursy walut i Kategorie są dostępne w panelu bocznym po prawej.',
         'tab-sources': 'Źródło danych',
@@ -2408,13 +2362,10 @@
         'tab-history': 'Historia i dane',
         'retry-local': 'Retry: lokalnie',
         'history-ops': 'Operacje ▾',
-        'strategy-local': 'Local Selenium',
-        'strategy-cloud': 'Cloud / BrightData',
+        'strategy-single': 'Scraper Allegro',
         'strategies-none': 'Brak',
         'history-empty-text': 'Brak wcześniejszych analiz.',
         saved: 'Zapisano',
-        'strategy-required': 'Włącz lokalny scraper lub wyłącz override chmury dla trybu Mixed/Online.',
-        'hint-offline': 'W trybie Offline scrapowanie jest wyłączone.',
         'btn-starting': 'Wysyłanie...',
         'btn-start-db': 'Start analizy z bazy',
         'btn-starting-db': 'Uruchamianie...',
@@ -2423,9 +2374,11 @@
         'category-removed': 'Kategoria usunięta',
         'category-added': 'Kategoria dodana.',
         'category-saved': 'Zapisano zmiany.',
-        'mode_mixed_label': 'Mixed',
-        'mode_offline_label': 'Offline',
-        'mode_online_label': 'Online',
+        'mode_mixed_label': 'Na żywo',
+        'mode_offline_label': 'Na żywo',
+        'mode_online_label': 'Na żywo',
+        'mode_live_label': 'Na żywo',
+        'mode_cached_label': 'Z bazy',
         'analysis-canceled': 'Analiza została anulowana.',
         'analysis-failed': 'Analiza przerwana.',
         'no-data': 'Brak danych do wyświetlenia.',
@@ -2502,7 +2455,6 @@
         'label-original-price': 'Oryginalna cena:',
         'label-sold-count': 'Liczba sprzedanych:',
         'label-sold-count-status': 'Status sprzedaży:',
-        'label-data-provider': 'Źródło danych:',
         col_ean: 'EAN',
         col_name: 'Nazwa',
         col_currency: 'Waluta',
@@ -2529,11 +2481,11 @@
         'label-category': 'Category',
         'label-file': 'File (CSV/XLSX)',
         'helper-file': 'Supported formats: .xlsx, .xls, .csv',
-        'label-mode': 'Analysis mode',
-        'mode-standard': 'Mixed',
-        'mode-offline': 'Offline',
-        'mode-online': 'Online',
-        'helper-mode': 'Online: always live · Mixed: cache + online gap fill · Offline: DB only, no scraping.',
+        'label-mode': 'Scraper',
+        'mode-standard': 'Live',
+        'mode-offline': 'Live',
+        'mode-online': 'Live',
+        'helper-mode': 'Single Allegro scraper (TLS client + captcha solver).',
         'btn-start': 'Start analysis',
         'status-empty': 'No active analysis. Once started you will see status, progress, and links to results.',
         'label-run-id': 'Run ID:',
@@ -2549,8 +2501,6 @@
         'settings-helper': 'Less common options. Hidden in simple mode.',
         'btn-close-settings': 'Close settings',
         'label-advanced': 'Advanced mode',
-        'label-cloud-override': 'Global override: disable cloud/BD',
-        'helper-cloud-override': 'When on, forces local scraper and blocks cloud/BrightData.',
         'btn-reset': 'Restore defaults',
         'settings-sidehint': 'Currency rates and Categories are available in the right sidebar.',
         'tab-sources': 'Data source',
@@ -2559,13 +2509,10 @@
         'tab-history': 'History & data',
         'retry-local': 'Retry: local',
         'history-ops': 'Operations ▾',
-        'strategy-local': 'Local Selenium',
-        'strategy-cloud': 'Cloud / BrightData',
+        'strategy-single': 'Allegro scraper',
         'strategies-none': 'None',
         'history-empty-text': 'No previous analyses.',
         saved: 'Saved',
-        'strategy-required': 'Enable local scraper or disable the cloud override for Standard/Always online.',
-        'hint-offline': 'Scraping is disabled in Cache only mode.',
         'btn-starting': 'Sending...',
         'btn-start-db': 'Start DB analysis',
         'btn-starting-db': 'Starting...',
@@ -2574,9 +2521,11 @@
         'category-removed': 'Category removed',
         'category-added': 'Category added.',
         'category-saved': 'Changes saved.',
-        'mode_mixed_label': 'Standard',
-        'mode_offline_label': 'Cache only',
-        'mode_online_label': 'Always online',
+        'mode_mixed_label': 'Live',
+        'mode_offline_label': 'Live',
+        'mode_online_label': 'Live',
+        'mode_live_label': 'Live',
+        'mode_cached_label': 'From DB',
         'analysis-canceled': 'Analysis was canceled.',
         'analysis-failed': 'Analysis interrupted.',
         'no-data': 'No data to display.',
@@ -2653,7 +2602,6 @@
         'label-original-price': 'Original price:',
         'label-sold-count': 'Units sold:',
         'label-sold-count-status': 'Sales status:',
-        'label-data-provider': 'Data provider:',
         col_ean: 'EAN',
         col_name: 'Name',
         col_currency: 'Currency',
@@ -2675,10 +2623,7 @@
     const I18N_TEXT_MAP = {
       "Zakres / filtry danych": { pl: "Zakres / filtry danych", en: "Scope / data filters" },
       "Opcje zachowania": { pl: "Opcje zachowania", en: "Behavior options" },
-      "Selenium lokalnie w kontenerze.": { pl: "Selenium lokalnie w kontenerze.", en: "Local Selenium inside the container." },
       "Jeśli źródło jest wyłączone, analiza korzysta tylko z danych z bazy i cache.": { pl: "Jeśli źródło jest wyłączone, analiza korzysta tylko z danych z bazy i cache.", en: "If the source is disabled, the analysis uses only DB/cache data." },
-      "Liczba jednocześnie otwieranych okien lokalnego scrapera": { pl: "Liczba jednocześnie otwieranych okien lokalnego scrapera", en: "Number of simultaneous local scraper windows" },
-      "Więcej okien przyspiesza, ale obciąża CPU/RAM.": { pl: "Więcej okien przyspiesza, ale obciąża CPU/RAM.", en: "More windows speed things up but use more CPU/RAM." },
       "Zapisz ustawienia": { pl: "Zapisz ustawienia", en: "Save settings" },
       "TTL cache (dni)": { pl: "TTL cache (dni)", en: "Cache TTL (days)" },
       "Po ilu dniach dane z Allegro uznajemy za przestarzałe.": { pl: "Po ilu dniach dane z Allegro uznajemy za przestarzałe.", en: "After how many days Allegro data becomes stale." },
@@ -2742,8 +2687,6 @@
       "FAQ - jak korzystać z systemu": { pl: "FAQ - jak korzystać z systemu", en: "FAQ - how to use the system" },
       "Różnice między trybami Standard, Tylko baza, Zawsze online": { pl: "Różnice między trybami Standard, Tylko baza, Zawsze online", en: "Differences between Standard, Cache only, Always online" },
       "Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.": { pl: "Standard – używa cache, ale odświeża gdy dane są starsze niż TTL. Tylko baza – korzysta wyłącznie z danych z bazy. Zawsze online – ignoruje cache i zawsze pobiera dane live.", en: "Standard – uses cache but refreshes when data is older than TTL. Cache only – uses DB/cache only. Always online – ignores cache and always fetches live data." },
-      "Źródła danych (Local Selenium)": { pl: "Źródła danych (Local Selenium)", en: "Data sources (Local Selenium)" },
-      "Local Selenium – lokalny scraper z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.": { pl: "Local Selenium – lokalny scraper z przeglądarką. W trybie Tylko baza scrapowanie jest wyłączone.", en: "Local Selenium – local browser scraper. In Cache only mode scraping is disabled." },
       "Jak dodać nową kategorię": { pl: "Jak dodać nową kategorię", en: "How to add a new category" },
       "Użyj przycisku „+” w sekcji Kategorie i wypełnij formularz.": { pl: "Użyj przycisku „+” w sekcji Kategorie i wypełnij formularz.", en: "Use the “+” button in the Categories section and fill out the form." },
       "Jakie pliki są obsługiwane": { pl: "Jakie pliki są obsługiwane", en: "Which files are supported" },
@@ -2869,13 +2812,6 @@
       if (previewState.runId) {
         loadResults(previewState.runId, previewState.offset || 0);
       }
-    }
-
-    function applyWidthMode(mode) {
-      const normalized = mode === 'wide' ? 'wide' : 'comfort';
-      if (page) page.classList.toggle('is-wide', normalized === 'wide');
-      if (widthToggle) widthToggle.textContent = normalized === 'wide' ? 'Comfort width' : 'Wide width';
-      localStorage.setItem('ui.width', normalized);
     }
 
     function normalizeMessage(msg) {
@@ -3020,10 +2956,9 @@
     }
 
     function getStartBlockReason() {
-      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
       const hasCategory = Boolean(categorySelect.value) && !categorySelect.disabled;
       const hasFile = Boolean(fileInput.files && fileInput.files.length);
-      const allowNoFile = mode === 'offline';
+      const allowNoFile = false;
       if (appState.isStarting) return 'already-starting';
       if (!hasCategory) return 'missing-category';
       if (!hasFile && !allowNoFile) return 'missing-file';
@@ -3034,7 +2969,7 @@
       const hasCategory = Boolean(categorySelect.value) && !categorySelect.disabled;
       const hasFile = Boolean(fileInput.files && fileInput.files.length);
       const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const allowNoFile = mode === 'offline';
+      const allowNoFile = false;
       const blockReason = getStartBlockReason();
       startReady = blockReason === '';
       submitBtn.disabled = appState.isStarting || !startReady;
@@ -3042,7 +2977,6 @@
       if (startHint) {
         if (!hasCategory) startHint.textContent = 'Wybierz kategorię.';
         else if (!hasFile && !allowNoFile) startHint.textContent = 'Dodaj plik (CSV/XLSX).';
-        else if (!hasFile && allowNoFile) startHint.textContent = 'Offline: plik opcjonalny (używam bazy).';
         else startHint.textContent = '';
       }
       if (!startTouched) {
@@ -3090,7 +3024,7 @@
     async function startAnalysis() {
       if (appState.isStarting) return;
       startTouched = true;
-      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
+      const mode = 'live';
       const hasFile = Boolean(fileInput.files && fileInput.files.length);
       const hasCategory = Boolean(categorySelect.value);
       const disabledReason = getStartBlockReason();
@@ -3098,7 +3032,7 @@
         mode,
         hasFile,
         category: categorySelect.value || null,
-        endpoint: mode === 'offline' && !hasFile ? '/api/v1/analysis/run_from_cache' : '/api/v1/analysis/upload',
+        endpoint: '/api/v1/analysis/upload',
         disabledReason,
       });
       if (!updateStartState()) {
@@ -3112,18 +3046,11 @@
 
       setStartUi(true, 'Tworzę run…');
       lockInputs(true);
-      if (mode === 'offline' && !hasFile) {
-        await startFromDb(true);
-        setStartUi(false);
-        lockInputs(false);
-        return;
-      }
       if (runStage) runStage.textContent = 'Wysyłanie pliku…';
 
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
       fd.append('category_id', categorySelect.value);
-      fd.append('mode', mode);
       fd.append('scrape_mode', mode);
       const limitVal = Number(offerLimitInput?.value || 0);
       if (Number.isFinite(limitVal) && limitVal > 0) fd.append('limit', String(limitVal));
@@ -3196,8 +3123,6 @@
       const limit = offerLimitInput?.value || 'brak';
       settingsSummary.textContent = `Tryb: ${mode} · Cache TTL: ${cache}d · Limit: ${limit}`;
     }
-
-    function applyProfile() {}
 
     function updateCtas() {
       if (statusGoResultsBtn) statusGoResultsBtn.disabled = !appState.currentRunId;
@@ -3384,6 +3309,8 @@
     function modeLabel(mode) {
       const key = String(mode || '').toLowerCase();
       const map = {
+        live: t('mode_live_label'),
+        cached: t('mode_cached_label'),
         mixed: t('mode_mixed_label'),
         offline: t('mode_offline_label'),
         online: t('mode_online_label'),
@@ -3478,10 +3405,7 @@
     }
 
     function renderStrategies(run) {
-      const strategies = [];
-      if (run.use_local_scraper) strategies.push(t('strategy-local'));
-      if (run.use_cloud_http) strategies.push(t('strategy-cloud'));
-      return strategies.length ? strategies.join(' · ') : t('strategies-none');
+      return t('strategy-single');
     }
 
     function renderActiveRuns(runs) {
@@ -4010,31 +3934,17 @@
     }
 
     function validateStrategies() {
-      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      if (strategyOfflineHint) {
-        if (mode === 'offline') {
-          strategyOfflineHint.textContent = t('hint-offline');
-        } else {
-          strategyOfflineHint.textContent = '';
-        }
-      }
+      if (strategyOfflineHint) strategyOfflineHint.textContent = '';
       if (strategyError) setMessage('', strategyError);
       return true;
     }
 
     function updateStrategiesForMode() {
       validateStrategies();
-      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
-      const ttlDisabled = mode === 'offline';
-      if (cacheTtlInput) cacheTtlInput.disabled = ttlDisabled;
-      if (cacheTtlRange) cacheTtlRange.disabled = ttlDisabled;
+      if (cacheTtlInput) cacheTtlInput.disabled = false;
+      if (cacheTtlRange) cacheTtlRange.disabled = false;
       if (modeHelper) {
-        const helperMap = {
-          offline: 'Offline: tylko baza, brak zapytań online (plik opcjonalny).',
-          mixed: 'Mixed: baza + dogrywka braków online.',
-          online: 'Online: zawsze świeże dane, może być wolniej/drożej.',
-        };
-        modeHelper.textContent = helperMap[mode] || '';
+        modeHelper.textContent = 'Stały scraper Allegro, bez wyboru trybu.';
       }
     }
 
@@ -4284,8 +4194,7 @@
         if (runIdEl) runIdEl.textContent = data.id;
       }
       if (runScraperEl) {
-        const sm = data.scraper_mode || (data.mode === 'online' ? 'brightdata' : (data.mode === 'offline' ? 'cache' : 'decodo'));
-        runScraperEl.textContent = sm || '—';
+        runScraperEl.textContent = 'allegro-scraper';
       }
       const processed = data.processed_products ?? 0;
       const total = data.total_products ?? 0;
@@ -4331,7 +4240,7 @@
       // quick summary pill updates
       const fileLabel = fileInput?.files?.[0]?.name || '—';
       const categoryLabel = categorySelect?.selectedOptions?.[0]?.textContent || '—';
-      const effectiveMode = data.scrape_mode || data.mode || form.querySelector('input[name="mode"]:checked')?.value;
+      const effectiveMode = data.mode || 'live';
       const modeLabelText = modeLabel(effectiveMode);
       const summaryCategoryEl = document.getElementById('summary-category');
       const summaryFileEl = document.getElementById('summary-file');
@@ -4416,13 +4325,17 @@
         const res = await fetch('/api/v1/status');
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const mode = (data.scraper_mode || data?.brightdata?.mode || 'unknown').toLowerCase();
-        const metrics = data?.brightdata?.metrics || {};
-        const successPct = metrics.success_rate ? Math.round(metrics.success_rate * 1000) / 10 : 0;
-        const captchaPct = metrics.captcha_rate ? Math.round(metrics.captcha_rate * 1000) / 10 : 0;
-        scraperStatus.classList.remove('error');
-        scraperStatusText.textContent = `Mode: ${mode} · success ${successPct}% · captcha ${captchaPct}%`;
-        backendAlert.style.display = 'none';
+        const scraper = data.scraper || {};
+        const s = (scraper.status || 'unknown').toLowerCase();
+        const details = scraper.details || {};
+        const isOk = s === 'ok';
+        scraperStatus.classList.toggle('error', !isOk);
+        scraperStatusText.textContent = `Scraper: ${s}`;
+        if (scraperTimeoutLabel && details.timeout_seconds) scraperTimeoutLabel.textContent = `${details.timeout_seconds}s`;
+        if (scraperPollLabel && details.poll_interval) scraperPollLabel.textContent = `${details.poll_interval}s`;
+        if (scraperWorkersLabel && details.worker_count) scraperWorkersLabel.textContent = details.worker_count;
+        if (scraperConcurrencyLabel && details.concurrency_per_worker) scraperConcurrencyLabel.textContent = details.concurrency_per_worker;
+        backendAlert.style.display = isOk ? 'none' : 'block';
       } catch (err) {
         scraperStatus.classList.add('error');
         scraperStatusText.textContent = currentLang === 'en' ? 'Backend unreachable' : 'Backend niedostępny';
@@ -4869,14 +4782,11 @@
         return;
       }
 
-      const mode = form.querySelector('input[name="mode"]:checked')?.value || 'mixed';
       const cacheDays = Number(dbLastDaysInput.value) || settingsDefaults.db_last_days;
       const limitValue = Number(dbLimitInput.value);
       const limit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : null;
       const payload = {
         category_id: categorySelect.value,
-        mode,
-        scrape_mode: mode,
         cache_days: cacheDays,
         limit,
         source: dbSourceInput?.value || 'any',
@@ -4889,10 +4799,10 @@
       }
       submitBtn.disabled = true;
       lockInputs(true);
-      if (fromMain) setStartUi(true, 'Tworzę run (offline)…');
+      if (fromMain) setStartUi(true, 'Tworzę run z bazy…');
 
       try {
-        const res = await fetch('/api/v1/analysis/run_from_cache', {
+        const res = await fetch('/api/v1/analysis/run_from_db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -5051,7 +4961,6 @@
       document.getElementById('input-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       categorySelect?.focus({ preventScroll: true });
     };
-    if (statusStartBtn) statusStartBtn.addEventListener('click', goToInput);
     if (statusNewRunBtn) statusNewRunBtn.addEventListener('click', goToInput);
     if (runIdEl) {
       runIdEl.addEventListener('click', () => {
@@ -5341,14 +5250,6 @@
 
     initDropzone();
     setLanguage(currentLang);
-    const storedWidth = localStorage.getItem('ui.width') || 'comfort';
-    applyWidthMode(storedWidth);
-    if (widthToggle) {
-      widthToggle.addEventListener('click', () => {
-        const current = localStorage.getItem('ui.width') || 'comfort';
-        applyWidthMode(current === 'wide' ? 'comfort' : 'wide');
-      });
-    }
     // start step from hash if provided
     const hashStep = window.location.hash.startsWith('#step=') ? window.location.hash.replace('#step=','') : null;
     setStep(STEPS.includes(hashStep) ? hashStep : 'import');

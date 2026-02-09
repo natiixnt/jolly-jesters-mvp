@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel
 
 from app.models.enums import AnalysisItemSource, AnalysisStatus, ProfitabilityLabel, ScrapeStatus
 from app.schemas.category import CategoryRead
@@ -27,27 +27,9 @@ class AnalysisStatusResponse(BaseModel):
     total_products: int
     processed_products: int
     error_message: Optional[str]
-    scraper_mode: Optional[str] = None
 
     class Config:
         orm_mode = True
-
-    @root_validator(pre=True)
-    def _inject_scraper_mode(cls, values):
-        # Pydantic passes a GetterDict when using orm_mode; make a mutable copy
-        if values is None:
-            return values
-        if not isinstance(values, dict):
-            try:
-                values = dict(values)
-            except Exception:
-                values = values.copy()
-
-        if values.get("scraper_mode") is None:
-            meta = values.get("run_metadata") or {}
-            if isinstance(meta, dict) and meta.get("scraper_mode"):
-                values["scraper_mode"] = meta.get("scraper_mode")
-        return values
 
 
 class AnalysisRunItemOut(BaseModel):
@@ -82,30 +64,10 @@ class AnalysisRunSummary(BaseModel):
     canceled_at: Optional[datetime] = None
     total_products: int
     processed_products: int
-    mode: Optional[str] = None
-    use_cloud_http: bool
-    use_local_scraper: bool
     error_message: Optional[str] = None
-    scraper_mode: Optional[str] = None
 
     class Config:
         orm_mode = True
-
-    @root_validator(pre=True)
-    def _inject_scraper_mode(cls, values):
-        if values is None:
-            return values
-        if not isinstance(values, dict):
-            try:
-                values = dict(values)
-            except Exception:
-                values = values.copy()
-
-        if values.get("scraper_mode") is None:
-            meta = values.get("run_metadata") or {}
-            if isinstance(meta, dict) and meta.get("scraper_mode"):
-                values["scraper_mode"] = meta.get("scraper_mode")
-        return values
 
 
 class AnalysisRunListResponse(BaseModel):
@@ -148,10 +110,6 @@ class AnalysisResultsResponse(BaseModel):
 
 class AnalysisStartFromDbRequest(BaseModel):
     category_id: UUID
-    mode: str = "mixed"
-    use_cloud_http: bool = False
-    use_local_scraper: bool = True
-    scraper_mode: Optional[str] = None
     cache_days: Optional[int] = 30
     include_all_cached: bool = False
     only_with_data: bool = False
@@ -159,24 +117,5 @@ class AnalysisStartFromDbRequest(BaseModel):
     source: Optional[str] = None
     ean_contains: Optional[str] = None
 
-    @root_validator(pre=True)
-    def _map_legacy_fields(cls, values):
-        if values is None:
-            return values
-        if "cache_days" not in values:
-            if "days_back" in values:
-                values["cache_days"] = values.get("days_back")
-            elif "last_days" in values:
-                values["cache_days"] = values.get("last_days")
-        if "only_with_data" not in values and "only_successful" in values:
-            values["only_with_data"] = values.get("only_successful")
-        return values
-
     class Config:
         extra = "ignore"
-
-
-class AnalysisRetryResponse(BaseModel):
-    run_id: int
-    status: AnalysisStatus
-    scheduled: int
