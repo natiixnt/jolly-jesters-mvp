@@ -31,7 +31,7 @@ class RunningStats {
     }
 }
 
-export const LOG_RING_SIZE = 8;
+export const LOG_RING_SIZE = 50;
 const THROUGHPUT_WINDOW_MS = 60_000;
 
 export class Stats {
