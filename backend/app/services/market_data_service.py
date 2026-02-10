@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, aliased
 from app.models.analysis_run import AnalysisRun
 from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
-from app.models.enums import MarketDataSource
+from app.models.enums import MarketDataSource, ProfitabilityLabel
 from app.models.product import Product
 from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
@@ -40,6 +40,8 @@ def list_market_data(
     ean: Optional[str] = None,
     source: Optional[str] = None,
     updated_since: Optional[datetime] = None,
+    with_data: bool = False,
+    profitable_only: bool = False,
     offset: int = 0,
     limit: int = 50,
 ) -> MarketDataResponse:
@@ -95,6 +97,15 @@ def list_market_data(
             pass
     if updated_since:
         base = base.filter(ProductMarketData.last_checked_at >= updated_since)
+    if with_data:
+        base = base.filter(
+            ProductEffectiveState.last_market_data_id.isnot(None),
+            ProductMarketData.id.isnot(None),
+            ProductMarketData.is_not_found.is_(False),
+            ProductMarketData.allegro_price.isnot(None),
+        )
+    if profitable_only:
+        base = base.filter(ProductEffectiveState.profitability_label == ProfitabilityLabel.oplacalny)
 
     total = base.count()
 
@@ -132,6 +143,11 @@ def list_market_data(
                 purchase_price_pln=float(product.purchase_price) if product.purchase_price is not None else None,
                 allegro_price_pln=float(market_data.allegro_price) if market_data and market_data.allegro_price is not None else None,
                 sold_count=market_data.allegro_sold_count if market_data else None,
+                is_profitable=(
+                    state.profitability_label == ProfitabilityLabel.oplacalny
+                    if (state and state.profitability_label and market_data and market_data.allegro_price is not None)
+                    else None
+                ),
                 source=_resolve_source(market_data),
                 last_checked_at=last_checked_at,
                 last_run_id=last_run_id,

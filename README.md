@@ -20,6 +20,7 @@ ALLEGRO_SCRAPER_POLL_INTERVAL=1.0
 ALLEGRO_SCRAPER_TIMEOUT_SECONDS=90
 ```
 Scraper needs HTTP proxies. Provide either `PROXIES=http://user:pass@host:port,...` in `.env` (consumed by the scraper container) or mount `proxies.txt` next to the scraper.
+Preferred: upload a `.txt` list via UI (Ustawienia ➜ Proxy). It is stored at `/workspace/data/proxies.txt` by default (override `SCRAPER_PROXIES_FILE`), and the scraper reloads it automatically after upload.
 
 2) Start:
 ```
@@ -28,7 +29,8 @@ docker compose up --build
 Backend listens on `http://localhost` via nginx. Default UI password: `1234`.
 
 Scraper env (set in `.env` if needed):
-- `PROXIES` – comma-separated proxy URLs
+- `SCRAPER_PROXIES_FILE` – path to shared proxy list (default `/workspace/data/proxies.txt`)
+- `PROXIES` – comma-separated proxy URLs (fallback if no file)
 - `ANYSOLVER_API_KEY` – required for captcha solving
 - `SCRAPER_WORKER_COUNT`, `SCRAPER_CONCURRENCY_PER_WORKER`, `SCRAPER_MAX_TASK_RETRIES` – tune Node worker pool
 

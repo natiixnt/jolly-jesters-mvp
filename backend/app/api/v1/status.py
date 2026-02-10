@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.utils.allegro_scraper_client import check_scraper_health
+from app.utils.allegro_scraper_client import check_scraper_health, fetch_scraper_logs
 
 router = APIRouter()
 
@@ -23,3 +23,8 @@ def status(db: Session = Depends(get_db)) -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "scraper": scraper,
     }
+
+
+@router.get("/status/logs", summary="Recent scraper logs for UI terminal")
+def scraper_logs() -> dict:
+    return fetch_scraper_logs()

@@ -11,6 +11,7 @@ class MarketDataItem(BaseModel):
     purchase_price_pln: Optional[float]
     allegro_price_pln: Optional[float]
     sold_count: Optional[int]
+    is_profitable: Optional[bool]
     source: Optional[str]
     last_checked_at: Optional[datetime]
     last_run_id: Optional[int]

@@ -46,12 +46,16 @@ services:
       - WORKER_COUNT=${SCRAPER_WORKER_COUNT:-1}
       - CONCURRENCY_PER_WORKER=${SCRAPER_CONCURRENCY_PER_WORKER:-1}
       - MAX_TASK_RETRIES=${SCRAPER_MAX_TASK_RETRIES:-3}
+      - PROXIES_FILE=${SCRAPER_PROXIES_FILE:-/workspace/data/proxies.txt}
+      - ANYSOLVER_API_KEY=${ANYSOLVER_API_KEY:-dummy}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
       interval: 15s
       timeout: 7s
       retries: 5
       start_period: 20s
+    volumes:
+      - workspace_data:/workspace
 
   backend:
     build:

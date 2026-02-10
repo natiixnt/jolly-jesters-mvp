@@ -234,24 +234,34 @@ def _update_effective_state(
 
 
 def list_recent_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
-    return (
-        db.query(AnalysisRun)
+    rows = (
+        db.query(AnalysisRun, Category.name.label("category_name"))
         .join(Category, AnalysisRun.category_id == Category.id)
-        .add_columns(Category.name.label("category_name"))
         .order_by(AnalysisRun.created_at.desc())
         .limit(limit)
         .all()
     )
+    results: List[AnalysisRun] = []
+    for run, cat_name in rows:
+        setattr(run, "category_name", cat_name)
+        results.append(run)
+    return results
 
 
 def list_active_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
-    return (
-        db.query(AnalysisRun)
+    rows = (
+        db.query(AnalysisRun, Category.name.label("category_name"))
+        .join(Category, AnalysisRun.category_id == Category.id)
         .filter(AnalysisRun.status.in_([AnalysisStatus.running, AnalysisStatus.pending]))
         .order_by(AnalysisRun.created_at.desc())
         .limit(limit)
         .all()
     )
+    results: List[AnalysisRun] = []
+    for run, cat_name in rows:
+        setattr(run, "category_name", cat_name)
+        results.append(run)
+    return results
 
 
 def get_latest_run(db: Session) -> AnalysisRun | None:
@@ -332,6 +342,32 @@ def _to_result_item(item: AnalysisRunItem) -> AnalysisResultItem:
         last_checked_at=last_checked,
         updated_at=item.updated_at,
     )
+
+
+def serialize_analysis_item(item: AnalysisRunItem, category: Category | None = None) -> AnalysisResultItem:
+    """Stable serializer used by API and Excel export."""
+    result = _to_result_item(item)
+
+    purchase = item.purchase_price_pln or item.input_purchase_price
+    price = item.allegro_price
+    if purchase is not None and price is not None:
+        try:
+            margin_pln = float(price) - float(purchase)
+            result.margin_pln = margin_pln
+            if purchase:
+                result.margin_percent = (margin_pln / float(purchase)) * 100
+        except Exception:
+            pass
+
+    # Fallback name: use product name if missing
+    if (not result.name or result.name == result.ean) and item.product and item.product.name:
+        result.name = item.product.name
+
+    # Preserve profitability flags already set on the item
+    if item.profitability_label is not None:
+        result.is_profitable = item.profitability_label == ProfitabilityLabel.oplacalny
+
+    return result
 
 
 def get_run_results_since(

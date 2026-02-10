@@ -99,6 +99,25 @@ export class Worker {
                 const msg = err instanceof Error ? err.message : String(err);
                 this.logger.log(`Error EAN ${task.ean}: ${msg}`);
 
+                // If Allegro returned HTML (unexpected token "<"), treat as no_results instead of hard fail.
+                if (msg.includes("Unexpected token '<'")) {
+                    this.taskQueue.markCompleted(taskId, {
+                        status: 'no_results',
+                        ean: task.ean,
+                        totalOfferCount: 0,
+                        products: [],
+                        durationMs: 0,
+                        scrapedAt: new Date().toISOString(),
+                        captchaSolves: 0,
+                        html: '',
+                    } as any);
+                    this.logger.activity(`EAN ${task.ean} marked no_results (html response)`, 'info');
+                    this.stats.recordTaskComplete(this.id, 0);
+                    this.gateRelease();
+                    this.updateGate();
+                    continue;
+                }
+
                 if (isRetryableError(msg)) {
                     this.taskQueue.requeueNoRetry(taskId);
                     this.logger.activity(`EAN ${task.ean} requeued (${msg})`, 'info');

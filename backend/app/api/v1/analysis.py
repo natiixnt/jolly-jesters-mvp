@@ -52,8 +52,8 @@ async def upload_analysis(
     if not category or not category.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
-    if not file.filename.lower().endswith((".xls", ".xlsx")):
-        raise HTTPException(status_code=400, detail="Plik musi być w formacie Excel (.xls/.xlsx)")
+    if not file.filename.lower().endswith((".xls", ".xlsx", ".csv")):
+        raise HTTPException(status_code=400, detail="Plik musi być .xls/.xlsx/.csv")
 
     run = await handle_upload(db, category, file)
     result = run_analysis_task.delay(run.id)

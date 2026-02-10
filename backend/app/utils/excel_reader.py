@@ -184,9 +184,16 @@ def read_excel_file(
     currency_rates = currency_rates or {"PLN": 1.0, "EUR": 4.5, "USD": 4.2, "CAD": 3.1}
     if default_currency is None:
         default_currency = "PLN" if "PLN" in currency_rates else next(iter(currency_rates.keys()))
-    excel = pd.ExcelFile(BytesIO(file_bytes))
-    sheet_name = excel.sheet_names[0] if excel.sheet_names else 0
-    df_raw = excel.parse(sheet_name=sheet_name, header=None)
+    file_lower = (file_name or "").lower()
+    sheet_names: Sequence[str] = []
+
+    if file_lower.endswith(".csv"):
+        df_raw = pd.read_csv(BytesIO(file_bytes), header=None)
+    else:
+        excel = pd.ExcelFile(BytesIO(file_bytes))
+        sheet_name = excel.sheet_names[0] if excel.sheet_names else 0
+        df_raw = excel.parse(sheet_name=sheet_name, header=None)
+        sheet_names = excel.sheet_names
 
     header_idx = _detect_header_row(df_raw)
     headers = df_raw.iloc[header_idx]
@@ -282,7 +289,7 @@ def read_excel_file(
     if "PLN" not in normalized_rates or normalized_rates["PLN"] != Decimal("1"):
         normalized_rates["PLN"] = Decimal("1")
 
-    context_currency = _context_currency_hint(file_name, excel.sheet_names)
+    context_currency = _context_currency_hint(file_name, sheet_names)
 
     rows: List[InputRow] = []
     for idx, row in df.iterrows():

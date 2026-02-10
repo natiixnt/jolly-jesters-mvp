@@ -126,6 +126,16 @@ async def handle_upload(
         default_currency=default_currency,
         file_name=upload_file.filename,
     )
+    # deduplicate by EAN within a single upload to avoid double processing
+    unique_rows: List[InputRow] = []
+    seen = set()
+    for row in rows:
+        if row.ean and row.ean in seen:
+            continue
+        if row.ean:
+            seen.add(row.ean)
+        unique_rows.append(row)
+
     saved_path = store_uploaded_file_bytes(data, upload_file.filename)
-    run = prepare_analysis_run(db, category, rows, saved_path.name, mode=mode)
+    run = prepare_analysis_run(db, category, unique_rows, saved_path.name, mode=mode)
     return run

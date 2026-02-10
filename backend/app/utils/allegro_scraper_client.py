@@ -269,8 +269,47 @@ def check_scraper_health(timeout_seconds: float = 2.0) -> dict:
                     "max_task_retries": body.get("maxTaskRetries"),
                     "poll_interval": poll_val,
                     "timeout_seconds": body.get("timeoutSeconds"),
+                    "proxies": body.get("proxies"),
+                    "logs": body.get("logs"),
                 }
                 return {"status": "ok", "details": details}
             return {"status": "degraded", "status_code": resp.status_code}
+    except Exception as exc:
+        return {"status": "error", "error": repr(exc)}
+
+
+def fetch_scraper_logs(limit: int = 50, timeout_seconds: float = 2.0) -> dict:
+    """
+    Return recent in-memory scraper logs (if scraper exposes /logs).
+    """
+    try:
+        with httpx.Client(base_url=_scraper_base_url(), timeout=timeout_seconds) as client:
+            resp = client.get("/logs")
+            if resp.status_code < 400:
+                body = resp.json() or {}
+                logs = body.get("logs") or []
+                if limit and len(logs) > limit:
+                    logs = logs[:limit]
+                return {"status": "ok", "logs": logs}
+            return {"status": "error", "status_code": resp.status_code, "body": resp.text}
+    except Exception as exc:
+        return {"status": "error", "error": repr(exc)}
+
+
+def reload_scraper_proxies(timeout_seconds: float = 4.0) -> dict:
+    """
+    Ask the scraper service to reload proxies from its configured file/env.
+    """
+    try:
+        with httpx.Client(base_url=_scraper_base_url(), timeout=timeout_seconds) as client:
+            resp = client.post("/proxies/reload")
+            if resp.status_code < 400:
+                body = {}
+                try:
+                    body = resp.json()
+                except Exception:
+                    body = {}
+                return {"status": "ok", **body}
+            return {"status": "error", "status_code": resp.status_code, "body": resp.text}
     except Exception as exc:
         return {"status": "error", "error": repr(exc)}

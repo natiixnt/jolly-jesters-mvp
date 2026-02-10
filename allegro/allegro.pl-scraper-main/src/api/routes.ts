@@ -2,8 +2,10 @@ import { Hono } from 'hono';
 import { config } from '@/config';
 import type { TaskQueue } from '@/queue/taskQueue';
 import type { CreateTaskBody, TaskResponse } from '@/types';
+import { proxiesMeta, reloadProxies } from '@/utils/proxy';
+import type { Stats } from '@/utils/stats';
 
-export function createRoutes(taskQueue: TaskQueue): Hono {
+export function createRoutes(taskQueue: TaskQueue, startWorkers: () => void, stats: Stats): Hono {
     const app = new Hono();
 
     app.post('/createTask', async (c) => {
@@ -48,8 +50,28 @@ export function createRoutes(taskQueue: TaskQueue): Hono {
             maxTaskRetries: config.MAX_TASK_RETRIES,
             pollInterval: config.POLL_INTERVAL / 1000,
             timeoutSeconds: Number(process.env.ALLEGRO_SCRAPER_TIMEOUT_SECONDS ?? 90),
+            proxies: proxiesMeta(),
+            logs: stats.logs,
         }),
     );
+
+    app.get('/proxies', (c) => c.json(proxiesMeta()));
+
+    app.post('/proxies/reload', (c) => {
+        try {
+            const meta = reloadProxies();
+            if (meta.count > 0) startWorkers();
+            return c.json({ status: 'ok', ...meta });
+        } catch (err) {
+            return c.json({ status: 'error', error: (err as Error).message }, 500);
+        }
+    });
+
+    app.get('/logs', (c) => {
+        // newest first
+        const logs = [...stats.logs].reverse();
+        return c.json({ logs });
+    });
 
     return app;
 }

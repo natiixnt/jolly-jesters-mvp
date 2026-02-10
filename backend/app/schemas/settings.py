@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -9,7 +11,7 @@ class SettingsRead(BaseModel):
 
 
 class SettingsUpdate(BaseModel):
-    cache_ttl_days: int = Field(..., ge=1, le=365)
+    cache_ttl_days: int = Field(..., ge=0, le=365)
 
 
 class CurrencyRateEntry(BaseModel):
@@ -20,3 +22,20 @@ class CurrencyRateEntry(BaseModel):
 
 class CurrencyRates(BaseModel):
     rates: list[CurrencyRateEntry]
+
+
+class ProxyMeta(BaseModel):
+    path: str
+    count: int
+    size_bytes: int
+    updated_at: datetime | None = None
+    sample: list[str] = []
+    saved: bool | None = None
+    reload: dict | None = None
+    uploaded_at: datetime | None = None
+
+
+class ProxyReloadResponse(BaseModel):
+    status: str
+    count: int | None = None
+    path: str | None = None

@@ -36,7 +36,8 @@ def update_settings(
     cache_ttl_days: int,
 ) -> Setting:
     record = get_settings(db)
-    record.cache_ttl_days = max(1, cache_ttl_days)
+    # allow 0 to disable cache; cap upper bound for sanity
+    record.cache_ttl_days = max(0, min(365, cache_ttl_days))
     db.commit()
     db.refresh(record)
     return record

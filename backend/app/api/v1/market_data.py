@@ -17,6 +17,8 @@ def list_market_data(
     ean: Optional[str] = None,
     source: Optional[str] = None,
     updated_since: Optional[datetime] = None,
+    with_data: bool = False,
+    profitable_only: bool = False,
     offset: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -27,6 +29,8 @@ def list_market_data(
         ean=ean,
         source=source,
         updated_since=updated_since,
+        with_data=with_data,
+        profitable_only=profitable_only,
         offset=offset,
         limit=limit,
     )
