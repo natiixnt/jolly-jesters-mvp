@@ -70,7 +70,11 @@ export interface AllegroSearchResult {
 export function parseAllegroListing(html: string, ean: string): AllegroSearchResult {
     const $ = load(html);
     const hasSimilarOffersBanner = checkSimilarOffersBanner($);
-    const articles = $('article');
+    // Allegro frequently changes markup; try multiple selectors
+    let articles = $('article');
+    if (articles.length === 0) articles = $('div[data-role="offer"]');
+    if (articles.length === 0) articles = $('[data-analytics-view-label="offer"]');
+    if (articles.length === 0) articles = $('[data-box-name="items-v3"] article');
 
     if (articles.length === 0) {
         return {
@@ -140,11 +144,18 @@ function parseProduct($: CheerioAPI, article: Article): AllegroProduct | null {
 }
 
 function parseName(article: Article): string | null {
-    return article.find('h2 a').first().text().trim() || null;
+    const name =
+        article.find('h2 a').first().text().trim() ||
+        article.find('a[data-role="offer-title"]').first().text().trim() ||
+        article.find('a[data-analytics-view-custom-index]').first().text().trim();
+    return name || null;
 }
 
 function parseLink(article: Article): string | null {
-    const href = article.find('h2 a').first().attr('href');
+    const href =
+        article.find('h2 a').first().attr('href') ||
+        article.find('a[data-role="offer-title"]').first().attr('href') ||
+        article.find('a[data-analytics-view-custom-index]').first().attr('href');
     if (!href) return null;
     if (href.includes('/events/clicks?')) {
         const redirectMatch = href.match(/redirect=([^&]+)/);
@@ -170,12 +181,30 @@ function parseImage(article: Article): string {
 }
 
 function parsePrice(article: Article): Price | null {
-    const priceEl = article.find('p[aria-label*="aktualna cena"]').first();
-    const label = priceEl.attr('aria-label') ?? '';
-    const match = label.match(/([\d\s,.]+)\s*(\S+)/);
+    // Primary: aria-label on price paragraph
+    let label = article.find('p[aria-label*="aktualna cena"]').first().attr('aria-label') ?? '';
+    if (!label) {
+        // Fallback: meta tags or data-price attribute
+        const metaPrice = article.find('meta[itemprop="price"]').attr('content');
+        const metaCurrency = article.find('meta[itemprop="priceCurrency"]').attr('content');
+        if (metaPrice && metaCurrency) {
+            const amount = parseFloat(metaPrice.replace(',', '.'));
+            return { amount, currency: metaCurrency };
+        }
+        const dataPrice = article.attr('data-price') || article.find('[data-price]').attr('data-price');
+        const dataCurrency = article.attr('data-currency') || article.find('[data-currency]').attr('data-currency');
+        if (dataPrice && dataCurrency) {
+            const amount = parseFloat(String(dataPrice).replace(',', '.'));
+            return { amount, currency: String(dataCurrency) };
+        }
+        label = article.text();
+    }
+
+    const match = label.match(/([\d\s,.]+)\s*(zł|pln|eur|€|\w{3})/i);
     if (!match) return null;
     const amount = parseFloat(match[1].replace(/\s/g, '').replace(',', '.'));
     const currency = match[2].replace(/\u00a0/g, '').trim();
+    if (Number.isNaN(amount)) return null;
     return { amount, currency };
 }
 

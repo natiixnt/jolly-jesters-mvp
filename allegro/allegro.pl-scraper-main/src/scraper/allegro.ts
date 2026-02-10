@@ -184,6 +184,10 @@ export default class Allegro {
         captchaSolves: number,
     ): AllegroFetchResult {
         const parsed = parseAllegroListing(html, ean);
+        if (parsed.status === 'no_results') {
+            const snippet = html.replace(/\s+/g, ' ').slice(0, 800);
+            this.logger.activity(`no_results snippet: ${snippet}`, 'info');
+        }
         const durationMs = Math.round(performance.now() - start);
         return { ...parsed, html, scrapedAt, durationMs, captchaSolves };
     }

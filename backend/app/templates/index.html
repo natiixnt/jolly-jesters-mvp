@@ -127,6 +127,28 @@
     .row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     @media (max-width: 720px){ .row{ grid-template-columns:1fr; } }
     .market-filters{ display:none; }
+    .modal-filters-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      align-items:center;
+    }
+    @media(max-width: 720px){
+      .modal-filters-grid{ grid-template-columns:1fr; }
+    }
+    .toggle-pill{
+      height:44px;
+      padding:0 14px;
+      border:1px solid var(--border2);
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:13px;
+      cursor:pointer;
+    }
+    .toggle-pill input{ width:18px; height:18px; }
 
     .dz{
       border:1px dashed rgba(255,255,255,.16);
@@ -598,66 +620,17 @@
         </div>
       </div>
       <div class="modal-body">
-        <div class="row">
-          <div>
-            <label for="mf-category">kategoria</label>
-            <select class="control" id="mf-category"></select>
-          </div>
-          <div>
-            <label for="mf-ean">ean</label>
-            <input class="control" id="mf-ean" placeholder="np 590" />
-          </div>
-        </div>
         <div class="row" style="margin-top:12px;">
           <div>
             <label for="mf-date">zaktualizowane od</label>
             <input class="control" id="mf-date" type="date" />
           </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end; margin-top:22px;">
-            <label class="toggle-label" style="height:44px; padding:0 14px; border:1px solid var(--border2); border-radius:12px; background:rgba(255,255,255,.03);">
-              <input type="checkbox" id="mf-with-data" /> tylko z danymi
+          <div class="modal-filters-grid" style="margin-top:22px;">
+            <label class="toggle-pill">
+              <input type="checkbox" id="mf-with-data" /> <span>tylko z danymi</span>
             </label>
-            <label class="toggle-label" style="height:44px; padding:0 14px; border:1px solid var(--border2); border-radius:12px; background:rgba(255,255,255,.03);">
-              <input type="checkbox" id="mf-profitable" /> tylko oplacalne
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- market filters modal -->
-  <div class="modal-backdrop" id="market-filters-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="market-filters-title">
-      <div class="modal-head">
-        <h3 id="market-filters-title">filtry market data</h3>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button class="btn ghost small" id="market-filters-reset" type="button">wyczysc</button>
-          <button class="btn primary small" id="market-filters-apply" type="button">zastosuj</button>
-          <button class="btn ghost small" id="market-filters-close" type="button">zamknij</button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="row">
-          <div>
-            <label for="mf-category">kategoria</label>
-            <select class="control" id="mf-category"></select>
-          </div>
-          <div>
-            <label for="mf-ean">ean</label>
-            <input class="control" id="mf-ean" placeholder="np 590" />
-          </div>
-        </div>
-        <div class="row" style="margin-top:12px;">
-          <div>
-            <label for="mf-date">zaktualizowane od</label>
-            <input class="control" id="mf-date" type="date" />
-          </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end; margin-top:22px;">
-            <label class="toggle-label" style="height:44px; padding:0 14px; border:1px solid var(--border2); border-radius:12px; background:rgba(255,255,255,.03);">
-              <input type="checkbox" id="mf-with-data" /> tylko z danymi
-            </label>
-            <label class="toggle-label" style="height:44px; padding:0 14px; border:1px solid var(--border2); border-radius:12px; background:rgba(255,255,255,.03);">
-              <input type="checkbox" id="mf-profitable" /> tylko oplacalne
+            <label class="toggle-pill">
+              <input type="checkbox" id="mf-profitable" /> <span>tylko oplacalne</span>
             </label>
           </div>
         </div>
@@ -696,8 +669,27 @@
       </div>
 
       <div class="form">
+        <!-- advanced filter values -->
+        <input type="hidden" id="market-date-val" />
+        <input type="hidden" id="market-with-data-val" />
+        <input type="hidden" id="market-profitable-val" />
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="market-category">kategoria</label>
+            <select class="control" id="market-category"></select>
+          </div>
+          <div>
+            <label for="market-ean">ean</label>
+            <input class="control" id="market-ean" placeholder="np 590" />
+          </div>
+        </div>
+
         <div class="actions" style="justify-content:space-between; margin-top:12px; flex-wrap:wrap;">
-          <div class="hint" id="market-meta">0 rekordow</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div class="hint" id="market-meta">0 rekordow</div>
+            <div class="hint" id="market-summary" style="color:var(--muted);">filtry: brak</div>
+          </div>
           <div class="actions">
             <button class="btn ghost" id="market-prev" type="button">prev</button>
             <button class="btn ghost" id="market-next" type="button">next</button>
@@ -724,7 +716,6 @@
     // elements
     const fileInput = $("file-input");
     const dropzone = $("dropzone");
-    const pickFileBtn = $("pickFileBtn");
     const fileNameEl = $("fileName");
     const fileErr = $("file-error");
     const catSelect = $("category-select");
@@ -756,6 +747,11 @@
     const terminalModal = $("terminal-modal");
     const terminalClose = $("terminal-close");
     const terminalRefresh = $("terminal-refresh");
+    const mfModal = $("market-filters-modal");
+    const mfOpen = $("market-filters-btn");
+    const mfClose = $("market-filters-close");
+    const mfApply = $("market-filters-apply");
+    const mfReset = $("market-filters-reset");
     const previewModal = $("preview-modal");
     const previewClose = $("preview-close");
     const previewRefresh = $("preview-refresh");
@@ -915,16 +911,16 @@
           o.textContent = c.name ?? c.label ?? String(c);
           catSelect.appendChild(o);
         }
-        const msel = $("market-category");
-        if(msel){
-          setHtml(msel, "");
+        const marketSel = $("market-category");
+        if(marketSel){
+          setHtml(marketSel, "");
           const m0 = document.createElement("option"); m0.value=""; m0.textContent="wszystkie";
-          msel.appendChild(m0);
+          marketSel.appendChild(m0);
           for(const c of activeCats){
             const mo = document.createElement("option");
             mo.value = c.id ?? c.slug ?? c.value ?? c;
             mo.textContent = c.name ?? c.label ?? String(c);
-            msel.appendChild(mo);
+            marketSel.appendChild(mo);
           }
         }
 
@@ -1323,9 +1319,9 @@
       const params = new URLSearchParams();
       const mc = $("market-category")?.value || "";
       const me = ($("market-ean")?.value || "").trim();
-      const md = $("market-date")?.value || "";
-      const mddata = $("market-with-data")?.checked;
-      const mdprof = $("market-profitable")?.checked;
+      const md = $("market-date-val")?.value || "";
+      const mddata = $("market-with-data-val")?.value === "1";
+      const mdprof = $("market-profitable-val")?.value === "1";
       if(mc) params.append("category_id", mc);
       if(me) params.append("ean", me);
       if(md) params.append("updated_since", md);
@@ -1374,37 +1370,29 @@
         if(err){ err.style.display=""; err.textContent="blad pobierania market data"; }
         if(host){ host.innerHTML = ""; }
       }
+      updateMarketSummary();
     }
     $("market-next")?.addEventListener("click", ()=> loadMarket(marketState.offset + marketState.limit));
     $("market-prev")?.addEventListener("click", ()=> loadMarket(Math.max(0, marketState.offset - marketState.limit)));
+    $("market-category")?.addEventListener("change", ()=> loadMarket(0));
+    $("market-ean")?.addEventListener("change", ()=> loadMarket(0));
+    $("market-ean")?.addEventListener("keydown", (e)=>{ if(e.key === "Enter"){ e.preventDefault(); loadMarket(0); }});
 
     // market filters modal
-    const mfModal = $("market-filters-modal");
-    const mfOpen = $("market-filters-btn");
-    const mfClose = $("market-filters-close");
-    const mfApply = $("market-filters-apply");
-    const mfReset = $("market-filters-reset");
 
     function syncFiltersToModal(){
-      if($("mf-category") && $("market-category")) $("mf-category").innerHTML = $("market-category").innerHTML;
-      if($("mf-category") && $("market-category")) $("mf-category").value = $("market-category").value;
-      if($("mf-ean") && $("market-ean")) $("mf-ean").value = $("market-ean").value || "";
-      if($("mf-date") && $("market-date")) $("mf-date").value = $("market-date").value || "";
-      if($("mf-with-data") && $("market-with-data")) $("mf-with-data").checked = !!$("market-with-data").checked;
-      if($("mf-profitable") && $("market-profitable")) $("mf-profitable").checked = !!$("market-profitable").checked;
+      if($("mf-date") && $("market-date-val")) $("mf-date").value = $("market-date-val").value || "";
+      if($("mf-with-data") && $("market-with-data-val")) $("mf-with-data").checked = $("market-with-data-val").value === "1";
+      if($("mf-profitable") && $("market-profitable-val")) $("mf-profitable").checked = $("market-profitable-val").value === "1";
     }
     function applyModalFilters(){
-      if($("market-category") && $("mf-category")) $("market-category").value = $("mf-category").value;
-      if($("market-ean") && $("mf-ean")) $("market-ean").value = $("mf-ean").value;
-      if($("market-date") && $("mf-date")) $("market-date").value = $("mf-date").value;
-      if($("market-with-data") && $("mf-with-data")) $("market-with-data").checked = $("mf-with-data").checked;
-      if($("market-profitable") && $("mf-profitable")) $("market-profitable").checked = $("mf-profitable").checked;
+      if($("market-date-val") && $("mf-date")) $("market-date-val").value = $("mf-date").value;
+      if($("market-with-data-val") && $("mf-with-data")) $("market-with-data-val").value = $("mf-with-data").checked ? "1" : "";
+      if($("market-profitable-val") && $("mf-profitable")) $("market-profitable-val").value = $("mf-profitable").checked ? "1" : "";
     }
     mfOpen?.addEventListener("click", ()=>{ syncFiltersToModal(); openModal(mfModal); });
     mfClose?.addEventListener("click", ()=> closeModal(mfModal));
     mfReset?.addEventListener("click", ()=>{
-      $("mf-category")?.selectedIndex && ($("mf-category").selectedIndex = 0);
-      if($("mf-ean")) $("mf-ean").value = "";
       if($("mf-date")) $("mf-date").value = "";
       if($("mf-with-data")) $("mf-with-data").checked = false;
       if($("mf-profitable")) $("mf-profitable").checked = false;
@@ -1414,6 +1402,26 @@
       closeModal(mfModal);
       await loadMarket(0);
     });
+
+    function updateMarketSummary(){
+      const parts = [];
+      const catSel = $("market-category");
+      const catVal = catSel?.value;
+      const catLabel = catSel?.selectedOptions?.[0]?.textContent || "";
+      const ean = $("market-ean")?.value;
+      const dt = $("market-date-val")?.value;
+      const wd = $("market-with-data-val")?.value === "1";
+      const pr = $("market-profitable-val")?.value === "1";
+      if(catVal) parts.push(`kategoria: ${catLabel || catVal}`);
+      if(ean) parts.push(`ean: ${ean}`);
+      if(dt) parts.push(`od: ${dt}`);
+      if(wd) parts.push("tylko z danymi");
+      if(pr) parts.push("tylko oplacalne");
+      const summary = $("market-summary");
+      if(summary){
+        summary.textContent = parts.length ? `filtry: ${parts.join(", ")}` : "filtry: brak";
+      }
+    }
 
     // init
     (async function init(){

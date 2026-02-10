@@ -323,6 +323,9 @@ def read_excel_file(
         if not ean_digits:
             is_valid = False
             error = "Brak EAN"
+        elif not (8 <= len(ean_digits) <= 13):
+            is_valid = False
+            error = "EAN musi mieć 8-13 cyfr"
         elif price_value is None or price_value <= 0:
             is_valid = False
             error = "Nieprawidlowa cena zakupu"
