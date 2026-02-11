@@ -127,5 +127,14 @@ services:
     ports:
       - "80:80"
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - nginx
+
 volumes:
   mvp_pgdata:

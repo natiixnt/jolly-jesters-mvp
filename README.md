@@ -66,3 +66,21 @@ make test
 ## Notes
 - No alternate providers, modes or feature flags remain.
 - UI shows only parameters supported by the single scraper (timeout, poll interval, worker/concurrency counts).
+
+## Stable URL (Cloudflare)
+To keep one permanent public link (for example `app.schoolmaster.pl`):
+
+1) In Cloudflare Zero Trust create a Named Tunnel and copy its token.
+2) In Cloudflare Tunnel -> Public Hostname add:
+- Hostname: `app.schoolmaster.pl`
+- Service: `http://nginx:80`
+3) Put token in `backend/.env`:
+```
+CLOUDFLARE_TUNNEL_TOKEN=<your_token>
+```
+4) Start/restart stack:
+```
+docker compose up -d --build
+```
+
+Tunnel service is defined in `docker-compose.yml` as `cloudflared` with restart policy `unless-stopped`, so after internet reconnect it should recover automatically and keep the same hostname.
