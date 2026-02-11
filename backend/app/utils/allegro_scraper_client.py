@@ -20,6 +20,13 @@ def _scraper_base_url() -> str:
     return os.getenv("ALLEGRO_SCRAPER_URL", settings.allegro_scraper_url).rstrip("/")
 
 
+def _forced_no_results_eans() -> set[str]:
+    raw = os.getenv("SCRAPER_FORCE_NO_RESULTS_EANS", "")
+    if not raw:
+        return set()
+    return {token.strip() for token in raw.split(",") if token.strip()}
+
+
 def _poll_interval() -> float:
     try:
         return max(0.1, float(os.getenv("ALLEGRO_SCRAPER_POLL_INTERVAL", settings.allegro_scraper_poll_interval)))
@@ -42,21 +49,43 @@ def _http_client() -> httpx.AsyncClient:
     )
 
 
-def _derive_price(result: dict) -> Optional[Decimal]:
+def _extract_priced_offers(result: dict) -> list[tuple[Decimal, Optional[int]]]:
     products = result.get("products") or []
-    prices = []
+    offers: list[tuple[Decimal, Optional[int]]] = []
     for product in products:
         price = (product or {}).get("price") or {}
         amount = price.get("amount")
         if amount is None:
             continue
         try:
-            prices.append(Decimal(str(amount)))
+            amount_val = Decimal(str(amount))
         except Exception:
             continue
-    if not prices:
+        if amount_val <= 0:
+            continue
+        sales_val: Optional[int] = None
+        sales_raw = (product or {}).get("recentSalesCount")
+        if sales_raw is not None:
+            try:
+                sales_val = int(sales_raw)
+            except Exception:
+                sales_val = None
+        offers.append((amount_val, sales_val))
+    offers.sort(key=lambda item: item[0])
+    return offers
+
+
+def _derive_price(result: dict) -> Optional[Decimal]:
+    offers = _extract_priced_offers(result)
+    if not offers:
         return None
-    return min(prices)
+    k = min(3, len(offers))
+    selected = offers[:k]
+    if k == 1:
+        return selected[0][0]
+    if k == 2:
+        return (selected[0][0] + selected[1][0]) / Decimal("2")
+    return selected[1][0]
 
 
 def _derive_sold_count(result: dict) -> Optional[int]:
@@ -110,6 +139,19 @@ async def fetch_via_allegro_scraper(ean: str) -> AllegroResult:
     Single entrypoint used across the backend to talk to the allegro.pl-scraper-main
     service. It creates a task, polls until completion and normalises the payload.
     """
+    forced_no_results = _forced_no_results_eans()
+    if ean in forced_no_results:
+        now = datetime.now(timezone.utc).isoformat()
+        return _to_result(
+            {
+                "ean": ean,
+                "status": "no_results",
+                "totalOfferCount": 0,
+                "products": [],
+                "scrapedAt": now,
+            }
+        )
+
     async with _http_client() as client:
         try:
             create = await client.post("/createTask", json={"ean": ean})

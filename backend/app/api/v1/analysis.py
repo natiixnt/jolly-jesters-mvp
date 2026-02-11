@@ -7,7 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal, get_db
@@ -122,11 +122,24 @@ def get_analysis_results(
     run_id: int,
     offset: int = 0,
     limit: int = 100,
+    debug: bool = False,
     db: Session = Depends(get_db),
 ):
-    results = analysis_service.get_run_results(db, run_id=run_id, offset=offset, limit=limit)
+    results = analysis_service.get_run_results(
+        db,
+        run_id=run_id,
+        offset=offset,
+        limit=limit,
+        include_debug=debug,
+    )
     if not results:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    if not debug:
+        payload = jsonable_encoder(
+            results,
+            exclude={"items": {"__all__": {"profitability_debug"}}},
+        )
+        return JSONResponse(content=payload)
     return results
 
 
@@ -136,6 +149,7 @@ def get_analysis_results_updates(
     since: Optional[datetime] = None,
     since_id: Optional[int] = None,
     limit: int = 200,
+    debug: bool = False,
     db: Session = Depends(get_db),
 ):
     results = analysis_service.get_run_results_since(
@@ -144,14 +158,21 @@ def get_analysis_results_updates(
         since=since,
         since_id=since_id,
         limit=limit,
+        include_debug=debug,
     )
     if not results:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    if not debug:
+        payload = jsonable_encoder(
+            results,
+            exclude={"items": {"__all__": {"profitability_debug"}}},
+        )
+        return JSONResponse(content=payload)
     return results
 
 
 @router.get("/{run_id}/stream")
-async def stream_analysis(run_id: int, request: Request):
+async def stream_analysis(run_id: int, request: Request, debug: bool = False):
     async def event_generator():
         last_status = None
         last_processed = None
@@ -205,13 +226,19 @@ async def stream_analysis(run_id: int, request: Request):
                     since=since,
                     since_id=since_id,
                     limit=200,
+                    include_debug=debug,
                 )
                 if updates:
                     if updates.items:
                         since = updates.next_since or since
                         since_id = updates.next_since_id or since_id
                         for item in updates.items:
-                            yield _sse_event("row", item.dict())
+                            row_payload = (
+                                item.dict(exclude={"profitability_debug"})
+                                if not debug
+                                else item.dict()
+                            )
+                            yield _sse_event("row", row_payload)
                             if (
                                 item.scrape_status in {ScrapeStatus.error, ScrapeStatus.network_error, ScrapeStatus.blocked}
                                 or item.scrape_error_message

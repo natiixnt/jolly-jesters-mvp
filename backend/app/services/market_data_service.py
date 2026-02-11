@@ -14,6 +14,7 @@ from app.models.product import Product
 from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
 from app.schemas.market_data import MarketDataItem, MarketDataResponse
+from app.services.profitability_service import build_profitability_debug, evaluate_profitability
 
 
 def _resolve_source(market_data: ProductMarketData | None) -> Optional[str]:
@@ -42,6 +43,7 @@ def list_market_data(
     updated_since: Optional[datetime] = None,
     with_data: bool = False,
     profitable_only: bool = False,
+    include_debug: bool = False,
     offset: int = 0,
     limit: int = 50,
 ) -> MarketDataResponse:
@@ -70,7 +72,7 @@ def list_market_data(
     base = (
         db.query(
             Product,
-            Category.name.label("category_name"),
+            Category,
             ProductEffectiveState,
             ProductMarketData,
             last_run_subq.c.last_run_id,
@@ -120,7 +122,7 @@ def list_market_data(
     )
 
     items: List[MarketDataItem] = []
-    for product, category_name, state, market_data, last_run_id, last_run_at, latest_input_name in rows:
+    for product, category, state, market_data, last_run_id, last_run_at, latest_input_name in rows:
         raw_title = None
         try:
             raw_title = (market_data.raw_payload or {}).get("product_title") if market_data else None
@@ -135,11 +137,40 @@ def list_market_data(
         if market_data:
             last_checked_at = market_data.last_checked_at or market_data.fetched_at
 
+        profitability_debug = None
+        evaluation = None
+        offer_count_returned = None
+        if market_data:
+            try:
+                products_payload = (market_data.raw_payload or {}).get("products")
+                if isinstance(products_payload, list):
+                    offer_count_returned = len(products_payload)
+            except Exception:
+                offer_count_returned = None
+
+        evaluation = evaluate_profitability(
+            purchase_price=product.purchase_price,
+            allegro_price=market_data.allegro_price if market_data else None,
+            sold_count=market_data.allegro_sold_count if market_data else None,
+            category=category,
+            offer_count=offer_count_returned,
+        )
+
+        if include_debug:
+            profitability_debug = build_profitability_debug(
+                purchase_price=product.purchase_price,
+                allegro_price=market_data.allegro_price if market_data else None,
+                sold_count=market_data.allegro_sold_count if market_data else None,
+                offer_count=offer_count_returned,
+                category=category,
+                evaluation=evaluation,
+            )
+
         items.append(
             MarketDataItem(
                 ean=product.ean,
                 name=name or product.ean,
-                category_name=category_name or "",
+                category_name=category.name if category else "",
                 purchase_price_pln=float(product.purchase_price) if product.purchase_price is not None else None,
                 allegro_price_pln=float(market_data.allegro_price) if market_data and market_data.allegro_price is not None else None,
                 sold_count=market_data.allegro_sold_count if market_data else None,
@@ -148,10 +179,12 @@ def list_market_data(
                     if (state and state.profitability_label and market_data and market_data.allegro_price is not None)
                     else None
                 ),
+                reason_code=evaluation.reason_code,
                 source=_resolve_source(market_data),
                 last_checked_at=last_checked_at,
                 last_run_id=last_run_id,
                 last_run_at=last_run_at,
+                profitability_debug=profitability_debug,
             )
         )
 

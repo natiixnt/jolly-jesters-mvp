@@ -15,7 +15,7 @@ def export_run_bytes(db: Session, run_id: int) -> Optional[bytes]:
     if not run:
         return None
     items = get_run_items(db, run_id)
-    return build_analysis_excel(items, run.category)
+    return build_analysis_excel(items, run.category, run_mode=run.mode)
 
 
 def export_run_to_disk(db: Session, run_id: int, export_dir: Path) -> Optional[Path]:

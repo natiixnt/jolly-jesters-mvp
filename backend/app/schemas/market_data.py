@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from app.schemas.profitability import ProfitabilityDebug
+
 
 class MarketDataItem(BaseModel):
     ean: str
@@ -12,10 +14,12 @@ class MarketDataItem(BaseModel):
     allegro_price_pln: Optional[float]
     sold_count: Optional[int]
     is_profitable: Optional[bool]
+    reason_code: Optional[str] = None
     source: Optional[str]
     last_checked_at: Optional[datetime]
     last_run_id: Optional[int]
     last_run_at: Optional[datetime]
+    profitability_debug: Optional[ProfitabilityDebug] = None
 
 
 class MarketDataResponse(BaseModel):

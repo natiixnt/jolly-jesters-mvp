@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.models.enums import AnalysisItemSource, AnalysisStatus, ProfitabilityLabel, ScrapeStatus
 from app.schemas.category import CategoryRead
+from app.schemas.profitability import ProfitabilityDebug
 
 
 class AnalysisUploadResponse(BaseModel):
@@ -88,11 +89,13 @@ class AnalysisResultItem(BaseModel):
     margin_pln: Optional[float]
     margin_percent: Optional[float]
     is_profitable: Optional[bool]
+    reason_code: Optional[str] = None
     source: Optional[str]
     scrape_status: Optional[ScrapeStatus]
     scrape_error_message: Optional[str]
     last_checked_at: Optional[datetime]
     updated_at: Optional[datetime] = None
+    profitability_debug: Optional[ProfitabilityDebug] = None
 
     class Config:
         orm_mode = True

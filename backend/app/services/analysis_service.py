@@ -18,7 +18,7 @@ from app.models.product import Product
 from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
 from app.schemas.analysis import AnalysisResultItem, AnalysisResultsResponse
-from app.services.profitability_service import calculate_profitability
+from app.services.profitability_service import build_profitability_debug, evaluate_profitability
 
 logger = logging.getLogger(__name__)
 
@@ -75,24 +75,22 @@ def build_cached_worklist(
         .outerjoin(ProductEffectiveState, ProductEffectiveState.product_id == Product.id)
         .outerjoin(ProductMarketData, ProductMarketData.id == ProductEffectiveState.last_market_data_id)
         .filter(Product.category_id == category_id)
+        .filter(ProductMarketData.id.isnot(None))
     )
 
     total_candidates = base.count()
     cutoff = _resolve_cached_cutoff(cache_days, include_all_cached)
 
     if cutoff is not None:
-        effective_ts = func.coalesce(
-            ProductMarketData.last_checked_at,
-            ProductEffectiveState.last_checked_at,
-            Product.updated_at,
-            Product.created_at,
+        base = base.filter(
+            ProductMarketData.last_checked_at.isnot(None),
+            ProductMarketData.last_checked_at >= cutoff,
         )
-        base = base.filter(effective_ts >= cutoff)
 
     if only_with_data:
         base = base.filter(
-            ProductMarketData.id.isnot(None),
             ProductMarketData.is_not_found.is_(False),
+            ProductMarketData.allegro_price.isnot(None),
         )
 
     if source:
@@ -295,14 +293,20 @@ def get_run_results(
     run_id: int,
     offset: int = 0,
     limit: int = 100,
+    include_debug: bool = False,
 ) -> AnalysisResultsResponse | None:
     run = get_run_status(db, run_id)
     if not run:
         return None
+    category = db.query(Category).filter(Category.id == run.category_id).first()
+    query = db.query(AnalysisRunItem).options(
+        selectinload(AnalysisRunItem.product)
+        .selectinload(Product.effective_state)
+        .selectinload(ProductEffectiveState.last_market_data)
+    )
 
     items = (
-        db.query(AnalysisRunItem)
-        .filter(AnalysisRunItem.analysis_run_id == run_id)
+        query.filter(AnalysisRunItem.analysis_run_id == run_id)
         .order_by(AnalysisRunItem.row_number)
         .offset(offset)
         .limit(limit)
@@ -314,14 +318,70 @@ def get_run_results(
         status=run.status,
         total=run.total_products,
         error_message=run.error_message,
-        items=[_to_result_item(item) for item in items],
+        items=[_to_result_item(item, category, run.mode, include_debug=include_debug) for item in items],
     )
 
 
-def _to_result_item(item: AnalysisRunItem) -> AnalysisResultItem:
+def _extract_offer_count(item: AnalysisRunItem) -> int | None:
+    try:
+        state = item.product.effective_state if item.product else None
+        market_data = state.last_market_data if state else None
+        payload = market_data.raw_payload if market_data else None
+        products = (payload or {}).get("products")
+        if isinstance(products, list):
+            return len(products)
+    except Exception:
+        return None
+    return None
+
+
+def _resolve_result_source(
+    item: AnalysisRunItem,
+    run_mode: str | None,
+) -> str | None:
+    if not item.source:
+        return None
+    if item.source != AnalysisItemSource.baza:
+        return item.source.value
+
+    mode = (run_mode or "").strip().lower()
+    if mode == "cached":
+        return "db"
+    if item.scrape_status in {ScrapeStatus.ok, ScrapeStatus.not_found}:
+        return "db_cache"
+    return item.source.value
+
+
+def _to_result_item(
+    item: AnalysisRunItem,
+    category: Category | None = None,
+    run_mode: str | None = None,
+    include_debug: bool = False,
+) -> AnalysisResultItem:
     last_checked = None
     if item.product and item.product.effective_state and item.product.effective_state.last_checked_at:
         last_checked = item.product.effective_state.last_checked_at
+    purchase_price = item.purchase_price_pln or item.input_purchase_price
+    offer_count = _extract_offer_count(item)
+    evaluation = None
+    if category:
+        evaluation = evaluate_profitability(
+            purchase_price=purchase_price,
+            allegro_price=item.allegro_price,
+            sold_count=item.allegro_sold_count,
+            category=category,
+            offer_count=offer_count,
+        )
+    profitability_debug = None
+    if include_debug:
+        profitability_debug = build_profitability_debug(
+            purchase_price=purchase_price,
+            allegro_price=item.allegro_price,
+            sold_count=item.allegro_sold_count,
+            offer_count=offer_count,
+            category=category,
+            evaluation=evaluation,
+        )
     return AnalysisResultItem(
         id=item.id,
         row_number=item.row_number,
@@ -336,17 +396,24 @@ def _to_result_item(item: AnalysisRunItem) -> AnalysisResultItem:
         margin_pln=None,
         margin_percent=None,
         is_profitable=item.profitability_label == ProfitabilityLabel.oplacalny if item.profitability_label else None,
-        source=item.source.value if item.source else None,
+        reason_code=evaluation.reason_code if evaluation is not None else None,
+        source=_resolve_result_source(item, run_mode),
         scrape_status=item.scrape_status,
         scrape_error_message=item.error_message,
         last_checked_at=last_checked,
         updated_at=item.updated_at,
+        profitability_debug=profitability_debug,
     )
 
 
-def serialize_analysis_item(item: AnalysisRunItem, category: Category | None = None) -> AnalysisResultItem:
+def serialize_analysis_item(
+    item: AnalysisRunItem,
+    category: Category | None = None,
+    run_mode: str | None = None,
+    include_debug: bool = False,
+) -> AnalysisResultItem:
     """Stable serializer used by API and Excel export."""
-    result = _to_result_item(item)
+    result = _to_result_item(item, category, run_mode=run_mode, include_debug=include_debug)
 
     purchase = item.purchase_price_pln or item.input_purchase_price
     price = item.allegro_price
@@ -376,12 +443,22 @@ def get_run_results_since(
     since: datetime | None = None,
     since_id: int | None = None,
     limit: int = 200,
+    include_debug: bool = False,
 ) -> AnalysisResultsResponse | None:
     run = get_run_status(db, run_id)
     if not run:
         return None
+    category = db.query(Category).filter(Category.id == run.category_id).first()
 
-    query = db.query(AnalysisRunItem).filter(AnalysisRunItem.analysis_run_id == run_id)
+    query = (
+        db.query(AnalysisRunItem)
+        .options(
+            selectinload(AnalysisRunItem.product)
+            .selectinload(Product.effective_state)
+            .selectinload(ProductEffectiveState.last_market_data)
+        )
+        .filter(AnalysisRunItem.analysis_run_id == run_id)
+    )
     if since is not None:
         query = query.filter(or_(AnalysisRunItem.updated_at > since, AnalysisRunItem.updated_at.is_(None)))
     if since_id is not None:
@@ -411,7 +488,7 @@ def get_run_results_since(
         status=run.status,
         total=run.total_products,
         error_message=run.error_message,
-        items=[_to_result_item(item) for item in items],
+        items=[_to_result_item(item, category, run.mode, include_debug=include_debug) for item in items],
         next_since=next_since_val,
         next_since_id=next_id,
     )

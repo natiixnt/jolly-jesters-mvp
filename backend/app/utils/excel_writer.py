@@ -6,14 +6,14 @@ from typing import Iterable, Optional
 
 import pandas as pd
 
-from app.models.category import Category
 from app.models.analysis_run_item import AnalysisRunItem
+from app.models.category import Category
 from app.services.analysis_service import serialize_analysis_item
 
 
 def _status_label(status: Optional[object]) -> str:
     if status is None:
-        return "—"
+        return "-"
     value = getattr(status, "value", status)
     if value == "pending":
         return "pending local"
@@ -24,9 +24,9 @@ def _status_label(status: Optional[object]) -> str:
     if value == "blocked":
         return "blocked"
     if value == "network_error":
-        return "błąd sieci"
+        return "blad sieci"
     if value == "error":
-        return "błąd"
+        return "blad"
     return "ok"
 
 
@@ -35,7 +35,7 @@ def _profitability_label(is_profitable: Optional[bool]) -> str:
         return "tak"
     if is_profitable is False:
         return "nie"
-    return "—"
+    return "-"
 
 
 def _format_original_price(value: Optional[float], currency: Optional[str]) -> Optional[str]:
@@ -60,11 +60,15 @@ def _format_datetime(value: Optional[datetime]) -> Optional[str]:
         return None
 
 
-def build_analysis_excel(items: Iterable[AnalysisRunItem], category: Optional[Category]) -> bytes:
+def build_analysis_excel(
+    items: Iterable[AnalysisRunItem],
+    category: Optional[Category],
+    run_mode: Optional[str] = None,
+) -> bytes:
     category_name = category.name if category else ""
     rows = []
     for item in items:
-        result = serialize_analysis_item(item, category)
+        result = serialize_analysis_item(item, category, run_mode=run_mode)
         rows.append(
             {
                 "EAN": result.ean,
@@ -73,14 +77,15 @@ def build_analysis_excel(items: Iterable[AnalysisRunItem], category: Optional[Ca
                 "Cena zakupu (oryg.)": _format_original_price(result.original_purchase_price, result.original_currency),
                 "Cena zakupu (PLN)": result.purchase_price_pln,
                 "Cena Allegro": result.allegro_price_pln,
-                "Marża": result.margin_pln,
-                "Marża %": result.margin_percent,
+                "Marza": result.margin_pln,
+                "Marza %": result.margin_percent,
                 "Sprzedanych": result.sold_count,
-                "Opłacalny": _profitability_label(result.is_profitable),
-                "Źródło": result.source or "—",
+                "Oplacalny": _profitability_label(result.is_profitable),
+                "Powod": result.reason_code or ("ok" if result.is_profitable else ""),
+                "Zrodlo": result.source or "-",
                 "Ostatnio sprawdzono": _format_datetime(result.last_checked_at),
                 "Status": _status_label(result.scrape_status),
-                "Błąd scrapingu": result.scrape_error_message,
+                "Blad scrapingu": result.scrape_error_message,
                 "Kategoria": category_name,
             }
         )

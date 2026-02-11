@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     stale_days: int = Field(default=30)
     profitability_default_multiplier: Decimal = Field(default=Decimal("1.5"))
     commission_default: Optional[Decimal] = Field(default=None)
+    profitability_min_profit_pln: Decimal = Field(default=Decimal("15"), env="PROFITABILITY_MIN_PROFIT_PLN")
+    profitability_min_sales: int = Field(default=3, env="PROFITABILITY_MIN_SALES")
+    profitability_max_competition: int = Field(default=50, env="PROFITABILITY_MAX_COMPETITION")
     eur_to_pln_rate: float = Field(default=4.5, env="EUR_TO_PLN_RATE")
 
     data_root: Path = Field(default=Path("/workspace"), env="WORKSPACE")

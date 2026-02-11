@@ -22,6 +22,21 @@ ALLEGRO_SCRAPER_TIMEOUT_SECONDS=90
 Scraper needs HTTP proxies. Provide either `PROXIES=http://user:pass@host:port,...` in `.env` (consumed by the scraper container) or mount `proxies.txt` next to the scraper.
 Preferred: upload a `.txt` list via UI (Ustawienia ➜ Proxy). It is stored at `/workspace/data/proxies.txt` by default (override `SCRAPER_PROXIES_FILE`), and the scraper reloads it automatically after upload.
 
+Profitability heuristics (backend only, no extra scraping):
+- `price_ref` = mediana z 3 najtańszych cen (po odrzuceniu `price <= 0`), fallback: avg(2) / single(1)
+- dlaczego: redukcja outlierów vs `min()`
+- `multiplier = net_revenue / cost`
+- `ROI_po_prowizji = multiplier - 1` (np. `1.5` => `0.5` = 50% ROI po prowizji)
+- `PROFITABILITY_MIN_PROFIT_PLN` – minimalny zysk netto (domyślnie 15)
+- `PROFITABILITY_MIN_SALES` – minimalna sprzedaż (proxy, domyślnie 3)
+- `PROFITABILITY_MAX_COMPETITION` – maks. liczba ofert zwróconych przez scraper (proxy ograniczony limitem wyników; domyślnie 50)
+
+Debug / QA:
+- Dodaj `?debug=1`, aby dostać `profitability_debug` w odpowiedziach: `/api/v1/analysis/{id}/results`, `/api/v1/analysis/{id}/results/updates`, `/api/v1/analysis/{id}/stream`, `/api/v1/market-data`.
+- `profitability_debug.version = profitability_v2` oznacza obecną logikę (net revenue / cost + progi).
+- Definicje: `net_revenue = price_ref * (1 - commission)`, `multiplier = net_revenue / cost`, `ROI = multiplier - 1`.
+- Heurystyka `price_ref`: mediana z 3 najtańszych cen (po odrzuceniu `price <= 0`), fallback avg(2) / single(1).
+
 2) Start:
 ```
 docker compose up --build
