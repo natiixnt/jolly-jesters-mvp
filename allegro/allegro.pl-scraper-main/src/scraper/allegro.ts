@@ -1,6 +1,7 @@
 import { config } from '@/config';
 import { ModuleClient, SessionClient } from 'tlsclientwrapper';
 import type { Cookie } from 'tlsclientwrapper';
+import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { AnySolver } from '@/utils/anysolver';
@@ -47,6 +48,13 @@ const USER_AGENT =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36';
 
 const MAX_DATADOME_RETRIES = 1;
+const HTML_DUMP_DIR = path.join(process.cwd(), 'html_dumps');
+fs.mkdirSync(HTML_DUMP_DIR, { recursive: true });
+
+function dumpHtml(ean: string, suffix: string, html: string): void {
+    const file = path.join(HTML_DUMP_DIR, `${ean}_${suffix}_${Date.now()}.html`);
+    fs.writeFile(file, html, { encoding: 'utf-8' }, () => {});
+}
 
 export default class Allegro {
     private client: SessionClient;
@@ -106,7 +114,12 @@ export default class Allegro {
         while (res.status !== 200) {
             this.logger.log('Status', res.status);
 
-            if (res.status === 403 && res.body.includes('captcha-delivery.com')) {
+            const isDatadome = res.body.includes('captcha-delivery.com');
+            const isAllegroCaptcha = res.body.includes('allegrocaptcha.com');
+            // dump every non-200 response for debugging
+            dumpHtml(ean, `resp_${res.status}_${datadomeAttempts}`, res.body);
+
+            if ((res.status === 403 || res.status === 200) && isDatadome) {
                 if (datadomeAttempts >= MAX_DATADOME_RETRIES) {
                     throw new Error(`DataDome failed after ${MAX_DATADOME_RETRIES} attempts`);
                 }
@@ -120,7 +133,7 @@ export default class Allegro {
                 continue;
             }
 
-            if (res.status === 429 && res.body.includes('allegrocaptcha.com')) {
+            if ((res.status === 429 || res.status === 200) && isAllegroCaptcha) {
                 this.logger.log('Rate limiter detected');
                 captchaSolves++;
                 const wdctxCookie = await this.solveRateLimiter(res.body);
@@ -134,6 +147,8 @@ export default class Allegro {
 
         this.logger.log('Page loaded');
         const scrapedAt = new Date().toISOString();
+        // dump first successful response for debugging
+        dumpHtml(ean, `ok_${res.status}`, res.body);
         return this.buildResult(res.body, ean, scrapedAt, start, captchaSolves);
     }
 
@@ -187,6 +202,7 @@ export default class Allegro {
         if (parsed.status === 'no_results') {
             const snippet = html.replace(/\s+/g, ' ').slice(0, 800);
             this.logger.activity(`no_results snippet: ${snippet}`, 'info');
+            dumpHtml(ean, 'no_results', html);
         }
         const durationMs = Math.round(performance.now() - start);
         return { ...parsed, html, scrapedAt, durationMs, captchaSolves };

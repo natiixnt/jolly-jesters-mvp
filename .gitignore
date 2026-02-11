@@ -6,3 +6,8 @@ __pycache__/
 .env
 backend/.env
 workspace_data/
+**/node_modules/
+**/node_modules.bak*/
+allegro/allegro.pl-scraper-main/dist/
+allegro/allegro.pl-scraper-main/lib/
+allegro/allegro.pl-scraper-main/output/

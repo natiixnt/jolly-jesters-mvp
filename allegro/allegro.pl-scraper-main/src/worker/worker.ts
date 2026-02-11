@@ -1,12 +1,19 @@
 import { Mutex } from 'async-mutex';
 import Allegro from '@/scraper/allegro';
-import { getRandomProxy } from '@/utils/proxy';
+import { getRandomProxy, nextProxy, proxyCount } from '@/utils/proxy';
 import { config } from '@/config';
 import type { TaskQueue } from '@/queue/taskQueue';
 import type { Stats } from '@/utils/stats';
 import type { Logger, ScopedLogger } from '@/utils/logger';
 
-const RETRYABLE_PATTERNS = ['IP is banned', 'DataDome failed after', 'Unexpected status', 'Connection failed'];
+const RETRYABLE_PATTERNS = [
+    'IP is banned',
+    'DataDome failed after',
+    'Unexpected status',
+    'Connection failed',
+    'UNKNOWN_PROVIDER_ERROR',
+    'CAPTCHA_SOLVE_FAILED',
+];
 
 function isRetryableError(msg: string): boolean {
     return RETRYABLE_PATTERNS.some((p) => msg.includes(p));
@@ -89,7 +96,33 @@ export class Worker {
                 await this.resetMutex.waitForUnlock();
                 this.logger.log(`Scraping EAN ${task.ean} (attempt ${task.retries + 1})`);
 
-                const result = await this.allegro.fetch(task.ean);
+                const proxyTries = Math.min(Math.max(proxyCount(), 1), 50);
+                let result = null;
+                const tried = new Set<string>();
+
+                for (let attempt = 0; attempt < proxyTries; attempt++) {
+                    // pick proxy (first: current instance, else next)
+                    const proxy =
+                        attempt === 0 ? getRandomProxy() : nextProxy(tried);
+                    tried.add(proxy.toString());
+                    this.allegro = new Allegro(proxy, this.logger.scoped('Allegro'));
+                    if (attempt > 0) {
+                        this.logger.activity(
+                            `EAN ${task.ean} retry ${attempt + 1}/${proxyTries} with new proxy`,
+                            'info',
+                        );
+                    }
+                    try {
+                        result = await this.allegro.fetch(task.ean);
+                        break;
+                    } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        this.logger.log(`Proxy attempt ${attempt + 1}/${proxyTries} failed: ${msg}`);
+                        if (attempt === proxyTries - 1) throw err;
+                        if (!isRetryableError(msg)) throw err;
+                    }
+                }
+
                 this.taskQueue.markCompleted(taskId, result);
                 this.scrapeCount++;
                 this.stats.recordTaskComplete(this.id, result.durationMs);

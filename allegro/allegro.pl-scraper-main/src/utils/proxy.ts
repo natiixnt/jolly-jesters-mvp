@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 let proxies: URL[] = [];
 let proxiesPath = 'proxies.txt';
+let rrIndex = 0;
 
 function buildSourceList(path: string): string[] {
     const sources: string[] = [];
@@ -48,6 +49,7 @@ export function loadProxies(path = 'proxies.txt'): number {
 export function reloadProxies(path?: string): { count: number; path: string } {
     const usedPath = path ?? proxiesPath;
     const count = loadProxies(usedPath);
+    rrIndex = Math.floor(Math.random() * Math.max(1, proxies.length));
     return { count, path: usedPath };
 }
 
@@ -58,4 +60,27 @@ export function proxiesMeta(): { count: number; path: string } {
 export function getRandomProxy(): URL {
     if (proxies.length === 0) throw new Error('Proxies not loaded');
     return proxies[Math.floor(Math.random() * proxies.length)];
+}
+
+export function proxyCount(): number {
+    return proxies.length;
+}
+
+export function nextProxy(exclude?: Set<string> | URL): URL {
+    if (proxies.length === 0) throw new Error('Proxies not loaded');
+    if (proxies.length === 1) return proxies[0];
+    let tries = 0;
+    const excludeSet =
+        exclude instanceof Set
+            ? exclude
+            : exclude
+              ? new Set<string>([exclude.toString()])
+              : new Set<string>();
+    while (tries < proxies.length) {
+        const candidate = proxies[rrIndex % proxies.length];
+        rrIndex = (rrIndex + 1) % proxies.length;
+        if (!excludeSet.has(candidate.toString())) return candidate;
+        tries++;
+    }
+    return proxies[0];
 }
