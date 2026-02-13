@@ -76,7 +76,7 @@ To keep one permanent public link (for example `app.schoolmaster.pl`):
 - Service: `http://nginx:80`
 3) Put token in `backend/.env`:
 ```
-CLOUDFLARE_TUNNEL_TOKEN=<your_token>
+TUNNEL_TOKEN=<your_token>
 ```
 4) Start/restart stack:
 ```

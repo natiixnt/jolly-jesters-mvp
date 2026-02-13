@@ -11,3 +11,8 @@ workspace_data/
 allegro/allegro.pl-scraper-main/dist/
 allegro/allegro.pl-scraper-main/lib/
 allegro/allegro.pl-scraper-main/output/
+
+# Cloudflare Tunnel (tokens, creds, logs)
+.cloudflared/
+**/cloudflared*.log
+tools/cloudflared*

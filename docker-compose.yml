@@ -60,6 +60,7 @@ services:
   backend:
     build:
       context: ./backend
+    restart: unless-stopped
     working_dir: /app
     env_file:
       - ./backend/.env
@@ -132,7 +133,7 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
     depends_on:
       - nginx
 
