@@ -1,6 +1,6 @@
 # Jolly Jesters MVP (single-scraper)
 
-An Allegro profitability tool built on FastAPI, Celery and PostgreSQL. The entire scraping layer now routes through a single service – `allegro.pl-scraper-main` – served as `allegro_scraper` in Docker.
+An Allegro profitability tool built on FastAPI, Celery and PostgreSQL. The entire scraping layer now routes through a single service - `allegro.pl-scraper-main` - served as `allegro_scraper` in Docker.
 
 ## Stack
 - FastAPI backend + Jinja UI
@@ -27,9 +27,9 @@ Profitability heuristics (backend only, no extra scraping):
 - dlaczego: redukcja outlierów vs `min()`
 - `multiplier = net_revenue / cost`
 - `ROI_po_prowizji = multiplier - 1` (np. `1.5` => `0.5` = 50% ROI po prowizji)
-- `PROFITABILITY_MIN_PROFIT_PLN` – minimalny zysk netto (domyślnie 15)
-- `PROFITABILITY_MIN_SALES` – minimalna sprzedaż (proxy, domyślnie 3)
-- `PROFITABILITY_MAX_COMPETITION` – maks. liczba ofert zwróconych przez scraper (proxy ograniczony limitem wyników; domyślnie 50)
+- `PROFITABILITY_MIN_PROFIT_PLN` - minimalny zysk netto (domyślnie 15)
+- `PROFITABILITY_MIN_SALES` - minimalna sprzedaż (proxy, domyślnie 3)
+- `PROFITABILITY_MAX_COMPETITION` - maks. liczba ofert zwróconych przez scraper (proxy ograniczony limitem wyników; domyślnie 50)
 
 Debug / QA:
 - Dodaj `?debug=1`, aby dostać `profitability_debug` w odpowiedziach: `/api/v1/analysis/{id}/results`, `/api/v1/analysis/{id}/results/updates`, `/api/v1/analysis/{id}/stream`, `/api/v1/market-data`.
@@ -44,19 +44,19 @@ docker compose up --build
 Backend listens on `http://localhost` via nginx. Default UI password: `1234`.
 
 Scraper env (set in `.env` if needed):
-- `SCRAPER_PROXIES_FILE` – path to shared proxy list (default `/workspace/data/proxies.txt`)
-- `PROXIES` – comma-separated proxy URLs (fallback if no file)
-- `ANYSOLVER_API_KEY` – required for captcha solving
-- `SCRAPER_WORKER_COUNT`, `SCRAPER_CONCURRENCY_PER_WORKER`, `SCRAPER_MAX_TASK_RETRIES` – tune Node worker pool
+- `SCRAPER_PROXIES_FILE` - path to shared proxy list (default `/workspace/data/proxies.txt`)
+- `PROXIES` - comma-separated proxy URLs (fallback if no file)
+- `ANYSOLVER_API_KEY` - required for captcha solving
+- `SCRAPER_WORKER_COUNT`, `SCRAPER_CONCURRENCY_PER_WORKER`, `SCRAPER_MAX_TASK_RETRIES` - tune Node worker pool
 
 ## Flow
 UI ➜ `/api/v1/analysis/upload` ➜ Celery `run_analysis_task` ➜ `allegro_scraper` ➜ DB ➜ UI/SSE updates.
 
 ## Useful endpoints
-- `GET /health` – backend + scraper health snapshot
-- `GET /api/v1/status` – scraper status for UI pill
-- `GET /api/v1/analysis` – list runs
-- `GET /api/v1/analysis/{id}/stream` – live SSE updates
+- `GET /health` - backend + scraper health snapshot
+- `GET /api/v1/status` - scraper status for UI pill
+- `GET /api/v1/analysis` - list runs
+- `GET /api/v1/analysis/{id}/stream` - live SSE updates
 
 ## Tests
 ```
