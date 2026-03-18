@@ -240,7 +240,15 @@
 
     /* ONBOARDING */
     .step{display:flex; gap:14px; margin-bottom:16px;}
-    .step-num{width:28px;height:28px;border-radius:99px;background:linear-gradient(135deg,rgb(var(--accent)),rgb(var(--blue)));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+    .step-num{
+      width:30px;height:30px;border-radius:99px;
+      background:rgba(var(--accent),.1);
+      border:1px solid rgba(var(--accent),.3);
+      color:rgb(var(--accent));
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:12px;flex-shrink:0;
+      box-shadow:0 0 12px rgba(var(--accent),.08), inset 0 1px 0 rgba(255,255,255,.05);
+    }
     .step-body h4{font-size:14px;font-weight:600;margin-bottom:2px;}
     .step-body p{font-size:13px;color:var(--muted);}
 
