@@ -27,6 +27,7 @@ class AnalysisStatusResponse(BaseModel):
     total_products: int
     processed_products: int
     error_message: Optional[str]
+    run_metadata: Optional[dict] = None
 
     class Config:
         orm_mode = True
@@ -106,6 +107,27 @@ class AnalysisResultsResponse(BaseModel):
     items: List[AnalysisResultItem]
     next_since: Optional[datetime] = None
     next_since_id: Optional[int] = None
+
+
+class AnalysisRunMetrics(BaseModel):
+    run_id: int
+    total_items: int
+    completed_items: int
+    failed_items: int
+    not_found_items: int
+    blocked_items: int
+    avg_latency_ms: Optional[float] = None
+    p50_latency_ms: Optional[float] = None
+    p95_latency_ms: Optional[float] = None
+    total_captcha_solves: int = 0
+    total_retries: int = 0
+    retry_rate: Optional[float] = None
+    captcha_rate: Optional[float] = None
+    blocked_rate: Optional[float] = None
+    network_error_rate: Optional[float] = None
+    ean_per_min: Optional[float] = None
+    cost_per_1000_ean: Optional[float] = None
+    elapsed_seconds: Optional[float] = None
 
 
 class AnalysisStartFromDbRequest(BaseModel):

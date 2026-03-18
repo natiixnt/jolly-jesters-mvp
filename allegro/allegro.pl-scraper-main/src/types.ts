@@ -10,10 +10,12 @@ export interface Task {
     result: AllegroFetchResult | null;
     error: string | null;
     createdAt: number;
+    runId?: string;
 }
 
 export interface CreateTaskBody {
     ean: string;
+    runId?: string;
 }
 
 export interface TaskResponse {
@@ -21,4 +23,5 @@ export interface TaskResponse {
     status: TaskStatus;
     result: Omit<AllegroFetchResult, 'html'> | null;
     error: string | null;
+    retries?: number;
 }

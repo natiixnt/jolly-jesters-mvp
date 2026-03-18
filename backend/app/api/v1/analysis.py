@@ -16,15 +16,29 @@ from app.models.enums import AnalysisStatus, ScrapeStatus
 from app.schemas.analysis import (
     AnalysisResultsResponse,
     AnalysisRunListResponse,
+    AnalysisRunMetrics,
     AnalysisRunSummary,
     AnalysisStartFromDbRequest,
     AnalysisStatusResponse,
     AnalysisUploadResponse,
 )
+import csv
+import io
+
+from app.core.config import settings as app_settings
 from app.services import analysis_service
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
 from app.workers.tasks import celery_app, run_analysis_task
+
+
+def _check_concurrent_limit(db: Session) -> None:
+    active = analysis_service.list_active_runs(db, limit=app_settings.max_concurrent_runs + 1)
+    if len(active) >= app_settings.max_concurrent_runs:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Osiągnięto limit {app_settings.max_concurrent_runs} równoczesnych analiz. Poczekaj na zakończenie bieżących.",
+        )
 
 router = APIRouter(tags=["analysis"])
 
@@ -54,6 +68,8 @@ async def upload_analysis(
 
     if not file.filename.lower().endswith((".xls", ".xlsx", ".csv")):
         raise HTTPException(status_code=400, detail="Plik musi być .xls/.xlsx/.csv")
+
+    _check_concurrent_limit(db)
 
     run = await handle_upload(db, category, file)
     result = run_analysis_task.delay(run.id)
@@ -88,6 +104,32 @@ def latest_run(db: Session = Depends(get_db)):
     return run
 
 
+@router.get("/{run_id}/metrics", response_model=AnalysisRunMetrics)
+def get_run_metrics(run_id: int, db: Session = Depends(get_db)):
+    metrics = analysis_service.get_run_metrics(db, run_id)
+    if not metrics:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    return metrics
+
+
+@router.get("/{run_id}/metrics/csv")
+def export_metrics_csv(run_id: int, db: Session = Depends(get_db)):
+    metrics = analysis_service.get_run_metrics(db, run_id)
+    if not metrics:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    output = io.StringIO()
+    writer = csv.writer(output)
+    fields = metrics.dict()
+    writer.writerow(fields.keys())
+    writer.writerow(fields.values())
+    content = output.getvalue().encode("utf-8")
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="metrics_run_{run_id}.csv"'},
+    )
+
+
 @router.get("/{run_id}", response_model=AnalysisStatusResponse)
 def get_analysis_status(run_id: int, db: Session = Depends(get_db)):
     run = analysis_service.get_run_status(db, run_id)
@@ -101,7 +143,7 @@ def download_results(run_id: int, inline: bool = False, db: Session = Depends(ge
     run = analysis_service.get_run_status(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    if run.status != AnalysisStatus.completed:
+    if run.status not in {AnalysisStatus.completed, AnalysisStatus.stopped}:
         raise HTTPException(status_code=400, detail="Analysis not completed yet")
 
     content = export_run_bytes(db, run_id)
@@ -228,7 +270,14 @@ async def stream_analysis(run_id: int, request: Request):
                         since = now
                         since_id = 0
 
-                if run.status in {AnalysisStatus.completed, AnalysisStatus.failed, AnalysisStatus.canceled}:
+                if run.status in {AnalysisStatus.completed, AnalysisStatus.failed, AnalysisStatus.canceled, AnalysisStatus.stopped}:
+                    if run.status == AnalysisStatus.stopped:
+                        stop_meta = run.run_metadata or {}
+                        yield _sse_event("stopped", {
+                            "reason": stop_meta.get("stop_reason", "unknown"),
+                            "details": stop_meta.get("stop_details", {}),
+                            "stopped_at_item": stop_meta.get("stopped_at_item"),
+                        })
                     yield _sse_event(
                         "done",
                         {
@@ -261,7 +310,7 @@ def cancel_analysis_run(run_id: int, db: Session = Depends(get_db)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    if run.status in {AnalysisStatus.completed, AnalysisStatus.failed}:
+    if run.status in {AnalysisStatus.completed, AnalysisStatus.failed, AnalysisStatus.stopped}:
         raise HTTPException(status_code=400, detail="Analysis already finished")
 
     run = analysis_service.cancel_analysis_run(db, run_id)
@@ -281,6 +330,8 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
     category = db.query(Category).filter(Category.id == payload.category_id).first()
     if not category or not category.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
+
+    _check_concurrent_limit(db)
 
     try:
         products = analysis_service.build_cached_worklist(

@@ -20,3 +20,7 @@ class AllegroResult:
     scraped_at: Optional[datetime] = None
     duration_ms: Optional[int] = None
     captcha_solves: Optional[int] = None
+    retries: Optional[int] = None
+    attempts: Optional[int] = None
+    proxy_url_hash: Optional[str] = None
+    proxy_success: Optional[bool] = None

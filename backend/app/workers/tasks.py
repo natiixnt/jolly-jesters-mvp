@@ -22,6 +22,12 @@ from app.services.analysis_service import (
 )
 from app.services.profitability_service import calculate_profitability
 from app.services.schemas import AllegroResult
+from app.services.settings_service import get_settings
+from app.services.stoploss_service import StopLossChecker, StopLossConfig
+from app.services import proxy_pool_service
+from app.providers import get_provider
+from app.services.alerting_service import alert_stoploss
+from app.services.billing_service import record_run_usage
 from app.utils.allegro_scraper_client import fetch_via_allegro_scraper
 
 logger = logging.getLogger(__name__)
@@ -74,6 +80,11 @@ def _apply_result(
         item.allegro_sold_count = None
         item.profitability_score = None
         item.profitability_label = None
+        # -- metering (even for errors) --
+        item.latency_ms = result.duration_ms
+        item.captcha_solves = result.captcha_solves
+        item.retries = result.retries
+        item.attempts = result.attempts
         return
 
     if result.is_not_found:
@@ -109,6 +120,12 @@ def _apply_result(
         item.profitability_label,
     )
     item.error_message = result.error
+
+    # -- metering --
+    item.latency_ms = result.duration_ms
+    item.captcha_solves = result.captcha_solves
+    item.retries = result.retries
+    item.attempts = result.attempts
 
 
 @celery_app.task(acks_late=True, bind=True)
@@ -149,6 +166,16 @@ def run_analysis_task(self, run_id: int):
         run.started_at = datetime.now(timezone.utc)
         db.commit()
 
+        # -- stop-loss init --
+        setting = get_settings(db)
+        stoploss = StopLossChecker(StopLossConfig(
+            enabled=setting.stoploss_enabled,
+            window_size=setting.stoploss_window_size,
+            max_error_rate=float(setting.stoploss_max_error_rate),
+            max_captcha_rate=float(setting.stoploss_max_captcha_rate),
+            max_consecutive_errors=setting.stoploss_max_consecutive_errors,
+        ))
+
         for item in items:
             db.refresh(run)
             if run.status == AnalysisStatus.canceled:
@@ -171,18 +198,63 @@ def run_analysis_task(self, run_id: int):
             db.commit()
 
             try:
-                result = asyncio.run(fetch_via_allegro_scraper(item.ean))
+                provider = get_provider()
+                result = asyncio.run(provider.fetch(item.ean, run_id=str(run.id)))
             except Exception as exc:  # pragma: no cover - defensive
                 logger.exception("RUN_TASK unexpected error ean=%s", item.ean)
                 result = _error_result(item.ean, f"unexpected:{type(exc).__name__}")
 
             _apply_result(db, run, item, product, category, result)
             run.processed_products += 1
+
+            # -- proxy scoring --
+            if result.proxy_url_hash:
+                try:
+                    if result.proxy_success:
+                        proxy_pool_service.record_success(db, result.proxy_url_hash)
+                    else:
+                        proxy_pool_service.record_failure(db, result.proxy_url_hash, result.error or "")
+                except Exception:
+                    pass  # proxy scoring is best-effort
+
+            # -- stop-loss check --
+            verdict = stoploss.record(
+                item.scrape_status,
+                captcha_solves=result.captcha_solves or 0,
+            )
+            if verdict.should_stop:
+                logger.warning(
+                    "STOP_LOSS triggered run_id=%s reason=%s details=%s",
+                    run.id, verdict.reason, verdict.details,
+                )
+                run.status = AnalysisStatus.stopped
+                run.run_metadata = {
+                    **(run.run_metadata or {}),
+                    "stop_reason": verdict.reason,
+                    "stop_details": verdict.details,
+                    "stopped_at_item": item.row_number,
+                }
+                run.finished_at = datetime.now(timezone.utc)
+                db.commit()
+                # fire alert webhook (best-effort)
+                try:
+                    alert_stoploss(run.id, verdict.reason, verdict.details or {})
+                except Exception:
+                    pass
+                break
+
             db.commit()
 
-        if run.status != AnalysisStatus.canceled:
+        if run.status not in {AnalysisStatus.canceled, AnalysisStatus.stopped}:
             run.status = AnalysisStatus.completed
             run.finished_at = datetime.now(timezone.utc)
             db.commit()
+
+        # record usage for billing (best-effort)
+        if run.status in {AnalysisStatus.completed, AnalysisStatus.stopped}:
+            try:
+                record_run_usage(db, run.id)
+            except Exception:
+                logger.exception("BILLING usage recording failed run_id=%s", run.id)
     finally:
         db.close()

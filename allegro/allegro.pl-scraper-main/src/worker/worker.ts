@@ -1,6 +1,6 @@
 import { Mutex } from 'async-mutex';
 import Allegro from '@/scraper/allegro';
-import { getRandomProxy, nextProxy, proxyCount } from '@/utils/proxy';
+import { getRandomProxy, nextProxy, proxyCount, proxyUrlHash } from '@/utils/proxy';
 import { config } from '@/config';
 import type { TaskQueue } from '@/queue/taskQueue';
 import type { Stats } from '@/utils/stats';
@@ -114,6 +114,7 @@ export class Worker {
                     }
                     try {
                         result = await this.allegro.fetch(task.ean);
+                        result.proxyAttempts = attempt + 1;
                         break;
                     } catch (err) {
                         const msg = err instanceof Error ? err.message : String(err);
@@ -123,6 +124,8 @@ export class Worker {
                     }
                 }
 
+                result.proxyUrlHash = proxyUrlHash(this.allegro.proxyUrl);
+                result.proxySuccess = true;
                 this.taskQueue.markCompleted(taskId, result);
                 this.scrapeCount++;
                 this.stats.recordTaskComplete(this.id, result.durationMs);

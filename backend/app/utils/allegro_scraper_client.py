@@ -101,35 +101,52 @@ def _to_result(payload: dict) -> AllegroResult:
         scraped_at=scraped_at,
         duration_ms=payload.get("durationMs"),
         captcha_solves=payload.get("captchaSolves"),
+        retries=payload.get("_retries"),
+        attempts=payload.get("proxyAttempts"),
+        proxy_url_hash=payload.get("proxyUrlHash"),
+        proxy_success=payload.get("proxySuccess"),
         error=None,
     )
 
 
-async def fetch_via_allegro_scraper(ean: str) -> AllegroResult:
+async def fetch_via_allegro_scraper(ean: str, run_id: str | None = None) -> AllegroResult:
     """
     Single entrypoint used across the backend to talk to the allegro.pl-scraper-main
     service. It creates a task, polls until completion and normalises the payload.
     """
     async with _http_client() as client:
-        try:
-            create = await client.post("/createTask", json={"ean": ean})
-        except Exception as exc:
-            logger.exception("SCRAPER_HTTP_ERROR createTask ean=%s", ean)
-            return AllegroResult(
-                ean=ean,
-                status="error",
-                total_offer_count=None,
-                products=[],
-                price=None,
-                sold_count=None,
-                is_not_found=False,
-                is_temporary_error=True,
-                raw_payload={"error": "create_failed", "details": repr(exc)},
-                error="create_failed",
-                source="allegro_scraper",
-            )
+        create_payload: Dict[str, Any] = {"ean": ean}
+        if run_id:
+            create_payload["runId"] = str(run_id)
 
-        if create.status_code != 201:
+        # Retry with exponential backoff on 429 (backpressure from scraper)
+        create = None
+        for backoff_attempt in range(5):
+            try:
+                create = await client.post("/createTask", json=create_payload)
+            except Exception as exc:
+                logger.exception("SCRAPER_HTTP_ERROR createTask ean=%s", ean)
+                return AllegroResult(
+                    ean=ean,
+                    status="error",
+                    total_offer_count=None,
+                    products=[],
+                    price=None,
+                    sold_count=None,
+                    is_not_found=False,
+                    is_temporary_error=True,
+                    raw_payload={"error": "create_failed", "details": repr(exc)},
+                    error="create_failed",
+                    source="allegro_scraper",
+                )
+            if create.status_code == 429:
+                wait = min(2 ** backoff_attempt, 16)
+                logger.info("SCRAPER_BACKPRESSURE ean=%s wait=%ss attempt=%s", ean, wait, backoff_attempt + 1)
+                await asyncio.sleep(wait)
+                continue
+            break
+
+        if create is None or create.status_code != 201:
             detail = None
             try:
                 detail = create.json()
@@ -227,7 +244,8 @@ async def fetch_via_allegro_scraper(ean: str) -> AllegroResult:
 
             if status == "completed":
                 result = payload.get("result") or {}
-                return _to_result({**result, "ean": ean})
+                retries = payload.get("retries")
+                return _to_result({**result, "ean": ean, "_retries": retries})
 
             error = payload.get("error") or "scraper_failed"
             return AllegroResult(

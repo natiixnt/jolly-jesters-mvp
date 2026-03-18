@@ -31,6 +31,13 @@ class AnalysisRunItem(Base):
         server_default=ScrapeStatus.pending.value,
         default=ScrapeStatus.pending,
     )
+
+    # -- metering fields --
+    latency_ms = Column(Integer, nullable=True)
+    captcha_solves = Column(Integer, nullable=True, default=0)
+    retries = Column(Integer, nullable=True, default=0)
+    attempts = Column(Integer, nullable=True, default=0)
+
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

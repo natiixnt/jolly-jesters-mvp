@@ -14,6 +14,9 @@ export type AllegroFetchResult = AllegroSearchResult & {
     durationMs: number;
     scrapedAt: string;
     captchaSolves: number;
+    proxyAttempts?: number;
+    proxyUrlHash?: string;
+    proxySuccess?: boolean;
 };
 
 interface SkycaptchaTicketConfig {
@@ -61,6 +64,10 @@ export default class Allegro {
     private proxy: URL;
     private logger: ScopedLogger;
     private anysolver: AnySolver;
+
+    get proxyUrl(): URL {
+        return this.proxy;
+    }
 
     constructor(proxy: URL, logger: ScopedLogger) {
         this.proxy = proxy;

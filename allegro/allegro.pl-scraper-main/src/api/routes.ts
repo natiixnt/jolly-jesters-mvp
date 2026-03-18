@@ -13,7 +13,10 @@ export function createRoutes(taskQueue: TaskQueue, startWorkers: () => void, sta
         if (!body.ean || !/^\d{8,13}$/.test(body.ean)) {
             return c.json({ error: 'Invalid EAN (8-13 digits required)' }, 400);
         }
-        const task = taskQueue.createTask(body.ean);
+        if (taskQueue.isAtCapacity()) {
+            return c.json({ error: 'Queue at capacity, retry later' }, 429);
+        }
+        const task = taskQueue.createTask(body.ean, body.runId);
         return c.json({ taskId: task.id }, 201);
     });
 
@@ -28,6 +31,7 @@ export function createRoutes(taskQueue: TaskQueue, startWorkers: () => void, sta
             status: task.status,
             result: null,
             error: task.error,
+            retries: task.retries,
         };
 
         if (task.result) {
@@ -51,6 +55,7 @@ export function createRoutes(taskQueue: TaskQueue, startWorkers: () => void, sta
             pollInterval: config.POLL_INTERVAL / 1000,
             timeoutSeconds: Number(process.env.ALLEGRO_SCRAPER_TIMEOUT_SECONDS ?? 90),
             proxies: proxiesMeta(),
+            queue: taskQueue.getQueueStats(),
             logs: stats.logs,
         }),
     );

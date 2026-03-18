@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Tuple
@@ -17,7 +18,7 @@ from app.models.enums import AnalysisItemSource, AnalysisStatus, MarketDataSourc
 from app.models.product import Product
 from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
-from app.schemas.analysis import AnalysisResultItem, AnalysisResultsResponse
+from app.schemas.analysis import AnalysisResultItem, AnalysisResultsResponse, AnalysisRunMetrics
 from app.services.profitability_service import calculate_profitability
 
 logger = logging.getLogger(__name__)
@@ -417,11 +418,80 @@ def get_run_results_since(
     )
 
 
+def get_run_metrics(db: Session, run_id: int) -> AnalysisRunMetrics | None:
+    run = get_run_status(db, run_id)
+    if not run:
+        return None
+
+    items = (
+        db.query(AnalysisRunItem)
+        .filter(AnalysisRunItem.analysis_run_id == run_id)
+        .all()
+    )
+
+    total = len(items)
+    completed = sum(1 for i in items if i.scrape_status == ScrapeStatus.ok)
+    failed = sum(1 for i in items if i.scrape_status in {ScrapeStatus.error, ScrapeStatus.network_error})
+    not_found = sum(1 for i in items if i.scrape_status == ScrapeStatus.not_found)
+    blocked = sum(1 for i in items if i.scrape_status == ScrapeStatus.blocked)
+
+    processed = completed + failed + not_found + blocked
+
+    latencies = [i.latency_ms for i in items if i.latency_ms is not None]
+    avg_latency = sum(latencies) / len(latencies) if latencies else None
+    sorted_lat = sorted(latencies)
+    p50 = sorted_lat[len(sorted_lat) // 2] if sorted_lat else None
+    p95 = sorted_lat[int(len(sorted_lat) * 0.95)] if len(sorted_lat) >= 2 else p50
+
+    total_captcha = sum(i.captcha_solves or 0 for i in items)
+    total_retries = sum(i.retries or 0 for i in items)
+
+    retry_rate = total_retries / processed if processed > 0 else None
+    captcha_rate = total_captcha / processed if processed > 0 else None
+    blocked_rate = blocked / total if total > 0 else None
+    network_error = sum(1 for i in items if i.scrape_status == ScrapeStatus.network_error)
+    network_error_rate = network_error / total if total > 0 else None
+
+    elapsed = None
+    ean_per_min = None
+    if run.started_at:
+        end = run.finished_at or datetime.now(timezone.utc)
+        elapsed = (end - run.started_at).total_seconds()
+        if elapsed > 0 and processed > 0:
+            ean_per_min = round(processed / (elapsed / 60), 2)
+
+    captcha_cost_usd = float(os.environ.get("CAPTCHA_COST_USD", "0.002"))
+    cost_per_1000 = None
+    if processed > 0:
+        cost_per_1000 = round((total_captcha * captcha_cost_usd) / processed * 1000, 4)
+
+    return AnalysisRunMetrics(
+        run_id=run.id,
+        total_items=total,
+        completed_items=completed,
+        failed_items=failed,
+        not_found_items=not_found,
+        blocked_items=blocked,
+        avg_latency_ms=round(avg_latency, 1) if avg_latency else None,
+        p50_latency_ms=float(p50) if p50 else None,
+        p95_latency_ms=float(p95) if p95 else None,
+        total_captcha_solves=total_captcha,
+        total_retries=total_retries,
+        retry_rate=round(retry_rate, 4) if retry_rate is not None else None,
+        captcha_rate=round(captcha_rate, 4) if captcha_rate is not None else None,
+        blocked_rate=round(blocked_rate, 4) if blocked_rate is not None else None,
+        network_error_rate=round(network_error_rate, 4) if network_error_rate is not None else None,
+        ean_per_min=ean_per_min,
+        cost_per_1000_ean=cost_per_1000,
+        elapsed_seconds=round(elapsed, 1) if elapsed else None,
+    )
+
+
 def cancel_analysis_run(db: Session, run_id: int) -> AnalysisRun | None:
     run = get_run_status(db, run_id)
     if not run:
         return None
-    if run.status in {AnalysisStatus.completed, AnalysisStatus.failed}:
+    if run.status in {AnalysisStatus.completed, AnalysisStatus.failed, AnalysisStatus.stopped}:
         return run
     run.status = AnalysisStatus.canceled
     run.canceled_at = datetime.now(timezone.utc)
@@ -455,4 +525,5 @@ __all__ = [
     "get_run_results_since",
     "cancel_analysis_run",
     "list_run_task_ids",
+    "get_run_metrics",
 ]
