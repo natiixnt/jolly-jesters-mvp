@@ -493,49 +493,16 @@
     <div class="tab" id="tab-account">
       <div class="page-title">Konto</div>
 
-      <!-- login/register for multi-tenant -->
-      <div class="card" id="acct-auth">
-        <div class="card-label">Logowanie do konta</div>
-        <div class="card-desc">Zaloguj się tokenem API lub zarejestruj nowe konto, żeby korzystać z multi-tenant, limitów i billingu.</div>
-        <div class="row2">
-          <div>
-            <label>Email</label>
-            <input class="inp" id="acct-email" type="email" placeholder="email@firma.pl" />
-          </div>
-          <div>
-            <label>Hasło</label>
-            <input class="inp" id="acct-password" type="password" placeholder="min 10 znaków" />
-          </div>
-        </div>
-        <div class="btn-row">
-          <button class="btn primary" id="acct-login-btn">Zaloguj</button>
-          <button class="btn ghost" id="acct-register-btn">Zarejestruj nowe konto</button>
-        </div>
-        <div class="err" id="acct-error" style="display:none;"></div>
-        <div class="hint" id="acct-status"></div>
+      <!-- no account -->
+      <div class="card" id="acct-notoken">
+        <div class="card-label">Nie zalogowano</div>
+        <div class="card-desc">Zaloguj się na konto API na stronie logowania (zakładka "Konto API" lub "Rejestracja"), żeby korzystać z limitów, billingu i multi-tenant.</div>
+        <div class="btn-row"><a class="btn primary" href="/login" style="text-decoration:none;">Przejdź do logowania</a></div>
       </div>
 
-      <!-- register form (hidden by default) -->
-      <div class="card" id="acct-register-form" style="display:none;">
-        <div class="card-label">Rejestracja</div>
-        <div class="row2">
-          <div><label>Nazwa firmy</label><input class="inp" id="reg-name" placeholder="Moja Firma" /></div>
-          <div><label>Slug (URL)</label><input class="inp" id="reg-slug" placeholder="moja-firma" /></div>
-        </div>
-        <div class="row2">
-          <div><label>Email admina</label><input class="inp" id="reg-email" type="email" placeholder="admin@firma.pl" /></div>
-          <div><label>Hasło</label><input class="inp" id="reg-password" type="password" placeholder="min 10 znaków, wielka litera, cyfra" /></div>
-        </div>
-        <div class="btn-row">
-          <button class="btn primary" id="reg-submit-btn">Zarejestruj</button>
-          <button class="btn ghost" id="reg-cancel-btn">Anuluj</button>
-        </div>
-        <div class="err" id="reg-error" style="display:none;"></div>
-      </div>
-
-      <!-- profile (shown when logged in) -->
+      <!-- profile (shown when token present) -->
       <div class="card" id="acct-profile" style="display:none;">
-        <div class="card-label">Profil</div>
+        <div class="card-label">Twoje konto</div>
         <div class="bento" style="grid-template-columns:1fr 1fr;">
           <div class="stat purple">
             <div class="stat-label">Tenant</div>
@@ -548,7 +515,8 @@
         </div>
         <div class="sbox">
           <div>Email: <strong id="profile-email">-</strong></div>
-          <div style="margin-top:4px;">Token: <code id="profile-token" style="font-size:11px;color:var(--dim);word-break:break-all;">-</code></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--dim);">Token API (do użycia w nagłówku Authorization: Bearer ...)</div>
+          <div style="margin-top:4px;padding:8px;background:var(--bg3);border-radius:6px;font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);word-break:break-all;user-select:all;" id="profile-token">-</div>
         </div>
         <div class="btn-row"><button class="btn ghost" id="acct-logout-btn">Wyloguj z konta API</button></div>
       </div>
@@ -851,53 +819,35 @@
     function fuzzyMatch(q,text){q=q.toLowerCase().replace(/[^a-ząćęłńóśźż0-9\s]/g,'');text=text.toLowerCase();const words=q.split(/\s+/).filter(Boolean);return words.every(w=>{if(text.includes(w))return true;return text.split(/\s+/).some(t=>levenshtein(w,t)<=Math.max(1,Math.floor(w.length/3)));});}
     $('help-search')?.addEventListener('input',e=>{const q=e.target.value.trim();document.querySelectorAll('.help-item').forEach(s=>{s.style.display=(!q||fuzzyMatch(q,(s.textContent+' '+(s.dataset.help||''))))?'':'none';});});
 
-    // ACCOUNT / AUTH
+    // ACCOUNT / AUTH - reads token set by login page
     let apiToken=localStorage.getItem('jj_api_token')||'';
-    let currentProfile=null;
+    let currentProfile=JSON.parse(localStorage.getItem('jj_profile')||'null');
 
     function authHeaders(){return apiToken?{'Authorization':`Bearer ${apiToken}`}:{};}
     async function apiAuthGet(u){const r=await fetch(u,{credentials:'include',headers:authHeaders()});if(!r.ok)throw new Error(r.status);return r.json();}
 
     function showProfile(){
-      if(!apiToken||!currentProfile){hide($('acct-profile'));show($('acct-auth'));hide($('usage-content'));show($('usage-noauth'));hide($('admin-content'));show($('admin-noauth'));return;}
-      hide($('acct-auth'));hide($('acct-register-form'));show($('acct-profile'));
-      setText($('profile-email'),currentProfile.email);
-      setText($('profile-role'),currentProfile.role);
-      setText($('profile-tenant'),currentProfile.tenant_id?.slice(0,8)+'...');
-      setText($('profile-token'),apiToken.slice(0,24)+'...');
-      // show usage + admin
-      show($('usage-content'));hide($('usage-noauth'));
-      loadUsage();
-      if(['owner','admin'].includes(currentProfile.role)){show($('admin-content'));hide($('admin-noauth'));loadAdmin();}
+      const hasToken=!!apiToken&&!!currentProfile;
+      if(hasToken){
+        hide($('acct-notoken'));show($('acct-profile'));
+        setText($('profile-email'),currentProfile.email||'-');
+        setText($('profile-role'),currentProfile.role||'-');
+        setText($('profile-tenant'),currentProfile.tenant_id?.slice(0,12)||'-');
+        setText($('profile-token'),apiToken);
+        show($('usage-content'));hide($('usage-noauth'));
+        if(['owner','admin'].includes(currentProfile.role)){show($('admin-content'));hide($('admin-noauth'));}
+      }else{
+        show($('acct-notoken'));hide($('acct-profile'));
+        hide($('usage-content'));show($('usage-noauth'));
+        hide($('admin-content'));show($('admin-noauth'));
+      }
     }
 
-    $('acct-login-btn')?.addEventListener('click',async()=>{
-      hide($('acct-error'));
-      const email=$('acct-email')?.value, pw=$('acct-password')?.value;
-      if(!email||!pw){show($('acct-error'));setText($('acct-error'),'podaj email i hasło');return;}
-      try{
-        const d=await apiPost('/api/v1/tenants/login',{email,password:pw});
-        apiToken=d.token;localStorage.setItem('jj_api_token',apiToken);
-        currentProfile=d;showProfile();
-      }catch(e){show($('acct-error'));setText($('acct-error'),'błąd logowania');}
+    $('acct-logout-btn')?.addEventListener('click',()=>{
+      apiToken='';currentProfile=null;
+      localStorage.removeItem('jj_api_token');localStorage.removeItem('jj_profile');
+      showProfile();
     });
-
-    $('acct-register-btn')?.addEventListener('click',()=>{show($('acct-register-form'));});
-    $('reg-cancel-btn')?.addEventListener('click',()=>{hide($('acct-register-form'));});
-
-    $('reg-submit-btn')?.addEventListener('click',async()=>{
-      hide($('reg-error'));
-      const name=$('reg-name')?.value,slug=$('reg-slug')?.value,email=$('reg-email')?.value,pw=$('reg-password')?.value;
-      if(!name||!slug||!email||!pw){show($('reg-error'));setText($('reg-error'),'wypełnij wszystkie pola');return;}
-      try{
-        const d=await apiPost('/api/v1/tenants/register',{name,slug,admin_email:email,admin_password:pw});
-        apiToken=d.token;localStorage.setItem('jj_api_token',apiToken);
-        currentProfile={email:d.email,role:'owner',tenant_id:d.tenant_id};
-        showProfile();hide($('acct-register-form'));
-      }catch(e){show($('reg-error'));setText($('reg-error'),'błąd rejestracji - sprawdź dane');}
-    });
-
-    $('acct-logout-btn')?.addEventListener('click',()=>{apiToken='';currentProfile=null;localStorage.removeItem('jj_api_token');showProfile();});
 
     // USAGE
     async function loadUsage(){
@@ -945,14 +895,8 @@
       show($('admin-add-error'));
     });
 
-    // restore session
-    if(apiToken){
-      // try to validate token by fetching usage
-      apiAuthGet('/api/v1/billing/usage').then(u=>{
-        currentProfile=currentProfile||{email:'zalogowany',role:'member',tenant_id:''};
-        showProfile();
-      }).catch(()=>{apiToken='';localStorage.removeItem('jj_api_token');});
-    }
+    // restore session from localStorage (token set by login page)
+    showProfile();
 
     let sseConn=null;
     function connectSSE(id){if(sseConn){sseConn.close();sseConn=null;}try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);es.addEventListener('progress',()=>pollActive());es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();loadDashStats();});es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});es.onerror=()=>{es.close();sseConn=null;};sseConn=es;}catch(e){}}

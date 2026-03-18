@@ -4,66 +4,192 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jolly Jesters</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root{--accent:136,58,234;--blue:99,102,241;}
     *{box-sizing:border-box;margin:0;padding:0;}
     body{
       min-height:100vh; display:flex; align-items:center; justify-content:center;
-      font-family:Inter,system-ui,-apple-system,sans-serif;
+      font-family:'Inter',system-ui,sans-serif;
       background:#09090b; color:#fafafa;
     }
-    .wrap{width:min(400px,92vw); padding:40px 0;}
-    .logo{font-size:13px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#a1a1aa; margin-bottom:32px;}
-    h1{font-size:28px; font-weight:300; letter-spacing:-.03em; margin-bottom:8px;}
-    .sub{color:#71717a; font-size:14px; margin-bottom:32px; line-height:1.5;}
-    label{display:block; font-size:12px; font-weight:600; color:#a1a1aa; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px;}
-    input[type=password],input[type=text]{
-      width:100%; height:48px; padding:0 16px; border-radius:8px;
-      border:1px solid #27272a; background:#18181b; color:#fafafa;
-      font-size:15px; outline:none; transition:border-color .2s;
+    body::before{content:'';position:fixed;top:-30%;left:-20%;width:60%;height:70%;background:radial-gradient(ellipse,rgba(var(--accent),.06),transparent 70%);pointer-events:none;}
+    body::after{content:'';position:fixed;bottom:-30%;right:-15%;width:50%;height:60%;background:radial-gradient(ellipse,rgba(var(--blue),.04),transparent 70%);pointer-events:none;}
+    .wrap{width:min(440px,92vw);padding:40px 0;position:relative;z-index:1;}
+    .logo{font-size:12px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(var(--accent),.7);margin-bottom:32px;}
+    h1{font-size:28px;font-weight:300;letter-spacing:-.03em;margin-bottom:8px;}
+    .sub{color:#71717a;font-size:14px;margin-bottom:28px;line-height:1.5;}
+    /* tabs */
+    .tabs{display:flex;gap:0;margin-bottom:28px;border:1px solid #27272a;border-radius:10px;overflow:hidden;}
+    .tabs button{flex:1;padding:10px;border:none;background:transparent;color:#71717a;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;font-family:inherit;}
+    .tabs button:hover{color:#a1a1aa;}
+    .tabs button.active{background:rgba(var(--accent),.1);color:rgb(var(--accent));font-weight:600;}
+    .tabs button+button{border-left:1px solid #27272a;}
+    .panel{display:none;}
+    .panel.active{display:block;}
+    /* form */
+    label{display:block;font-size:11px;font-weight:600;color:#a1a1aa;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+    input{
+      width:100%;height:44px;padding:0 14px;border-radius:8px;
+      border:1px solid #27272a;background:#111113;color:#fafafa;
+      font-size:14px;outline:none;transition:border-color .2s;margin-bottom:14px;font-family:inherit;
     }
-    input:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15);}
-    .pw-row{display:flex; gap:12px; align-items:center;}
-    .pw-row input{flex:1;}
-    .show-btn{
-      font-size:11px; color:#71717a; background:none; border:1px solid #27272a;
-      border-radius:6px; padding:6px 10px; cursor:pointer; white-space:nowrap;
+    input:focus{border-color:rgba(var(--accent),.5);box-shadow:0 0 0 3px rgba(var(--accent),.08);}
+    input::placeholder{color:#3f3f46;}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:420px){.row{grid-template-columns:1fr;}}
+    .submit{
+      width:100%;height:44px;margin-top:8px;border:none;border-radius:8px;
+      background:rgba(var(--accent),.12);border:1px solid rgba(var(--accent),.3);
+      color:rgb(var(--accent));font-size:14px;font-weight:600;
+      cursor:pointer;transition:all .2s;font-family:inherit;
     }
-    .show-btn:hover{border-color:#3f3f46; color:#a1a1aa;}
-    button[type=submit]{
-      width:100%; height:48px; margin-top:24px; border:none; border-radius:8px;
-      background:#fafafa; color:#09090b; font-size:14px; font-weight:600;
-      cursor:pointer; transition:opacity .15s;
-    }
-    button[type=submit]:hover{opacity:.9;}
-    .error{margin-top:16px; padding:12px 16px; border-radius:8px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.2); color:#fca5a5; font-size:13px;}
-    .footer{margin-top:48px; text-align:center; font-size:12px; color:#3f3f46;}
+    .submit:hover{background:rgba(var(--accent),.2);border-color:rgba(var(--accent),.5);box-shadow:0 0 20px rgba(var(--accent),.1);}
+    .error{margin-top:16px;padding:12px 16px;border-radius:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:#fca5a5;font-size:13px;}
+    .success{margin-top:16px;padding:12px 16px;border-radius:8px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);color:#4ade80;font-size:13px;}
+    .hint{color:#3f3f46;font-size:12px;margin-top:8px;}
+    .footer{margin-top:48px;text-align:center;font-size:12px;color:#27272a;}
+    .show-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;color:#55555e;background:none;border:1px solid #27272a;border-radius:5px;padding:3px 8px;cursor:pointer;}
+    .show-toggle:hover{color:#a1a1aa;border-color:#3f3f46;}
+    .pw-wrap{position:relative;}
+    .pw-wrap input{padding-right:60px;}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="logo">jolly jesters</div>
-    <h1>Witaj z powrotem</h1>
-    <p class="sub">Zaloguj sie do panelu analizy oplacalnosci</p>
-    <form method="post" action="/login">
-      <label for="password">haslo dostepu</label>
-      <div class="pw-row">
-        <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="wprowadz haslo" />
-        <button type="button" class="show-btn" id="show-btn">pokaz</button>
+    <div class="logo">Jolly Jesters</div>
+    <h1>Zaloguj się</h1>
+    <p class="sub">Wybierz sposób logowania do panelu</p>
+
+    <div class="tabs">
+      <button class="active" data-panel="quick">Hasło panelu</button>
+      <button data-panel="account">Konto API</button>
+      <button data-panel="register">Rejestracja</button>
+    </div>
+
+    <!-- PANEL: Quick password (legacy) -->
+    <div class="panel active" id="panel-quick">
+      <p style="color:#71717a;font-size:13px;margin-bottom:16px;">Szybkie logowanie jednym hasłem (tryb single-tenant)</p>
+      <form method="post" action="/login">
+        <label>Hasło dostępu</label>
+        <div class="pw-wrap">
+          <input type="password" id="pw-quick" name="password" required autocomplete="current-password" placeholder="wpisz hasło panelu" />
+          <button type="button" class="show-toggle" onclick="togglePw('pw-quick',this)">pokaż</button>
+        </div>
+        <button type="submit" class="submit">Zaloguj do panelu</button>
+      </form>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </div>
+
+    <!-- PANEL: Account login -->
+    <div class="panel" id="panel-account">
+      <p style="color:#71717a;font-size:13px;margin-bottom:16px;">Zaloguj się na konto firmowe (multi-tenant z limitem i billingiem)</p>
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="email@firma.pl" />
+      <label>Hasło</label>
+      <div class="pw-wrap">
+        <input type="password" id="login-pw" placeholder="hasło konta" />
+        <button type="button" class="show-toggle" onclick="togglePw('login-pw',this)">pokaż</button>
       </div>
-      <button type="submit">zaloguj</button>
-    </form>
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
-    <div class="footer">analiza oplacalnosci produktow na Allegro</div>
+      <button class="submit" id="login-btn">Zaloguj na konto</button>
+      <div class="error" id="login-error" style="display:none;"></div>
+    </div>
+
+    <!-- PANEL: Register -->
+    <div class="panel" id="panel-register">
+      <p style="color:#71717a;font-size:13px;margin-bottom:16px;">Stwórz nowe konto firmowe z własnym limitem EAN-ów i billingiem</p>
+      <div class="row">
+        <div><label>Nazwa firmy</label><input id="reg-name" placeholder="Moja Firma" /></div>
+        <div><label>Slug (w URL)</label><input id="reg-slug" placeholder="moja-firma" /></div>
+      </div>
+      <div class="row">
+        <div><label>Email admina</label><input type="email" id="reg-email" placeholder="admin@firma.pl" /></div>
+        <div><label>Imię</label><input id="reg-display" placeholder="Jan Kowalski" /></div>
+      </div>
+      <label>Hasło</label>
+      <div class="pw-wrap">
+        <input type="password" id="reg-pw" placeholder="min 10 znaków, wielka litera, cyfra" />
+        <button type="button" class="show-toggle" onclick="togglePw('reg-pw',this)">pokaż</button>
+      </div>
+      <div class="hint">Min 10 znaków, wielka litera, cyfra</div>
+      <button class="submit" id="reg-btn">Zarejestruj konto</button>
+      <div class="error" id="reg-error" style="display:none;"></div>
+      <div class="success" id="reg-success" style="display:none;"></div>
+    </div>
+
+    <div class="footer">Analiza opłacalności produktów na Allegro</div>
   </div>
+
   <script>
-    const pwd=document.getElementById('password'), btn=document.getElementById('show-btn');
-    btn?.addEventListener('click',()=>{
-      const show=pwd.type==='password';
-      pwd.type=show?'text':'password';
-      btn.textContent=show?'ukryj':'pokaz';
+    // tab switching
+    document.querySelectorAll('.tabs button').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+        document.getElementById('panel-'+btn.dataset.panel)?.classList.add('active');
+      });
     });
+
+    function togglePw(id,btn){
+      const inp=document.getElementById(id);
+      const show=inp.type==='password';
+      inp.type=show?'text':'password';
+      btn.textContent=show?'ukryj':'pokaż';
+    }
+
+    // Account login
+    document.getElementById('login-btn')?.addEventListener('click',async()=>{
+      const err=document.getElementById('login-error');
+      err.style.display='none';
+      const email=document.getElementById('login-email')?.value;
+      const pw=document.getElementById('login-pw')?.value;
+      if(!email||!pw){err.textContent='Podaj email i hasło';err.style.display='';return;}
+      try{
+        const r=await fetch('/api/v1/tenants/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw})});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Błąd logowania');}
+        const d=await r.json();
+        localStorage.setItem('jj_api_token',d.token);
+        localStorage.setItem('jj_profile',JSON.stringify(d));
+        // now login to panel with UI password (auto-redirect)
+        // for now, redirect to panel - user needs panel password too
+        window.location.href='/';
+      }catch(e){err.textContent=e.message||'Błąd logowania';err.style.display='';}
+    });
+
+    // Register
+    document.getElementById('reg-btn')?.addEventListener('click',async()=>{
+      const err=document.getElementById('reg-error');
+      const ok=document.getElementById('reg-success');
+      err.style.display='none';ok.style.display='none';
+      const name=document.getElementById('reg-name')?.value;
+      const slug=document.getElementById('reg-slug')?.value;
+      const email=document.getElementById('reg-email')?.value;
+      const display=document.getElementById('reg-display')?.value;
+      const pw=document.getElementById('reg-pw')?.value;
+      if(!name||!slug||!email||!pw){err.textContent='Wypełnij wszystkie pola';err.style.display='';return;}
+      try{
+        const r=await fetch('/api/v1/tenants/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,slug,admin_email:email,admin_password:pw,admin_name:display})});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Błąd rejestracji');}
+        const d=await r.json();
+        localStorage.setItem('jj_api_token',d.token);
+        localStorage.setItem('jj_profile',JSON.stringify(d));
+        ok.textContent='Konto utworzone! Możesz teraz zalogować się do panelu hasłem.';
+        ok.style.display='';
+        // switch to quick login tab after 2s
+        setTimeout(()=>{document.querySelector('.tabs button[data-panel="quick"]')?.click();},2000);
+      }catch(e){err.textContent=e.message||'Błąd rejestracji';err.style.display='';}
+    });
+
+    // auto-generate slug from name
+    document.getElementById('reg-name')?.addEventListener('input',e=>{
+      const slug=e.target.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+      const s=document.getElementById('reg-slug');
+      if(s&&!s.dataset.manual)s.value=slug;
+    });
+    document.getElementById('reg-slug')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
   </script>
 </body>
 </html>
