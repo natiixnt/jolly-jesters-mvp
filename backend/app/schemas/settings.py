@@ -1,10 +1,16 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
 
 class SettingsRead(BaseModel):
     cache_ttl_days: int
+    stoploss_enabled: bool = True
+    stoploss_window_size: int = 20
+    stoploss_max_error_rate: float = 0.50
+    stoploss_max_captcha_rate: float = 0.80
+    stoploss_max_consecutive_errors: int = 10
 
     class Config:
         orm_mode = True
@@ -12,6 +18,11 @@ class SettingsRead(BaseModel):
 
 class SettingsUpdate(BaseModel):
     cache_ttl_days: int = Field(..., ge=0, le=365)
+    stoploss_enabled: Optional[bool] = None
+    stoploss_window_size: Optional[int] = Field(None, ge=5, le=1000)
+    stoploss_max_error_rate: Optional[float] = Field(None, ge=0.0, le=1.0)
+    stoploss_max_captcha_rate: Optional[float] = Field(None, ge=0.0, le=1.0)
+    stoploss_max_consecutive_errors: Optional[int] = Field(None, ge=1, le=1000)
 
 
 class CurrencyRateEntry(BaseModel):
@@ -39,3 +50,45 @@ class ProxyReloadResponse(BaseModel):
     status: str
     count: int | None = None
     path: str | None = None
+
+
+# -- Network proxy pool --
+
+class NetworkProxyOut(BaseModel):
+    id: int
+    url: str
+    label: str | None = None
+    is_active: bool
+    success_count: int
+    fail_count: int
+    health_score: float
+    quarantine_until: datetime | None = None
+    quarantine_reason: str | None = None
+    last_success_at: datetime | None = None
+    last_fail_at: datetime | None = None
+    created_at: datetime | None = None
+
+    class Config:
+        orm_mode = True
+
+
+class NetworkProxyHealthSummary(BaseModel):
+    total: int
+    active: int
+    quarantined: int
+    available: int
+    avg_health_score: float | None = None
+    total_success: int
+    total_fail: int
+    success_rate: float | None = None
+
+
+class NetworkProxyImportResult(BaseModel):
+    imported: int
+    skipped: int
+    total_lines: int
+
+
+class NetworkProxyQuarantineRequest(BaseModel):
+    duration_minutes: int = Field(15, ge=1, le=1440)
+    reason: str = "manual"

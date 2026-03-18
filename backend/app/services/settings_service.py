@@ -34,10 +34,25 @@ def get_settings(db: Session) -> Setting:
 def update_settings(
     db: Session,
     cache_ttl_days: int,
+    stoploss_enabled: bool | None = None,
+    stoploss_window_size: int | None = None,
+    stoploss_max_error_rate: float | None = None,
+    stoploss_max_captcha_rate: float | None = None,
+    stoploss_max_consecutive_errors: int | None = None,
 ) -> Setting:
     record = get_settings(db)
     # allow 0 to disable cache; cap upper bound for sanity
     record.cache_ttl_days = max(0, min(365, cache_ttl_days))
+    if stoploss_enabled is not None:
+        record.stoploss_enabled = stoploss_enabled
+    if stoploss_window_size is not None:
+        record.stoploss_window_size = stoploss_window_size
+    if stoploss_max_error_rate is not None:
+        record.stoploss_max_error_rate = stoploss_max_error_rate
+    if stoploss_max_captcha_rate is not None:
+        record.stoploss_max_captcha_rate = stoploss_max_captcha_rate
+    if stoploss_max_consecutive_errors is not None:
+        record.stoploss_max_consecutive_errors = stoploss_max_consecutive_errors
     db.commit()
     db.refresh(record)
     return record

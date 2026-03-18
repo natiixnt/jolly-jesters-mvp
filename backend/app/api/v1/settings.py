@@ -21,6 +21,11 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
     record = settings_service.update_settings(
         db=db,
         cache_ttl_days=payload.cache_ttl_days,
+        stoploss_enabled=payload.stoploss_enabled,
+        stoploss_window_size=payload.stoploss_window_size,
+        stoploss_max_error_rate=payload.stoploss_max_error_rate,
+        stoploss_max_captcha_rate=payload.stoploss_max_captcha_rate,
+        stoploss_max_consecutive_errors=payload.stoploss_max_consecutive_errors,
     )
     return record
 
