@@ -9,6 +9,7 @@ class NetworkProxy(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     url = Column(Text, nullable=False, unique=True)
+    url_hash = Column(String(16), nullable=True, index=True)
     label = Column(String(128), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default="true", default=True)
 

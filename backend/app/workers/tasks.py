@@ -31,6 +31,7 @@ from app.services import proxy_pool_service
 from app.providers import get_provider
 from app.services.alerting_service import alert_stoploss
 from app.services.billing_service import record_run_usage
+from app.services.circuit_breaker import CircuitBreaker
 from app.utils.allegro_scraper_client import fetch_via_allegro_scraper
 
 logger = logging.getLogger(__name__)
@@ -43,10 +44,24 @@ celery_app = Celery(
 celery_app.conf.task_default_queue = ANALYSIS_QUEUE
 celery = celery_app
 
+_scraper_breaker = CircuitBreaker(name="scraper", failure_threshold=10, recovery_timeout=60)
+
+
+_worker_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _get_loop() -> asyncio.AbstractEventLoop:
+    global _worker_loop
+    if _worker_loop is None or _worker_loop.is_closed():
+        _worker_loop = asyncio.new_event_loop()
+    return _worker_loop
+
 
 @worker_process_init.connect
 def _reset_db_connections(**kwargs):
     engine.dispose()
+    global _worker_loop
+    _worker_loop = asyncio.new_event_loop()
 
 
 def _error_result(ean: str, error: str) -> AllegroResult:
@@ -254,8 +269,31 @@ def _update_run_metadata(
     run.run_metadata = metadata
 
 
+def _acquire_run_lock(run_id: int) -> bool:
+    """Acquire a Redis-based distributed lock for run processing."""
+    import redis
+    try:
+        r = redis.from_url(settings.redis_url, decode_responses=True)
+        return bool(r.set(f"run_lock:{run_id}", "1", nx=True, ex=3600))
+    except Exception:
+        return True  # fallback: allow if Redis unavailable
+
+
+def _release_run_lock(run_id: int) -> None:
+    import redis
+    try:
+        r = redis.from_url(settings.redis_url, decode_responses=True)
+        r.delete(f"run_lock:{run_id}")
+    except Exception:
+        pass
+
+
 @celery_app.task(acks_late=True, bind=True)
 def run_analysis_task(self, run_id: int):
+    if not _acquire_run_lock(run_id):
+        logger.warning("RUN_TASK run_id=%s already locked, skipping", run_id)
+        return
+
     db = SessionLocal()
     try:
         run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
@@ -345,12 +383,17 @@ def run_analysis_task(self, run_id: int):
                 now=now,
             ):
                 scraper_request_count += 1
-                try:
-                    provider = get_provider()
-                    result = asyncio.run(provider.fetch(item.ean, run_id=str(run.id)))
-                except Exception as exc:  # pragma: no cover - defensive
-                    logger.exception("RUN_TASK unexpected error ean=%s", item.ean)
-                    result = _error_result(item.ean, f"unexpected:{type(exc).__name__}")
+                if _scraper_breaker.is_open():
+                    result = _error_result(item.ean, "circuit_breaker_open")
+                else:
+                    try:
+                        provider = get_provider()
+                        result = _get_loop().run_until_complete(provider.fetch(item.ean, run_id=str(run.id)))
+                        _scraper_breaker.record_success()
+                    except Exception as exc:  # pragma: no cover - defensive
+                        logger.exception("RUN_TASK unexpected error ean=%s", item.ean)
+                        result = _error_result(item.ean, f"unexpected:{type(exc).__name__}")
+                        _scraper_breaker.record_failure()
 
                 _apply_scraped_result(db, item, product, category, result)
             else:
@@ -429,3 +472,4 @@ def run_analysis_task(self, run_id: int):
                 logger.exception("BILLING usage recording failed run_id=%s", run.id)
     finally:
         db.close()
+        _release_run_lock(run_id)

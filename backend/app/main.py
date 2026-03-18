@@ -32,10 +32,12 @@ app = FastAPI(
 )
 logger = logging.getLogger(__name__)
 
+_cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
+_cors_origins = [o.strip() for o in _cors_origins if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins or ["*"],
+    allow_credentials=bool(_cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -96,7 +98,7 @@ def _wants_html(request: Request) -> bool:
 async def enforce_basic_auth(request: Request, call_next):
     """Protect all routes with cookie-based login; brute-force guard on failures."""
     # Test-mode bypass (used in CI/pytest)
-    if os.getenv("UI_AUTH_BYPASS") or os.getenv("PYTEST_CURRENT_TEST"):
+    if os.getenv("PYTEST_CURRENT_TEST"):
         return await call_next(request)
 
     client_ip = request.client.host if request.client else "unknown"
@@ -140,7 +142,15 @@ def index(request: Request):
 def healthcheck(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     scraper = check_scraper_health()
-    return {"status": "ok", "scraper": scraper}
+    # redis check
+    redis_ok = False
+    try:
+        import redis
+        r = redis.from_url(settings.redis_url, decode_responses=True, socket_timeout=2)
+        redis_ok = r.ping()
+    except Exception:
+        pass
+    return {"status": "ok", "scraper": scraper, "redis": "ok" if redis_ok else "error"}
 
 
 @app.get("/healthz")
@@ -163,7 +173,7 @@ def login_submit(request: Request, password: str = Form(...)):
         if len(FAILED_AUTH[client_ip]) >= fail_limit:
             return templates.TemplateResponse("login.html", {"request": request, "error": "Too many attempts, try later."}, status_code=429)
     expected = settings.ui_password or "1234"
-    if password != expected:
+    if not hmac.compare_digest(password, expected):
         FAILED_AUTH.setdefault(client_ip, []).append(time.time())
         return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid password"}, status_code=401)
     token, ts = _issue_cookie()
@@ -174,7 +184,7 @@ def login_submit(request: Request, password: str = Form(...)):
         httponly=True,
         max_age=max(1, (settings.ui_session_ttl_hours or 24) * 3600),
         samesite="lax",
-        secure=False,
+        secure=os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes"),
         path="/",
     )
     return response

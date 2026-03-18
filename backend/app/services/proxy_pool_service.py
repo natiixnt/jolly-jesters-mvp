@@ -68,7 +68,7 @@ def import_from_csv(db: Session, data: bytes) -> Dict:
             skipped += 1
             continue
 
-        db.add(NetworkProxy(url=url, label=label))
+        db.add(NetworkProxy(url=url, url_hash=proxy_url_hash(url), label=label))
         imported += 1
 
     db.commit()
@@ -187,12 +187,8 @@ def proxy_url_hash(url: str) -> str:
 
 
 def _find_by_url_hash(db: Session, url_hash: str) -> Optional[NetworkProxy]:
-    """Find proxy by URL hash. Scans all proxies (small table)."""
-    proxies = db.query(NetworkProxy).all()
-    for p in proxies:
-        if proxy_url_hash(p.url) == url_hash:
-            return p
-    return None
+    """Find proxy by indexed url_hash column."""
+    return db.query(NetworkProxy).filter(NetworkProxy.url_hash == url_hash).first()
 
 
 def _count_recent_consecutive_fails(proxy: NetworkProxy) -> int:

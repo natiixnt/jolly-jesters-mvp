@@ -25,5 +25,5 @@ class Category(Base):
         nullable=False,
     )
 
-    products = relationship("Product", back_populates="category", cascade="all, delete")
-    analysis_runs = relationship("AnalysisRun", back_populates="category", cascade="all, delete")
+    products = relationship("Product", back_populates="category")
+    analysis_runs = relationship("AnalysisRun", back_populates="category")

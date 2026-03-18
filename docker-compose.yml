@@ -94,6 +94,8 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
     env_file:
       - ./backend/.env
     environment:

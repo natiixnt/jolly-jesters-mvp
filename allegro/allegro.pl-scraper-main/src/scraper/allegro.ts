@@ -85,7 +85,7 @@ export default class Allegro {
                 'user-agent': USER_AGENT,
             },
             withRandomTLSExtensionOrder: true,
-            insecureSkipVerify: true,
+            insecureSkipVerify: false,
             headerOrder: [
                 'host',
                 'user-agent',

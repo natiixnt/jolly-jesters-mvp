@@ -9,6 +9,10 @@ engine = create_engine(
     settings.db_url,
     echo=settings.sqlalchemy_echo,
     future=True,
+    pool_size=20,
+    max_overflow=40,
+    pool_pre_ping=True,
+    pool_recycle=1800,
 )
 SessionLocal = sessionmaker(
     autocommit=False,

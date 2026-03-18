@@ -105,7 +105,8 @@ def build_cached_worklist(
                 raise ValueError("Invalid source filter")
 
     if ean_contains and ean_contains.strip():
-        base = base.filter(Product.ean.ilike(f"%{ean_contains.strip()}%"))
+        safe_ean = ean_contains.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        base = base.filter(Product.ean.ilike(f"%{safe_ean}%"))
 
     filtered_count = base.count()
 

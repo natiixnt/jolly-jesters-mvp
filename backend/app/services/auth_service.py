@@ -17,7 +17,11 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+_jwt_secret_raw = os.getenv("JWT_SECRET", "")
+if not _jwt_secret_raw:
+    logger.warning("JWT_SECRET not set - using random secret (tokens will not survive restart)")
+    _jwt_secret_raw = secrets.token_hex(32)
+JWT_SECRET = _jwt_secret_raw
 TOKEN_TTL_HOURS = int(os.getenv("TOKEN_TTL_HOURS", "24"))
 
 

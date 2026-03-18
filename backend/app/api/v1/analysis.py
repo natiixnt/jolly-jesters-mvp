@@ -67,9 +67,16 @@ async def upload_analysis(
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
     if not file.filename.lower().endswith((".xls", ".xlsx", ".csv")):
-        raise HTTPException(status_code=400, detail="Plik musi być .xls/.xlsx/.csv")
+        raise HTTPException(status_code=400, detail="Plik musi byc .xls/.xlsx/.csv")
 
     _check_concurrent_limit(db)
+
+    # enforce max upload size (50 MB)
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"Plik za duzy (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
+    await file.seek(0)
 
     run = await handle_upload(db, category, file)
     result = run_analysis_task.delay(run.id)
@@ -167,6 +174,8 @@ def get_analysis_results(
     debug: bool = False,
     db: Session = Depends(get_db),
 ):
+    offset = max(0, offset)
+    limit = max(1, min(limit, 1000))
     results = analysis_service.get_run_results(
         db,
         run_id=run_id,
