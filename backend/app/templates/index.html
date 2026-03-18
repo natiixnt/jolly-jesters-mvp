@@ -3,510 +3,432 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Jolly Jesters - analiza oplacalnosci</title>
+  <title>Jolly Jesters</title>
   <style>
     :root{
-      --bg0:#070A12; --bg1:#0A1020;
-      --card:rgba(14,22,44,.92); --card2:rgba(10,16,32,.92);
-      --text:#E7EDF7; --muted:#A7B3C7;
-      --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.07);
-      --shadow:0 18px 46px rgba(0,0,0,.45);
-      --r:16px; --r2:12px; --pad:20px;
-      --accent:#60A5FA; --accent2:#34D399;
-      --danger:#FCA5A5; --ok:#34D399; --warn:#FBBF24;
-      --btn:linear-gradient(135deg,#60A5FA,#34D399); --btnText:#06101F;
+      --bg:#09090b; --bg2:#18181b; --bg3:#27272a;
+      --text:#fafafa; --muted:#a1a1aa; --dim:#71717a; --subtle:#3f3f46;
+      --border:#27272a; --border2:#1f1f23;
+      --blue:#3b82f6; --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+      --r:8px; --r2:12px;
     }
-    /* light theme */
     html.light{
-      --bg0:#f5f7fa; --bg1:#ebeef3;
-      --card:rgba(255,255,255,.95); --card2:rgba(248,249,252,.95);
-      --text:#1a1a2e; --muted:#5a6578;
-      --border:rgba(0,0,0,.10); --border2:rgba(0,0,0,.06);
-      --shadow:0 8px 24px rgba(0,0,0,.08);
-      --accent:#2563eb; --accent2:#059669;
-      --danger:#dc2626; --ok:#059669; --warn:#d97706;
-      --btn:linear-gradient(135deg,#2563eb,#059669); --btnText:#ffffff;
+      --bg:#ffffff; --bg2:#f4f4f5; --bg3:#e4e4e7;
+      --text:#09090b; --muted:#71717a; --dim:#a1a1aa; --subtle:#d4d4d8;
+      --border:#e4e4e7; --border2:#f4f4f5;
     }
-    html.light body{background:#f0f2f5;}
-    html.light .sidebar{background:rgba(255,255,255,.97); border-right-color:rgba(0,0,0,.08);}
-    html.light .sidebar-nav button.active{background:rgba(37,99,235,.1); color:var(--accent);}
-    html.light .sbox{background:rgba(0,0,0,.02);}
-    html.light .mcard{background:rgba(0,0,0,.03);}
-    html.light .dz{border-color:rgba(0,0,0,.15); background:rgba(0,0,0,.02);}
-    html.light .control{background:rgba(0,0,0,.03); border-color:rgba(0,0,0,.1); color:var(--text);}
-    html.light .modal{background:rgba(255,255,255,.98);}
-    html.light .tbl td{border-bottom-color:rgba(0,0,0,.06);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    html,body{height:100%;}
     body{
-      color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-      background:radial-gradient(1200px 700px at 20% -10%,rgba(96,165,250,.15),transparent 55%),radial-gradient(900px 600px at 85% 0%,rgba(52,211,153,.12),transparent 55%),linear-gradient(180deg,var(--bg0),var(--bg1));
-      display:flex; min-height:100vh;
+      font-family:Inter,system-ui,-apple-system,sans-serif;
+      background:var(--bg); color:var(--text);
+      display:flex; min-height:100vh; font-size:14px; line-height:1.5;
     }
-    /* sidebar */
-    .sidebar{
-      width:220px; min-height:100vh; flex-shrink:0;
-      background:rgba(10,16,32,.95); border-right:1px solid var(--border);
-      display:flex; flex-direction:column; padding:20px 0;
-      position:sticky; top:0; height:100vh; overflow-y:auto;
+
+    /* SIDEBAR */
+    .side{
+      width:240px; flex-shrink:0; border-right:1px solid var(--border);
+      display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;
+      background:var(--bg);
     }
-    .sidebar-brand{padding:0 16px 20px; border-bottom:1px solid var(--border2);}
-    .sidebar-brand h1{font-size:16px; letter-spacing:-.01em;}
-    .sidebar-brand p{font-size:11px; color:var(--muted); margin-top:4px;}
-    .sidebar-nav{flex:1; padding:12px 8px; display:flex; flex-direction:column; gap:2px;}
-    .sidebar-nav button{
-      width:100%; text-align:left; padding:10px 12px; border:none; background:none;
-      color:var(--muted); font-size:13px; font-weight:500; border-radius:8px; cursor:pointer;
-      display:flex; align-items:center; gap:10px; transition:background .15s;
+    .side-head{padding:20px 20px 16px; border-bottom:1px solid var(--border);}
+    .side-head h1{font-size:14px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
+    .side-nav{flex:1; padding:8px;}
+    .side-nav button{
+      width:100%; text-align:left; padding:9px 14px; border:none; background:none;
+      color:var(--muted); font-size:13px; font-weight:500; border-radius:var(--r); cursor:pointer;
+      display:flex; align-items:center; gap:10px; transition:all .12s;
     }
-    .sidebar-nav button:hover{background:rgba(255,255,255,.05); color:var(--text);}
-    .sidebar-nav button.active{background:rgba(96,165,250,.12); color:var(--accent); font-weight:600;}
-    .sidebar-nav button .icon{font-size:16px; width:20px; text-align:center;}
-    .sidebar-footer{padding:12px 16px; border-top:1px solid var(--border2); display:flex; flex-direction:column; gap:8px;}
-    .sidebar-footer .status-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);}
-    .dot{width:8px;height:8px;border-radius:99px;background:var(--warn);}
-    .dot.ok{background:var(--ok);}
-    /* main content */
-    .main{flex:1; padding:28px 32px 56px; overflow-y:auto; max-width:1100px;}
-    /* mobile hamburger */
-    .hamburger{display:none; position:fixed; top:12px; left:12px; z-index:3000; width:40px; height:40px; border-radius:10px; border:1px solid var(--border2); background:var(--card); color:var(--text); font-size:20px; cursor:pointer; align-items:center; justify-content:center;}
-    @media(max-width:860px){
-      .sidebar{position:fixed; left:-260px; z-index:2500; transition:left .25s ease; height:100vh; width:240px;}
-      .sidebar.open{left:0;}
-      .sidebar-overlay{display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:2400;}
-      .sidebar-overlay.open{display:block;}
+    .side-nav button:hover{background:var(--bg2); color:var(--text);}
+    .side-nav button.active{background:var(--bg2); color:var(--text); font-weight:600;}
+    .side-nav button .ic{width:18px; text-align:center; font-size:15px; opacity:.6;}
+    .side-foot{padding:12px 16px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px;}
+    .side-foot .status{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim);}
+    .dot{width:7px;height:7px;border-radius:99px;background:var(--amber);}
+    .dot.ok{background:var(--green);}
+    .side-foot .row{display:flex; gap:8px; align-items:center;}
+    .side-foot a,.side-foot button{font-size:12px; color:var(--dim); text-decoration:none; background:none; border:1px solid var(--border); border-radius:6px; padding:4px 10px; cursor:pointer;}
+    .side-foot a:hover,.side-foot button:hover{color:var(--text); border-color:var(--subtle);}
+
+    /* MOBILE */
+    .hamburger{display:none; position:fixed; top:12px; left:12px; z-index:3000; width:36px; height:36px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:18px; cursor:pointer; align-items:center; justify-content:center;}
+    .overlay{display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2400;}
+    .overlay.open{display:block;}
+    @media(max-width:768px){
+      .side{position:fixed; left:-260px; z-index:2500; transition:left .2s; width:240px;}
+      .side.open{left:0;}
       .hamburger{display:flex;}
-      .main{padding:16px; padding-top:56px;}
+      .main{padding-top:52px;}
     }
-    /* tab panels */
-    .tab-panel{display:none;}
-    .tab-panel.active{display:block;}
-    /* cards */
-    .card{
-      background:linear-gradient(180deg,var(--card),var(--card2));
-      border:1px solid var(--border); border-radius:var(--r);
-      box-shadow:var(--shadow); padding:var(--pad); margin-bottom:16px;
+
+    /* MAIN */
+    .main{flex:1; padding:32px 40px 64px; max-width:960px; overflow-y:auto;}
+    @media(max-width:768px){.main{padding:16px;}}
+    .page-title{font-size:22px; font-weight:600; letter-spacing:-.02em; margin-bottom:24px;}
+
+    /* TAB PANELS */
+    .tab{display:none;}
+    .tab.active{display:block;}
+
+    /* CARD */
+    .card{border:1px solid var(--border); border-radius:var(--r2); padding:24px; margin-bottom:16px; background:var(--bg);}
+    .card-label{font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-bottom:12px;}
+    .card-title{font-size:16px; font-weight:600; margin-bottom:4px;}
+    .card-desc{font-size:13px; color:var(--muted); margin-bottom:16px;}
+
+    /* FORM */
+    label{display:block; font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;}
+    .inp{
+      width:100%; height:40px; padding:0 12px; border-radius:var(--r);
+      border:1px solid var(--border); background:var(--bg2); color:var(--text);
+      font-size:13px; outline:none; transition:border-color .15s;
     }
-    .card-title{font-size:18px; font-weight:600; margin-bottom:4px;}
-    .card-sub{font-size:13px; color:var(--muted); margin-bottom:16px;}
-    .eyebrow{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:rgba(167,179,199,.8); margin-bottom:8px;}
-    /* form */
-    label{display:block; font-size:13px; color:var(--muted); margin-bottom:5px;}
-    .control{
-      width:100%; height:42px; padding:8px 12px; border-radius:10px;
-      border:1px solid var(--border2); background:rgba(255,255,255,.03);
-      color:var(--text); font-size:13px; outline:none;
-    }
-    .control:focus{border-color:rgba(96,165,250,.5); box-shadow:0 0 0 3px rgba(96,165,250,.1);}
-    select.control{appearance:none; padding-right:36px;
-      background-image:linear-gradient(45deg,transparent 50%,rgba(231,237,247,.5) 50%),linear-gradient(135deg,rgba(231,237,247,.5) 50%,transparent 50%);
-      background-position:calc(100% - 16px) 18px,calc(100% - 10px) 18px; background-size:6px 6px; background-repeat:no-repeat;}
-    .row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
-    @media(max-width:600px){.row{grid-template-columns:1fr;}}
-    /* buttons */
+    .inp:focus{border-color:var(--blue); box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+    select.inp{appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2371717a'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center;}
+    .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
+    @media(max-width:500px){.row2{grid-template-columns:1fr;}}
+
+    /* BUTTONS */
     .btn{
-      height:40px; padding:0 16px; border-radius:10px; border:1px solid transparent;
-      background:rgba(255,255,255,.04); color:var(--text); display:inline-flex; align-items:center;
-      justify-content:center; gap:8px; cursor:pointer; font-weight:600; font-size:13px; text-decoration:none;
+      height:36px; padding:0 16px; border-radius:var(--r); border:1px solid var(--border);
+      background:var(--bg2); color:var(--text); font-size:13px; font-weight:500;
+      cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all .12s;
     }
-    .btn:hover{background:rgba(255,255,255,.07);}
-    .btn.primary{background:var(--btn); color:var(--btnText); box-shadow:0 8px 20px rgba(96,165,250,.15);}
-    .btn.primary:hover{filter:brightness(1.04);}
-    .btn.primary[disabled]{background:rgba(255,255,255,.06); color:rgba(231,237,247,.5); cursor:not-allowed; box-shadow:none;}
-    .btn.ghost{background:rgba(255,255,255,.02); border:1px solid var(--border2);}
-    .btn.sm{height:34px; padding:0 12px; font-size:12px; border-radius:8px;}
+    .btn:hover{background:var(--bg3); border-color:var(--subtle);}
+    .btn.primary{background:var(--text); color:var(--bg); border-color:transparent; font-weight:600;}
+    .btn.primary:hover{opacity:.9;}
+    .btn.primary[disabled]{opacity:.3; cursor:not-allowed;}
+    .btn.sm{height:30px; padding:0 10px; font-size:12px;}
     .btn-row{display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;}
-    .err{color:var(--danger); font-size:12px; margin-top:6px;}
-    .hint{color:var(--muted); font-size:12px; margin-top:6px;}
-    .sep{border-top:1px solid var(--border2); margin:16px 0;}
-    /* dropzone */
+    .err{color:var(--red); font-size:12px; margin-top:8px;}
+    .hint{color:var(--dim); font-size:12px; margin-top:6px;}
+    .sep{height:1px; background:var(--border); margin:16px 0;}
+
+    /* DROPZONE */
     .dz{
-      border:1px dashed rgba(255,255,255,.15); background:rgba(255,255,255,.02);
-      border-radius:var(--r2); padding:24px; text-align:center; cursor:pointer; transition:border-color .2s;
+      border:2px dashed var(--border); border-radius:var(--r2); padding:32px;
+      text-align:center; cursor:pointer; transition:all .2s;
     }
-    .dz:hover{border-color:rgba(96,165,250,.4); background:rgba(255,255,255,.04);}
-    .dz strong{font-size:14px; display:block; margin-bottom:4px;}
-    .dz .muted{color:var(--muted); font-size:12px;}
-    /* status box */
-    .sbox{border:1px solid var(--border2); border-radius:var(--r2); padding:12px; background:rgba(255,255,255,.02); color:var(--muted); font-size:13px; margin-bottom:8px;}
-    /* metric card grid */
-    .mgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(145px,1fr)); gap:8px; margin-bottom:12px;}
-    .mcard{background:rgba(255,255,255,.04); border:1px solid var(--border2); border-radius:10px; padding:10px 12px;}
-    .mcard-label{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em;}
-    .mcard-val{font-size:17px; font-weight:700; margin-top:3px;}
-    /* table */
+    .dz:hover{border-color:var(--blue); background:rgba(59,130,246,.04);}
+    .dz-title{font-size:14px; font-weight:500; margin-bottom:4px;}
+    .dz-sub{font-size:12px; color:var(--dim);}
+
+    /* STATUS BOX */
+    .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px;}
+
+    /* METRIC GRID */
+    .mg{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin-bottom:16px;}
+    .mc{border:1px solid var(--border); border-radius:var(--r); padding:12px;}
+    .mc-label{font-size:10px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.06em;}
+    .mc-val{font-size:18px; font-weight:600; margin-top:4px;}
+
+    /* TABLE */
     .tbl{width:100%; border-collapse:collapse; font-size:13px;}
-    .tbl th{text-align:left; padding:8px 10px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border);}
+    .tbl th{text-align:left; padding:8px 10px; font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border);}
     .tbl td{padding:8px 10px; border-bottom:1px solid var(--border2);}
-    .tbl tr:hover td{background:rgba(255,255,255,.02);}
-    .tbl .mono{font-family:ui-monospace,monospace;}
-    /* modal */
-    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:2000;}
+    .tbl tr:hover td{background:var(--bg2);}
+    .mono{font-family:ui-monospace,'SF Mono',monospace; font-size:12px;}
+
+    /* MODAL */
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:2000;}
     .modal-bg.open{display:flex;}
-    .modal{width:min(960px,96vw);max-height:90vh;display:flex;flex-direction:column;border-radius:16px;border:1px solid var(--border);background:linear-gradient(180deg,rgba(14,22,44,.98),rgba(10,16,32,.98));box-shadow:0 22px 70px rgba(0,0,0,.6);overflow:hidden;}
-    .modal-hd{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2);flex-shrink:0;}
-    .modal-hd h3{font-size:15px;}
-    .modal-bd{padding:16px 20px;overflow:auto;flex:1;}
-    /* help */
-    .help-section{margin-bottom:20px;}
-    .help-section h4{font-size:14px; margin-bottom:8px; color:var(--accent);}
-    .help-section p,.help-section li{font-size:13px; color:var(--muted); line-height:1.6;}
-    .help-section ul{padding-left:20px;}
-    .help-search{margin-bottom:16px;}
-    /* onboarding */
-    .onboard-step{display:flex; gap:14px; margin-bottom:16px; align-items:flex-start;}
-    .onboard-num{width:32px;height:32px;border-radius:99px;background:var(--btn);color:var(--btnText);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;}
-    .onboard-body h4{font-size:14px; margin-bottom:4px;}
-    .onboard-body p{font-size:13px; color:var(--muted); line-height:1.5;}
-    /* cat list */
-    .cat-row{display:grid;grid-template-columns:2fr .9fr .9fr auto auto;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--border2);border-radius:10px;background:rgba(255,255,255,.02);margin-bottom:6px;font-size:13px;}
-    .cat-row small{color:var(--muted);}
-    /* banner */
-    .banner{padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;}
-    .banner.danger{background:rgba(252,165,165,.1);border:1px solid rgba(252,165,165,.2);color:var(--danger);}
-    .banner.info{background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);color:var(--accent);}
-    .banner.ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);color:var(--ok);}
+    .modal{width:min(1000px,96vw);max-height:88vh;display:flex;flex-direction:column;border-radius:var(--r2);border:1px solid var(--border);background:var(--bg);overflow:hidden;}
+    .modal-hd{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .modal-hd h3{font-size:15px;font-weight:600;}
+    .modal-bd{padding:20px;overflow:auto;flex:1;}
+
+    /* BANNER */
+    .banner{padding:12px 16px;border-radius:var(--r);font-size:13px;margin-bottom:12px;}
+    .banner.red{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:var(--red);}
+    .banner.green{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);color:var(--green);}
+    .banner.blue{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.15);color:var(--blue);}
+
+    /* HELP */
+    .help-item{margin-bottom:20px;}
+    .help-item h4{font-size:14px; font-weight:600; margin-bottom:6px;}
+    .help-item p,.help-item li{font-size:13px; color:var(--muted); line-height:1.6;}
+    .help-item ul{padding-left:18px; margin-top:4px;}
+
+    /* ONBOARDING STEPS */
+    .step{display:flex; gap:14px; margin-bottom:16px;}
+    .step-num{width:28px;height:28px;border-radius:99px;background:var(--text);color:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+    .step-body h4{font-size:14px;font-weight:600;margin-bottom:2px;}
+    .step-body p{font-size:13px;color:var(--muted);}
+
+    /* CATEGORY ROW */
+    .cat-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;font-size:13px;}
+    @media(max-width:500px){.cat-row{grid-template-columns:1fr;}}
   </style>
 </head>
 <body>
-  <button class="hamburger" id="hamburger-btn">&#9776;</button>
-  <div class="sidebar-overlay" id="sidebar-overlay"></div>
-  <!-- SIDEBAR -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <h1>Jolly Jesters</h1>
-      <p>analiza oplacalnosci</p>
+  <button class="hamburger" id="hamburger">&#9776;</button>
+  <div class="overlay" id="overlay"></div>
+
+  <nav class="side" id="sidebar">
+    <div class="side-head"><h1>jolly jesters</h1></div>
+    <div class="side-nav" id="nav">
+      <button data-tab="dashboard" class="active"><span class="ic">&#9632;</span>Dashboard</button>
+      <button data-tab="new-run"><span class="ic">&#9654;</span>Nowa analiza</button>
+      <button data-tab="history"><span class="ic">&#9776;</span>Historia</button>
+      <button data-tab="market"><span class="ic">&#9733;</span>Market data</button>
+      <button data-tab="proxies"><span class="ic">&#9673;</span>Proxy pool</button>
+      <button data-tab="settings"><span class="ic">&#9881;</span>Ustawienia</button>
+      <button data-tab="help"><span class="ic">?</span>Pomoc</button>
     </div>
-    <div class="sidebar-nav" id="nav">
-      <button data-tab="dashboard" class="active"><span class="icon">&#9632;</span> dashboard</button>
-      <button data-tab="new-run"><span class="icon">&#9654;</span> nowa analiza</button>
-      <button data-tab="history"><span class="icon">&#9776;</span> historia runow</button>
-      <button data-tab="market"><span class="icon">&#9733;</span> market data</button>
-      <button data-tab="proxies"><span class="icon">&#9673;</span> proxy pool</button>
-      <button data-tab="settings"><span class="icon">&#9881;</span> ustawienia</button>
-      <button data-tab="help"><span class="icon">&#63;</span> pomoc</button>
-    </div>
-    <div class="sidebar-footer">
-      <div class="status-row"><span class="dot" id="status-dot"></span><span id="status-text">laczenie...</span></div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button class="btn sm" id="theme-toggle" style="font-size:11px; height:28px; padding:0 10px;">motyw</button>
-        <a href="/logout" style="font-size:12px; color:var(--muted); text-decoration:none;">wyloguj</a>
+    <div class="side-foot">
+      <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">laczenie...</span></div>
+      <div class="row">
+        <button id="theme-toggle">motyw</button>
+        <a href="/logout">wyloguj</a>
       </div>
     </div>
   </nav>
 
-  <!-- MAIN -->
   <div class="main">
 
-    <!-- TAB: DASHBOARD -->
-    <div class="tab-panel active" id="tab-dashboard">
-      <h2 style="margin-bottom:16px;">dashboard</h2>
-
-      <!-- onboarding (shown if no runs yet) -->
+    <!-- DASHBOARD -->
+    <div class="tab active" id="tab-dashboard">
+      <div class="page-title">Dashboard</div>
       <div class="card" id="onboarding">
-        <div class="eyebrow">pierwsze kroki</div>
-        <div class="card-title">witaj w Jolly Jesters</div>
-        <div class="card-sub">wykonaj te kroki, zeby zaczac analizowac oplacalnosc produktow</div>
-        <div class="onboard-step"><div class="onboard-num">1</div><div class="onboard-body"><h4>dodaj kategorie</h4><p>przejdz do ustawien i stworz kategorie (np. "perfumy") z mnoznikiem oplacalnosci i prowizja allegro</p></div></div>
-        <div class="onboard-step"><div class="onboard-num">2</div><div class="onboard-body"><h4>wgraj proxy</h4><p>w ustawieniach wgraj plik .txt z listą proxy (1 na linie) - scraper potrzebuje ich do pracy</p></div></div>
-        <div class="onboard-step"><div class="onboard-num">3</div><div class="onboard-body"><h4>uruchom analize</h4><p>przejdz do "nowa analiza", wrzuc plik Excel z EAN-ami i cenami zakupu, wybierz kategorie i kliknij start</p></div></div>
-        <div class="onboard-step"><div class="onboard-num">4</div><div class="onboard-body"><h4>sprawdz wyniki</h4><p>sledz postep na dashboardzie, po zakonczeniu pobierz Excel z wynikami lub przegladaj metryki</p></div></div>
+        <div class="card-label">pierwsze kroki</div>
+        <div class="card-title">Witaj w Jolly Jesters</div>
+        <div class="card-desc">Konfiguracja w 4 krokach - potem mozesz analizowac oplacalnosc produktow</div>
+        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorie</h4><p>Ustawienia - stworz kategorie z mnoznikiem i prowizja Allegro</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Wgraj proxy</h4><p>Ustawienia - wgraj plik .txt z lista proxy</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analize</h4><p>Nowa analiza - wrzuc Excel z EAN-ami i cenami zakupu</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdz wyniki</h4><p>Pobierz Excel lub przegladaj metryki w podgladzie</p></div></div>
       </div>
-
-      <!-- active runs -->
       <div class="card">
-        <div class="eyebrow">aktywne analizy</div>
-        <div id="dash-active-empty" class="sbox">brak aktywnych analiz - uruchom nowa z zakladki "nowa analiza"</div>
+        <div class="card-label">aktywne analizy</div>
+        <div id="dash-empty" class="sbox">Brak aktywnych analiz</div>
         <div id="dash-active"></div>
-      </div>
-
-      <!-- quick stats -->
-      <div class="card" id="dash-stats-card" style="display:none;">
-        <div class="eyebrow">statystyki systemu</div>
-        <div class="mgrid" id="dash-stats"></div>
       </div>
     </div>
 
-    <!-- TAB: NEW RUN -->
-    <div class="tab-panel" id="tab-new-run">
-      <h2 style="margin-bottom:16px;">nowa analiza</h2>
-
+    <!-- NOWA ANALIZA -->
+    <div class="tab" id="tab-new-run">
+      <div class="page-title">Nowa analiza</div>
       <div class="card">
-        <div class="eyebrow">z pliku</div>
-        <div class="card-title">upload i start</div>
-        <div class="card-sub">wrzuc plik Excel/CSV z kolumnami EAN i cena zakupu</div>
-
+        <div class="card-label">z pliku</div>
+        <div class="card-title">Upload Excel / CSV</div>
+        <div class="card-desc">Kolumny: EAN, cena zakupu, nazwa (opcjonalnie)</div>
         <div class="dz" id="dropzone" tabindex="0">
-          <strong>kliknij lub przeciagnij plik</strong>
-          <div class="muted">.xlsx, .xls, .csv</div>
+          <div class="dz-title">Kliknij lub przeciagnij plik</div>
+          <div class="dz-sub">.xlsx, .xls, .csv</div>
           <input id="file-input" type="file" accept=".csv,.xlsx,.xls" hidden />
         </div>
         <div id="file-name" class="hint" style="margin-top:8px;">nie wybrano pliku</div>
         <div class="err" id="file-error" style="display:none;"></div>
-
         <div style="height:12px;"></div>
-        <div class="row">
-          <div>
-            <label for="category-select">kategoria</label>
-            <select class="control" id="category-select"></select>
-          </div>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn primary" id="start-btn" type="button" disabled>start analizy</button>
-        </div>
+        <div class="row2"><div><label>kategoria</label><select class="inp" id="category-select"></select></div></div>
+        <div class="btn-row"><button class="btn primary" id="start-btn" disabled>Start analizy</button></div>
         <div class="err" id="upload-error" style="display:none;"></div>
       </div>
-
       <div class="card">
-        <div class="eyebrow">z bazy danych</div>
-        <div class="card-title">analiza cached data</div>
-        <div class="card-sub">analizuj produkty juz zapisane w bazie bez uploadu pliku</div>
-        <div class="row">
-          <div><label>ostatnie dni</label><input class="control" id="db-last-days" type="number" min="1" placeholder="np 7" /></div>
-          <div><label>ean zawiera</label><input class="control" id="db-ean-contains" type="text" placeholder="np 590" /></div>
+        <div class="card-label">z bazy danych</div>
+        <div class="card-desc">Analizuj produkty juz zapisane w bazie</div>
+        <div class="row2">
+          <div><label>ostatnie dni</label><input class="inp" id="db-last-days" type="number" min="1" placeholder="7" /></div>
+          <div><label>ean zawiera</label><input class="inp" id="db-ean-contains" type="text" placeholder="590" /></div>
         </div>
-        <div class="btn-row">
-          <button class="btn primary" id="db-run-btn" type="button">start analizy z bazy</button>
-        </div>
+        <div class="btn-row"><button class="btn primary" id="db-run-btn">Start z bazy</button></div>
         <div class="err" id="db-error" style="display:none;"></div>
       </div>
     </div>
 
-    <!-- TAB: HISTORY -->
-    <div class="tab-panel" id="tab-history">
-      <h2 style="margin-bottom:16px;">historia runow</h2>
-      <div class="card">
-        <div id="history-list"><div class="sbox">ladowanie...</div></div>
-      </div>
+    <!-- HISTORIA -->
+    <div class="tab" id="tab-history">
+      <div class="page-title">Historia analiz</div>
+      <div class="card"><div id="history-list"><div class="sbox">ladowanie...</div></div></div>
     </div>
 
-    <!-- TAB: MARKET DATA -->
-    <div class="tab-panel" id="tab-market">
-      <h2 style="margin-bottom:16px;">market data</h2>
+    <!-- MARKET DATA -->
+    <div class="tab" id="tab-market">
+      <div class="page-title">Market data</div>
       <div class="card">
-        <div class="card-sub">podglad danych zapisanych w bazie z Allegro</div>
-        <div class="row">
-          <div><label>kategoria</label><select class="control" id="market-category"></select></div>
-          <div><label>ean</label><input class="control" id="market-ean" placeholder="np 590" /></div>
+        <div class="row2">
+          <div><label>kategoria</label><select class="inp" id="market-category"></select></div>
+          <div><label>ean</label><input class="inp" id="market-ean" placeholder="590" /></div>
         </div>
         <div class="btn-row" style="margin-bottom:12px;">
-          <button class="btn ghost sm" id="market-load">szukaj</button>
-          <button class="btn ghost sm" id="market-prev">prev</button>
-          <button class="btn ghost sm" id="market-next">next</button>
+          <button class="btn sm" id="market-load">Szukaj</button>
+          <button class="btn sm" id="market-prev">Prev</button>
+          <button class="btn sm" id="market-next">Next</button>
           <span class="hint" id="market-meta" style="margin:0;">0 rekordow</span>
         </div>
         <div id="market-table"></div>
       </div>
     </div>
 
-    <!-- TAB: PROXY POOL -->
-    <div class="tab-panel" id="tab-proxies">
-      <h2 style="margin-bottom:16px;">proxy pool</h2>
+    <!-- PROXY POOL -->
+    <div class="tab" id="tab-proxies">
+      <div class="page-title">Proxy pool</div>
       <div class="card">
-        <div class="eyebrow">health summary</div>
-        <div class="mgrid" id="proxy-health-grid"></div>
-        <div class="btn-row"><button class="btn ghost sm" id="proxy-refresh">odswiez</button></div>
+        <div class="card-label">health</div>
+        <div class="mg" id="proxy-health"></div>
+        <div class="btn-row"><button class="btn sm" id="proxy-refresh">Odswiez</button></div>
       </div>
-      <div class="card">
-        <div class="eyebrow">lista proxy</div>
-        <div id="proxy-list-table" style="overflow:auto;"></div>
-      </div>
+      <div class="card"><div class="card-label">lista</div><div id="proxy-list" style="overflow:auto;"></div></div>
     </div>
 
-    <!-- TAB: SETTINGS -->
-    <div class="tab-panel" id="tab-settings">
-      <h2 style="margin-bottom:16px;">ustawienia</h2>
-
+    <!-- USTAWIENIA -->
+    <div class="tab" id="tab-settings">
+      <div class="page-title">Ustawienia</div>
       <div class="card">
-        <div class="eyebrow">cache</div>
-        <div class="row">
-          <div>
-            <label>ttl cache (dni)</label>
-            <input class="control" id="cache-ttl-input" type="number" min="0" placeholder="np 7" />
-            <div class="hint">0 = bez cache, 7 = dane trzymane 7 dni</div>
-          </div>
-        </div>
-        <div class="btn-row"><button class="btn primary" id="save-ttl-btn">zapisz cache</button></div>
+        <div class="card-label">cache</div>
+        <div class="row2"><div><label>TTL (dni)</label><input class="inp" id="cache-ttl-input" type="number" min="0" placeholder="7" /></div></div>
+        <div class="btn-row"><button class="btn primary" id="save-ttl-btn">Zapisz</button></div>
         <div class="hint" id="cache-ttl-status"></div>
       </div>
-
       <div class="card">
-        <div class="eyebrow">stop-loss</div>
-        <div class="card-sub">automatyczne zatrzymanie analizy przy zlej jakosci scrapingu</div>
-        <div class="row">
-          <div><label>max error rate (%)</label><input class="control" id="sl-error-rate" type="number" min="0" max="100" step="1" /></div>
-          <div><label>max captcha rate (%)</label><input class="control" id="sl-captcha-rate" type="number" min="0" max="100" step="1" /></div>
+        <div class="card-label">stop-loss</div>
+        <div class="card-desc">Automatyczne zatrzymanie przy zlej jakosci</div>
+        <div class="row2">
+          <div><label>max error rate (%)</label><input class="inp" id="sl-error-rate" type="number" min="0" max="100" /></div>
+          <div><label>max captcha rate (%)</label><input class="inp" id="sl-captcha-rate" type="number" min="0" max="100" /></div>
         </div>
-        <div class="row">
-          <div><label>window size</label><input class="control" id="sl-window" type="number" min="5" max="1000" step="1" /></div>
-          <div><label>max consecutive errors</label><input class="control" id="sl-consec" type="number" min="1" max="1000" step="1" /></div>
+        <div class="row2">
+          <div><label>window size</label><input class="inp" id="sl-window" type="number" min="5" /></div>
+          <div><label>max consecutive errors</label><input class="inp" id="sl-consec" type="number" min="1" /></div>
         </div>
-        <div class="btn-row"><button class="btn primary" id="save-stoploss-btn">zapisz stop-loss</button></div>
+        <div class="btn-row"><button class="btn primary" id="save-stoploss-btn">Zapisz stop-loss</button></div>
       </div>
-
       <div class="card">
-        <div class="eyebrow">proxy</div>
-        <div class="card-sub">wgraj plik .txt z lista proxy (1 na linie)</div>
+        <div class="card-label">proxy</div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <input class="control" id="proxy-file" type="file" accept=".txt" style="max-width:280px;" />
-          <button class="btn primary" id="upload-proxies-btn">wgraj proxy</button>
+          <input class="inp" id="proxy-file" type="file" accept=".txt" style="max-width:260px;" />
+          <button class="btn primary" id="upload-proxies-btn">Wgraj</button>
         </div>
         <div class="sbox" id="proxy-file-status" style="margin-top:10px;">brak danych</div>
-        <div class="err" id="proxy-error" style="display:none;"></div>
       </div>
-
       <div class="card">
-        <div class="eyebrow">kategorie</div>
-        <div class="card-sub">dodaj kategorie - wymagane do startu analizy</div>
-        <div style="display:grid; grid-template-columns:1.5fr 1fr 1fr; gap:8px; margin-bottom:10px;">
-          <input class="control" id="cat-name" placeholder="nazwa (np perfumy)" />
-          <input class="control" id="cat-mult" type="number" step="0.01" placeholder="mnoznik (np 1.25)" />
-          <input class="control" id="cat-comm" type="number" step="0.1" placeholder="prowizja % (np 10)" />
+        <div class="card-label">kategorie</div>
+        <div style="display:grid; grid-template-columns:2fr 1fr 1fr; gap:8px; margin-bottom:10px;">
+          <input class="inp" id="cat-name" placeholder="nazwa" />
+          <input class="inp" id="cat-mult" type="number" step="0.01" placeholder="mnoznik" />
+          <input class="inp" id="cat-comm" type="number" step="0.1" placeholder="prowizja %" />
         </div>
-        <div class="btn-row" style="margin-bottom:10px;"><button class="btn primary" id="add-cat-btn">dodaj kategorie</button></div>
+        <div class="btn-row" style="margin-bottom:10px;"><button class="btn primary" id="add-cat-btn">Dodaj</button></div>
         <div id="cat-list"></div>
         <div class="err" id="cat-add-error" style="display:none;"></div>
       </div>
-
       <div class="card">
-        <div class="eyebrow">waluty</div>
+        <div class="card-label">waluty</div>
         <div id="currency-list"></div>
-        <div class="btn-row"><button class="btn primary" id="save-currencies-btn">zapisz waluty</button></div>
+        <div class="btn-row"><button class="btn primary" id="save-currencies-btn">Zapisz waluty</button></div>
       </div>
     </div>
 
-    <!-- TAB: HELP -->
-    <div class="tab-panel" id="tab-help">
-      <h2 style="margin-bottom:16px;">pomoc i dokumentacja</h2>
-
-      <input class="control help-search" id="help-search" type="text" placeholder="szukaj w dokumentacji..." style="margin-bottom:20px;" />
-
+    <!-- POMOC -->
+    <div class="tab" id="tab-help">
+      <div class="page-title">Pomoc</div>
+      <input class="inp" id="help-search" type="text" placeholder="szukaj w dokumentacji..." style="margin-bottom:20px;" />
       <div id="help-content">
-        <div class="help-section" data-help="start">
-          <h4>jak zaczac?</h4>
-          <p>Jolly Jesters automatycznie sprawdza ceny produktow na Allegro na podstawie kodow EAN. Aby rozpoczac:</p>
+        <div class="help-item" data-help="start zaczac rozpoczac jak">
+          <h4>Jak zaczac?</h4>
+          <p>System sprawdza ceny produktow na Allegro na podstawie kodow EAN.</p>
           <ul>
-            <li>dodaj przynajmniej jedna kategorie w ustawieniach (np. "perfumy" z mnoznikiem 1.25 i prowizja 10%)</li>
-            <li>wgraj plik proxy w ustawieniach - scraper potrzebuje proxy do pracy</li>
-            <li>przygotuj plik Excel/CSV z kolumnami: EAN, nazwa (opcjonalnie), cena zakupu</li>
-            <li>przejdz do "nowa analiza", wrzuc plik, wybierz kategorie i kliknij start</li>
+            <li>Dodaj kategorie w ustawieniach (np. "perfumy" z mnoznikiem 1.25 i prowizja 10%)</li>
+            <li>Wgraj proxy w ustawieniach</li>
+            <li>Przygotuj plik Excel z kolumnami: EAN, cena zakupu</li>
+            <li>Nowa analiza - wrzuc plik, wybierz kategorie, kliknij Start</li>
           </ul>
         </div>
-
-        <div class="help-section" data-help="plik">
-          <h4>format pliku</h4>
-          <p>system obsluguje pliki .xlsx, .xls i .csv. wymagane kolumny:</p>
+        <div class="help-item" data-help="plik excel csv format kolumny">
+          <h4>Format pliku</h4>
+          <p>Obslugiwane: .xlsx, .xls, .csv. Wymagane kolumny:</p>
           <ul>
-            <li><strong>EAN</strong> - kod kreskowy produktu (8-13 cyfr)</li>
-            <li><strong>cena zakupu</strong> - cena po jakiej kupujesz produkt</li>
-            <li><strong>nazwa</strong> - opcjonalna, do identyfikacji w wynikach</li>
-            <li><strong>waluta</strong> - opcjonalna (domyslnie PLN), jesli kupujesz w EUR/USD system przeliczy automatycznie</li>
+            <li><strong>EAN</strong> - kod kreskowy (8-13 cyfr)</li>
+            <li><strong>cena zakupu</strong> - Twoja cena nabycia</li>
+            <li><strong>nazwa</strong> - opcjonalna</li>
+            <li><strong>waluta</strong> - opcjonalna (domyslnie PLN)</li>
           </ul>
         </div>
-
-        <div class="help-section" data-help="analiza wyniki">
-          <h4>jak czytac wyniki?</h4>
+        <div class="help-item" data-help="wyniki oplacalnosc cena marza zysk allegro">
+          <h4>Jak czytac wyniki?</h4>
           <ul>
-            <li><strong>cena Allegro</strong> - najnizsza cena znaleziona na Allegro dla danego EAN</li>
-            <li><strong>marza</strong> - roznica miedzy cena Allegro a cena zakupu (minus prowizja)</li>
-            <li><strong>oplacalny</strong> - "tak" jesli marza przekracza ustawiony mnoznik</li>
-            <li><strong>sprzedanych</strong> - ilosc sprzedanych sztuk w ostatnim czasie</li>
+            <li><strong>Cena Allegro</strong> - najnizsza cena na Allegro</li>
+            <li><strong>Marza</strong> - roznica miedzy cena Allegro a cena zakupu (minus prowizja)</li>
+            <li><strong>Oplacalny</strong> - tak, jesli marza przekracza mnoznik</li>
+            <li><strong>Sprzedanych</strong> - ilosc sprzedanych sztuk</li>
           </ul>
         </div>
-
-        <div class="help-section" data-help="metryki koszt">
-          <h4>metryki i koszty</h4>
-          <p>system zbiera metryki dla kazdego runu:</p>
+        <div class="help-item" data-help="metryki koszt ean przepustowosc czas latency">
+          <h4>Metryki i koszty</h4>
           <ul>
-            <li><strong>EAN/min</strong> - przepustowosc przetwarzania</li>
-            <li><strong>koszt/1000 EAN</strong> - estymowany koszt (glownie z CAPTCHA solving)</li>
-            <li><strong>retry rate</strong> - procent zapytan wymagajacych ponowienia</li>
-            <li><strong>captcha rate</strong> - procent zapytan z CAPTCHA</li>
-            <li><strong>blocked rate</strong> - procent zablokowanych zapytan</li>
-            <li><strong>latency P50/P95</strong> - czas odpowiedzi (mediana i 95 percentyl)</li>
-          </ul>
-          <p>metryki sa dostepne w podgladzie runu oraz do pobrania jako CSV</p>
-        </div>
-
-        <div class="help-section" data-help="stoploss bezpieczenstwo">
-          <h4>stop-loss (ochrona kosztowa)</h4>
-          <p>system automatycznie zatrzymuje analize gdy wykryje problemy:</p>
-          <ul>
-            <li><strong>error rate</strong> - zbyt wiele bledow (domyslnie > 50%)</li>
-            <li><strong>captcha rate</strong> - zbyt wiele CAPTCHA (domyslnie > 80%) - sygnal wysokiego kosztu</li>
-            <li><strong>consecutive errors</strong> - seria bledow z rzedu (domyslnie 10)</li>
-          </ul>
-          <p>progi mozna konfigurowac w ustawieniach. po zatrzymaniu zobaczysz banner z przyczynaml</p>
-        </div>
-
-        <div class="help-section" data-help="proxy siec">
-          <h4>proxy i siec</h4>
-          <ul>
-            <li>scraper wymaga proxy do pracy - wgraj plik .txt w ustawieniach</li>
-            <li>proxy pool automatycznie ocenia jakosc kazdego proxy (health score 0-1)</li>
-            <li>slabe proxy sa automatycznie wycofywane na 15 minut (kwarantanna)</li>
-            <li>zakladka "proxy pool" pokazuje aktualny stan wszystkich proxy</li>
+            <li><strong>EAN/min</strong> - predkosc przetwarzania</li>
+            <li><strong>Koszt/1000 EAN</strong> - estymacja (z CAPTCHA solving)</li>
+            <li><strong>Retry rate</strong> - % zapytan ponawianych</li>
+            <li><strong>Latency P50/P95</strong> - czas odpowiedzi</li>
           </ul>
         </div>
-
-        <div class="help-section" data-help="kategorie prowizja mnoznik">
-          <h4>kategorie i oplacalnosc</h4>
+        <div class="help-item" data-help="stoploss stop loss zatrzymanie blad ochrona bezpieczenstwo">
+          <h4>Stop-loss</h4>
+          <p>System automatycznie zatrzymuje analize przy problemach:</p>
           <ul>
-            <li><strong>mnoznik oplacalnosci</strong> - minimalny mnoznik marzy (np. 1.25 = produkt oplacalny gdy marza >= 25% ceny zakupu)</li>
-            <li><strong>prowizja Allegro</strong> - procent prowizji pobranej przez Allegro (np. 10% = 0.10), odliczany od ceny sprzedazy</li>
-            <li>kazda kategoria moze miec inne parametry</li>
+            <li><strong>Error rate</strong> - zbyt wiele bledow (domyslnie > 50%)</li>
+            <li><strong>Captcha rate</strong> - zbyt wiele CAPTCHA (> 80%)</li>
+            <li><strong>Consecutive errors</strong> - seria bledow z rzedu (10)</li>
           </ul>
         </div>
-
-        <div class="help-section" data-help="analiza baza cache">
-          <h4>analiza z bazy</h4>
-          <p>mozesz ponownie przeanalizowac produkty bez uploadu pliku. system uzyje danych juz zapisanych w bazie.
-          filtry: ostatnie N dni, EAN zawierajacy tekst. przydatne do re-analizy lub sprawdzenia zmian cen.</p>
+        <div class="help-item" data-help="proxy siec polaczenie ip kwarantanna zablokowane blocked">
+          <h4>Proxy</h4>
+          <ul>
+            <li>Wgraj plik .txt w ustawieniach (1 proxy na linie)</li>
+            <li>System automatycznie ocenia jakosc (health score 0-1)</li>
+            <li>Slabe proxy trafiaja na kwarantanne (15 min)</li>
+            <li>Zakladka Proxy pool pokazuje aktualny stan</li>
+          </ul>
         </div>
-
-        <div class="help-section" data-help="api eksport">
+        <div class="help-item" data-help="kategoria prowizja mnoznik oplacalnosc ustawienia konfiguracja">
+          <h4>Kategorie</h4>
+          <ul>
+            <li><strong>Mnoznik</strong> - min marza (np. 1.25 = min 25% ROI)</li>
+            <li><strong>Prowizja</strong> - % prowizji Allegro (np. 10%)</li>
+            <li>Kazda kategoria moze miec inne parametry</li>
+          </ul>
+        </div>
+        <div class="help-item" data-help="baza analiza cache odswiezanie powtorka ponowna">
+          <h4>Analiza z bazy</h4>
+          <p>Mozesz ponownie analizowac produkty bez uploadu pliku. System uzyje danych juz zapisanych.</p>
+        </div>
+        <div class="help-item" data-help="api eksport excel csv pobieranie download google sheets prometheus">
           <h4>API i eksport</h4>
           <ul>
-            <li><strong>Excel (.xlsx)</strong> - pelne wyniki z metrykami scrapingu</li>
-            <li><strong>CSV metryk</strong> - podsumowanie runu (koszt, przepustowosc, bledy)</li>
-            <li><strong>REST API</strong> - pelne API pod /api/v1/ (analysis, categories, settings, proxies, metrics)</li>
-            <li><strong>Prometheus</strong> - metryki pod /api/v1/metrics/prometheus</li>
+            <li><strong>Excel</strong> - pelne wyniki z metrykami</li>
+            <li><strong>CSV metryk</strong> - podsumowanie runu</li>
+            <li><strong>REST API</strong> - /api/v1/ (analysis, categories, settings)</li>
+            <li><strong>Prometheus</strong> - /api/v1/metrics/prometheus</li>
           </ul>
         </div>
-
-        <div class="help-section" data-help="bledy troubleshooting">
-          <h4>typowe problemy</h4>
+        <div class="help-item" data-help="blad problem nie dziala error timeout zablokowany troubleshooting pomoc">
+          <h4>Rozwiazywanie problemow</h4>
           <ul>
-            <li><strong>"brak proxy"</strong> - wgraj plik proxy w ustawieniach</li>
-            <li><strong>"brak kategorii"</strong> - dodaj kategorie w ustawieniach</li>
-            <li><strong>duzo blocked/error</strong> - sprawdz jakosc proxy w zakladce proxy pool</li>
-            <li><strong>run zatrzymany (stopped)</strong> - stop-loss wykryl problemy, sprawdz metryki runu</li>
-            <li><strong>wolne przetwarzanie</strong> - sprawdz EAN/min w metrykach, rozważ lepsze proxy</li>
-            <li><strong>limit analiz</strong> - max 3 rownoczesne analizy, poczekaj na zakonczenie</li>
+            <li><strong>"brak proxy"</strong> - wgraj plik w ustawieniach</li>
+            <li><strong>"brak kategorii"</strong> - dodaj w ustawieniach</li>
+            <li><strong>Duzo blocked</strong> - sprawdz proxy pool</li>
+            <li><strong>Run stopped</strong> - stop-loss wykryl problem</li>
+            <li><strong>Limit analiz</strong> - max 3 jednoczesnie</li>
           </ul>
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- PREVIEW MODAL -->
   <div class="modal-bg" id="preview-modal">
-    <div class="modal" style="max-width:1100px;">
+    <div class="modal">
       <div class="modal-hd">
-        <h3 id="preview-title">podglad runu</h3>
+        <h3 id="preview-title">Podglad</h3>
         <div style="display:flex;gap:8px;">
-          <a class="btn ghost sm" id="preview-dl-xlsx" style="display:none; text-decoration:none;">xlsx</a>
-          <a class="btn ghost sm" id="preview-dl-csv" style="display:none; text-decoration:none;">metryki csv</a>
-          <button class="btn ghost sm" id="preview-refresh">odswiez</button>
-          <button class="btn ghost sm" id="preview-close">zamknij</button>
+          <a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a>
+          <a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV metryk</a>
+          <button class="btn sm" id="preview-refresh">Odswiez</button>
+          <button class="btn sm" id="preview-close">Zamknij</button>
         </div>
       </div>
       <div class="modal-bd">
-        <div id="preview-metrics" style="display:none;"><div class="eyebrow">metryki</div><div class="mgrid" id="preview-metrics-grid"></div></div>
-        <div id="preview-stoploss" class="banner danger" style="display:none;"></div>
+        <div id="preview-metrics" style="display:none;"><div class="card-label">metryki</div><div class="mg" id="preview-mg"></div></div>
+        <div id="preview-stoploss" class="banner red" style="display:none;"></div>
         <div id="preview-body"><div class="hint">ladowanie...</div></div>
       </div>
     </div>
@@ -519,470 +441,276 @@
     const setText=(el,t)=>{if(el)el.textContent=t;};
     const setHtml=(el,t)=>{if(el)el.innerHTML=t;};
 
-    // API helpers
-    async function apiGet(url){const r=await fetch(url,{credentials:'include'});if(!r.ok)throw new Error(r.status);return r.json();}
-    async function apiPost(url,body){const r=await fetch(url,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status);return r.json();}
-    async function apiPut(url,body){const r=await fetch(url,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status);return r.json();}
-    async function apiPatch(url,body){const r=await fetch(url,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status);return r.json();}
+    async function apiGet(u){const r=await fetch(u,{credentials:'include'});if(!r.ok)throw new Error(r.status);return r.json();}
+    async function apiPost(u,b){const r=await fetch(u,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
+    async function apiPut(u,b){const r=await fetch(u,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
+    async function apiPatch(u,b){const r=await fetch(u,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
 
-    // TAB NAVIGATION
+    // NAV
     document.querySelectorAll('#nav button').forEach(btn=>{
       btn.addEventListener('click',()=>{
         document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
-        document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-        const tab=$('tab-'+btn.dataset.tab);
-        if(tab)tab.classList.add('active');
-        // load tab data
+        document.querySelectorAll('.tab').forEach(p=>p.classList.remove('active'));
+        $('tab-'+btn.dataset.tab)?.classList.add('active');
         const t=btn.dataset.tab;
         if(t==='history')loadHistory();
         if(t==='market')loadMarket(0);
         if(t==='proxies')loadProxyPool();
         if(t==='settings')loadSettings();
+        // mobile: close sidebar
+        $('sidebar')?.classList.remove('open');
+        $('overlay')?.classList.remove('open');
       });
     });
 
+    // MOBILE
+    $('hamburger')?.addEventListener('click',()=>{$('sidebar')?.classList.toggle('open');$('overlay')?.classList.toggle('open');});
+    $('overlay')?.addEventListener('click',()=>{$('sidebar')?.classList.remove('open');$('overlay')?.classList.remove('open');});
+
+    // THEME
+    function applyTheme(t){document.documentElement.classList.toggle('light',t==='light');localStorage.setItem('jj_theme',t);}
+    $('theme-toggle')?.addEventListener('click',()=>applyTheme(document.documentElement.classList.contains('light')?'dark':'light'));
+    if(localStorage.getItem('jj_theme'))applyTheme(localStorage.getItem('jj_theme'));
+
     // MODAL
-    function openModal(el){el?.classList.add('open');}
-    function closeModal(el){el?.classList.remove('open');}
     const previewModal=$('preview-modal');
+    function openModal(m){m?.classList.add('open');}
+    function closeModal(m){m?.classList.remove('open');}
     $('preview-close')?.addEventListener('click',()=>closeModal(previewModal));
     previewModal?.addEventListener('click',e=>{if(e.target===previewModal)closeModal(previewModal);});
 
-    // METRIC CARD helper
-    function mc(label,value,color){
-      return `<div class="mcard"><div class="mcard-label">${label}</div><div class="mcard-val" style="color:${color||'var(--text)'}">${value??'-'}</div></div>`;
-    }
+    function mc(label,value,color){return `<div class="mc"><div class="mc-label">${label}</div><div class="mc-val" style="color:${color||'var(--text)'}">${value??'-'}</div></div>`;}
 
-    // STATUS POLLING
+    // STATUS
     async function pollStatus(){
-      try{
-        const d=await apiGet('/api/v1/status');
-        $('status-dot')?.classList.add('ok');
-        setText($('status-text'),'system ok');
-      }catch(e){
-        $('status-dot')?.classList.remove('ok');
-        setText($('status-text'),'brak polaczenia');
-      }
+      try{await apiGet('/api/v1/status');$('status-dot')?.classList.add('ok');setText($('status-text'),'online');}
+      catch(e){$('status-dot')?.classList.remove('ok');setText($('status-text'),'offline');}
     }
 
-    // ACTIVE RUNS POLLING
+    // ACTIVE RUNS
     async function pollActive(){
       try{
         const resp=await apiGet('/api/v1/analysis/active');
         const runs=resp?.runs||resp||[];
-        const empty=$('dash-active-empty'), container=$('dash-active');
-        if(!runs.length){show(empty);setHtml(container,'');return;}
-        hide(empty);
-        // hide onboarding if runs exist
-        hide($('onboarding'));
-        const cards=runs.map(r=>{
-          const pct=r.total_products?`${r.processed_products}/${r.total_products}`:'-';
-          const cat=r.category_name||'kategoria';
+        if(!runs.length){show($('dash-empty'));setHtml($('dash-active'),'');return;}
+        hide($('dash-empty'));hide($('onboarding'));
+        setHtml($('dash-active'),runs.map(r=>{
           const st=r.status||'running';
-          const stColor=st==='stopped'?'var(--danger)':st==='completed'?'var(--ok)':st==='failed'?'var(--danger)':'var(--accent)';
-          return `<div class="sbox">
-            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;"><strong>${cat}</strong><span style="color:var(--muted);font-size:12px;">id: ${r.id}</span></div>
-            <div>status: <span style="color:${stColor};font-weight:600;">${st}</span> - postep: ${pct}</div>
-            <div class="btn-row" style="margin-top:8px;">
-              ${['pending','running'].includes(st)?`<button class="btn ghost sm" onclick="cancelRun(${r.id})">anuluj</button>`:''}
-              <button class="btn ghost sm" onclick="openPreview(${r.id})">podglad</button>
-              ${['completed','stopped'].includes(st)?`<a class="btn ghost sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">xlsx</a>`:''}
-            </div>
-          </div>`;
-        }).join('');
-        setHtml(container,cards);
+          const c=st==='stopped'?'var(--red)':st==='completed'?'var(--green)':'var(--blue)';
+          return `<div class="sbox"><div style="display:flex;justify-content:space-between;"><strong>${r.category_name||'run'} #${r.id}</strong><span style="color:${c};font-weight:600;font-size:12px;">${st}</span></div>
+          <div style="font-size:12px;color:var(--dim);">${r.processed_products}/${r.total_products} EAN</div>
+          <div class="btn-row" style="margin-top:6px;">
+            ${['pending','running'].includes(st)?`<button class="btn sm" onclick="cancelRun(${r.id})">Anuluj</button>`:''}
+            <button class="btn sm" onclick="openPreview(${r.id})">Podglad</button>
+            ${['completed','stopped'].includes(st)?`<a class="btn sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;
+        }).join(''));
       }catch(e){}
     }
-
-    async function cancelRun(id){
-      try{await apiPost(`/api/v1/analysis/${id}/cancel`,{});}catch(e){}
-      pollActive();
-    }
+    async function cancelRun(id){try{await apiPost(`/api/v1/analysis/${id}/cancel`,{});}catch(e){}pollActive();}
 
     // PREVIEW
-    async function openPreview(runId){
+    async function openPreview(id){
       openModal(previewModal);
-      const body=$('preview-body'), mg=$('preview-metrics'), mgg=$('preview-metrics-grid');
-      const slBanner=$('preview-stoploss'), dlX=$('preview-dl-xlsx'), dlC=$('preview-dl-csv');
-      setHtml(body,'<div class="hint">ladowanie...</div>');
-      hide(mg);hide(slBanner);hide(dlX);hide(dlC);
-      $('preview-refresh')?.setAttribute('data-run-id',runId);
-      $('preview-refresh')?.addEventListener('click',()=>openPreview($('preview-refresh')?.getAttribute('data-run-id')));
+      const body=$('preview-body'),mg=$('preview-metrics'),mgg=$('preview-mg'),sl=$('preview-stoploss'),dx=$('preview-dl-xlsx'),dc=$('preview-dl-csv');
+      setHtml(body,'<div class="hint">ladowanie...</div>');hide(mg);hide(sl);hide(dx);hide(dc);
+      $('preview-refresh')?.setAttribute('data-id',id);
+      $('preview-refresh')?.addEventListener('click',()=>openPreview($('preview-refresh')?.getAttribute('data-id')));
 
       const [data,metrics,info]=await Promise.all([
-        apiGet(`/api/v1/analysis/${runId}/results?limit=50`).catch(()=>null),
-        apiGet(`/api/v1/analysis/${runId}/metrics`).catch(()=>null),
-        apiGet(`/api/v1/analysis/${runId}`).catch(()=>null),
+        apiGet(`/api/v1/analysis/${id}/results?limit=50`).catch(()=>null),
+        apiGet(`/api/v1/analysis/${id}/metrics`).catch(()=>null),
+        apiGet(`/api/v1/analysis/${id}`).catch(()=>null),
       ]);
 
-      if(info&&['completed','stopped'].includes(info.status)){if(dlX){dlX.href=`/api/v1/analysis/${runId}/download`;show(dlX);}}
-      if(metrics){if(dlC){dlC.href=`/api/v1/analysis/${runId}/metrics/csv`;show(dlC);}}
+      if(info&&['completed','stopped'].includes(info.status)&&dx){dx.href=`/api/v1/analysis/${id}/download`;show(dx);}
+      if(metrics&&dc){dc.href=`/api/v1/analysis/${id}/metrics/csv`;show(dc);}
 
       if(metrics&&mgg){
         mgg.innerHTML=[
-          mc('EAN/min',metrics.ean_per_min,'var(--accent)'),
-          mc('koszt/1000',metrics.cost_per_1000_ean!=null?`$${metrics.cost_per_1000_ean}`:null,'var(--warn)'),
-          mc('avg latency',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),
-          mc('p95 latency',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),
-          mc('retry rate',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),
-          mc('captcha rate',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'var(--danger)':null),
-          mc('ok/total',`${metrics.completed_items}/${metrics.total_items}`,'var(--ok)'),
-          mc('blocked',metrics.blocked_items,'var(--danger)'),
-          mc('czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null),
-        ].join('');
-        show(mg);
+          mc('EAN/min',metrics.ean_per_min,'var(--blue)'),
+          mc('Koszt/1k',metrics.cost_per_1000_ean!=null?`$${metrics.cost_per_1000_ean}`:null,'var(--amber)'),
+          mc('Avg lat.',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),
+          mc('P95 lat.',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),
+          mc('Retry',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),
+          mc('CAPTCHA',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'var(--red)':null),
+          mc('OK',`${metrics.completed_items}/${metrics.total_items}`,'var(--green)'),
+          mc('Blocked',metrics.blocked_items,'var(--red)'),
+          mc('Czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null),
+        ].join('');show(mg);
       }
 
-      if(info&&info.status==='stopped'&&slBanner){
+      if(info?.status==='stopped'&&sl){
         const m=info.run_metadata||{};
-        let msg=`stop-loss: ${m.stop_reason||'nieznany'}`;
+        let msg=`Stop-loss: ${m.stop_reason||'nieznany'}`;
         if(m.stop_details?.rate)msg+=` (${(m.stop_details.rate*100).toFixed(1)}%)`;
-        if(m.stop_details?.consecutive)msg+=` (${m.stop_details.consecutive} z rzedu)`;
         if(m.stopped_at_item)msg+=` - pozycja #${m.stopped_at_item}`;
-        setText(slBanner,msg);show(slBanner);
+        setText(sl,msg);show(sl);
       }
 
       const rows=data?.items||[];
-      if(!rows.length){setHtml(body,'<div class="hint">brak wynikow</div>');return;}
-      setHtml(body,`<div style="overflow:auto;"><table class="tbl"><thead><tr>
-        <th>ean</th><th>nazwa</th><th>cena kupna</th><th>cena allegro</th><th>marza</th><th>status</th><th>blad</th>
-      </tr></thead><tbody>${rows.map(r=>`<tr>
-        <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,60)}</td>
+      if(!rows.length){setHtml(body,'<div class="hint">Brak wynikow</div>');return;}
+      setHtml(body,`<div style="overflow:auto;"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Kupno</th><th>Allegro</th><th>Marza</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr>
+        <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,50)}</td>
         <td>${r.purchase_price_pln??'-'}</td><td>${r.allegro_price_pln??'-'}</td>
         <td>${r.margin_pln!=null?r.margin_pln.toFixed(2):'-'}</td>
-        <td>${r.scrape_status||'-'}</td><td style="color:var(--danger)">${r.scrape_error_message||''}</td>
-      </tr>`).join('')}</tbody></table></div>`);
+        <td>${r.scrape_status||'-'}</td></tr>`).join('')}</tbody></table></div>`);
     }
 
     // HISTORY
     async function loadHistory(){
       try{
         const runs=await apiGet('/api/v1/analysis?limit=50');
-        if(!runs?.length){setHtml($('history-list'),'<div class="sbox">brak historii</div>');return;}
-        const html=runs.map(r=>{
-          const st=r.status;
-          const stColor=st==='completed'?'var(--ok)':st==='stopped'?'var(--danger)':st==='failed'?'var(--danger)':st==='canceled'?'var(--muted)':'var(--accent)';
-          const date=r.created_at?new Date(r.created_at).toLocaleString():'';
-          return `<div class="sbox">
-            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;">
-              <strong>${r.category_name||'run'} #${r.id}</strong>
-              <span style="color:${stColor};font-weight:600;font-size:12px;">${st}</span>
-            </div>
-            <div style="font-size:12px;color:var(--muted);">${date} - ${r.processed_products}/${r.total_products} EAN</div>
-            <div class="btn-row" style="margin-top:6px;">
-              <button class="btn ghost sm" onclick="openPreview(${r.id})">podglad + metryki</button>
-              ${['completed','stopped'].includes(st)?`<a class="btn ghost sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">xlsx</a>`:''}
-            </div>
-          </div>`;
-        }).join('');
-        setHtml($('history-list'),html);
-      }catch(e){setHtml($('history-list'),'<div class="err">blad ladowania historii</div>');}
+        if(!runs?.length){setHtml($('history-list'),'<div class="sbox">Brak historii</div>');return;}
+        setHtml($('history-list'),runs.map(r=>{
+          const c=r.status==='completed'?'var(--green)':r.status==='stopped'?'var(--red)':r.status==='failed'?'var(--red)':'var(--dim)';
+          return `<div class="sbox"><div style="display:flex;justify-content:space-between;"><strong>${r.category_name||''} #${r.id}</strong><span style="color:${c};font-size:12px;font-weight:600;">${r.status}</span></div>
+          <div style="font-size:12px;color:var(--dim);">${r.created_at?new Date(r.created_at).toLocaleString():''} - ${r.processed_products}/${r.total_products}</div>
+          <div class="btn-row" style="margin-top:4px;"><button class="btn sm" onclick="openPreview(${r.id})">Podglad</button>
+          ${['completed','stopped'].includes(r.status)?`<a class="btn sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;
+        }).join(''));
+      }catch(e){setHtml($('history-list'),'<div class="err">blad</div>');}
     }
 
-    // MARKET DATA
-    let marketOffset=0;
-    async function loadMarket(offset){
-      marketOffset=offset||0;
+    // MARKET
+    let mOff=0;
+    async function loadMarket(off){
+      mOff=off||0;
       try{
-        const cat=$('market-category')?.value||'';
-        const ean=$('market-ean')?.value||'';
-        let url=`/api/v1/market-data?offset=${marketOffset}&limit=50`;
-        if(cat)url+=`&category_id=${cat}`;
-        if(ean)url+=`&ean=${encodeURIComponent(ean)}`;
-        const d=await apiGet(url);
+        let u=`/api/v1/market-data?offset=${mOff}&limit=50`;
+        const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;
+        const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;
+        const d=await apiGet(u);
         const items=d?.items||d||[];
-        setText($('market-meta'),`${items.length} rekordow (offset ${marketOffset})`);
-        if(!items.length){setHtml($('market-table'),'<div class="sbox">brak danych</div>');return;}
-        setHtml($('market-table'),`<div style="overflow:auto;"><table class="tbl"><thead><tr>
-          <th>ean</th><th>nazwa</th><th>cena</th><th>sprzedanych</th><th>oplacalny</th><th>sprawdzono</th>
-        </tr></thead><tbody>${items.map(r=>`<tr>
-          <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,50)}</td>
+        setText($('market-meta'),`${items.length} rekordow`);
+        if(!items.length){setHtml($('market-table'),'<div class="sbox">Brak danych</div>');return;}
+        setHtml($('market-table'),`<div style="overflow:auto;"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzedanych</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr>
+          <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,40)}</td>
           <td>${r.price??r.allegro_price??'-'}</td><td>${r.sold_count??'-'}</td>
-          <td>${r.is_profitable===true?'tak':r.is_profitable===false?'nie':'-'}</td>
-          <td style="font-size:11px;">${r.last_checked_at?new Date(r.last_checked_at).toLocaleString():'-'}</td>
-        </tr>`).join('')}</tbody></table></div>`);
-      }catch(e){setHtml($('market-table'),'<div class="err">blad ladowania</div>');}
+          <td style="font-size:11px;">${r.last_checked_at?new Date(r.last_checked_at).toLocaleString():'-'}</td></tr>`).join('')}</tbody></table></div>`);
+      }catch(e){setHtml($('market-table'),'<div class="err">blad</div>');}
     }
     $('market-load')?.addEventListener('click',()=>loadMarket(0));
-    $('market-prev')?.addEventListener('click',()=>loadMarket(Math.max(0,marketOffset-50)));
-    $('market-next')?.addEventListener('click',()=>loadMarket(marketOffset+50));
+    $('market-prev')?.addEventListener('click',()=>loadMarket(Math.max(0,mOff-50)));
+    $('market-next')?.addEventListener('click',()=>loadMarket(mOff+50));
 
     // PROXY POOL
     async function loadProxyPool(){
-      try{
-        const h=await apiGet('/api/v1/proxy-pool/health');
-        $('proxy-health-grid').innerHTML=[
-          mc('total',h.total),mc('active',h.active,'var(--ok)'),
-          mc('quarantined',h.quarantined,'var(--danger)'),mc('available',h.available,'var(--accent)'),
-          mc('avg health',h.avg_health_score),mc('success rate',h.success_rate!=null?`${(h.success_rate*100).toFixed(1)}%`:'-'),
-        ].join('');
-      }catch(e){setHtml($('proxy-health-grid'),'<div class="hint">brak danych proxy pool</div>');}
-      try{
-        const list=await apiGet('/api/v1/proxy-pool?active_only=false');
-        if(!list?.length){setHtml($('proxy-list-table'),'<div class="sbox">brak proxy w pool</div>');return;}
-        setHtml($('proxy-list-table'),`<table class="tbl"><thead><tr>
-          <th>id</th><th>label</th><th>health</th><th>ok/fail</th><th>kwarantanna</th>
-        </tr></thead><tbody>${list.slice(0,100).map(p=>{
-          const q=p.quarantine_until&&new Date(p.quarantine_until)>new Date();
-          return `<tr><td>${p.id}</td><td>${p.label||'-'}</td>
-          <td style="color:${p.health_score>.7?'var(--ok)':p.health_score>.3?'var(--warn)':'var(--danger)'}">${p.health_score}</td>
-          <td>${p.success_count}/${p.fail_count}</td>
-          <td style="color:${q?'var(--danger)':'var(--muted)'}">${q?'tak':'-'}</td></tr>`;
-        }).join('')}</tbody></table>`);
-      }catch(e){}
+      try{const h=await apiGet('/api/v1/proxy-pool/health');
+      $('proxy-health').innerHTML=[mc('Total',h.total),mc('Active',h.active,'var(--green)'),mc('Quarantined',h.quarantined,'var(--red)'),mc('Available',h.available,'var(--blue)'),mc('Health',h.avg_health_score),mc('Success',h.success_rate!=null?`${(h.success_rate*100).toFixed(0)}%`:'-')].join('');}catch(e){setHtml($('proxy-health'),'<div class="hint">brak danych</div>');}
+      try{const list=await apiGet('/api/v1/proxy-pool?active_only=false');
+      if(!list?.length){setHtml($('proxy-list'),'<div class="sbox">brak</div>');return;}
+      setHtml($('proxy-list'),`<table class="tbl"><thead><tr><th>ID</th><th>Label</th><th>Health</th><th>OK/Fail</th><th>Q</th></tr></thead><tbody>${list.slice(0,100).map(p=>`<tr><td>${p.id}</td><td>${p.label||'-'}</td><td style="color:${p.health_score>.7?'var(--green)':p.health_score>.3?'var(--amber)':'var(--red)'}">${p.health_score}</td><td>${p.success_count}/${p.fail_count}</td><td>${p.quarantine_until&&new Date(p.quarantine_until)>new Date()?'tak':'-'}</td></tr>`).join('')}</tbody></table>`);}catch(e){}
     }
     $('proxy-refresh')?.addEventListener('click',loadProxyPool);
 
     // SETTINGS
     async function loadSettings(){
-      try{
-        const s=await apiGet('/api/v1/settings/');
-        if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;
-        if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);
-        if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);
-        if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;
-        if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;
+      try{const s=await apiGet('/api/v1/settings/');
+      if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;
+      if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);
+      if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);
+      if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;
+      if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;
       }catch(e){}
-      loadCategories();
-      loadProxyStatus();
-      loadCurrencies();
+      loadCategories();loadProxyStatus();loadCurrencies();
     }
-
-    $('save-ttl-btn')?.addEventListener('click',async()=>{
-      try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30)});setText($('cache-ttl-status'),'zapisano');}catch(e){setText($('cache-ttl-status'),'blad');}
-    });
-
-    $('save-stoploss-btn')?.addEventListener('click',async()=>{
-      try{
-        await apiPut('/api/v1/settings/',{
-          cache_ttl_days:Number($('cache-ttl-input')?.value||30),
-          stoploss_max_error_rate:(Number($('sl-error-rate')?.value)||50)/100,
-          stoploss_max_captcha_rate:(Number($('sl-captcha-rate')?.value)||80)/100,
-          stoploss_window_size:Number($('sl-window')?.value)||20,
-          stoploss_max_consecutive_errors:Number($('sl-consec')?.value)||10,
-        });
-        alert('stop-loss zapisany');
-      }catch(e){alert('blad zapisu');}
-    });
+    $('save-ttl-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30)});setText($('cache-ttl-status'),'zapisano');}catch(e){setText($('cache-ttl-status'),'blad');}});
+    $('save-stoploss-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30),stoploss_max_error_rate:(Number($('sl-error-rate')?.value)||50)/100,stoploss_max_captcha_rate:(Number($('sl-captcha-rate')?.value)||80)/100,stoploss_window_size:Number($('sl-window')?.value)||20,stoploss_max_consecutive_errors:Number($('sl-consec')?.value)||10});alert('zapisano');}catch(e){alert('blad');}});
 
     // PROXY UPLOAD
-    async function loadProxyStatus(){
-      try{
-        const m=await apiGet('/api/v1/proxies');
-        setText($('proxy-file-status'),`${m.count||0} proxy zaladowanych`);
-      }catch(e){}
-    }
-    $('upload-proxies-btn')?.addEventListener('click',async()=>{
-      const f=$('proxy-file')?.files?.[0];
-      if(!f)return;
-      const fd=new FormData();fd.append('file',f);
-      try{
-        const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
-        if(!r.ok)throw new Error(r.status);
-        loadProxyStatus();
-        setText($('proxy-file-status'),'proxy wgrane');
-      }catch(e){show($('proxy-error'));setText($('proxy-error'),'blad wgrywania');}
-    });
+    async function loadProxyStatus(){try{const m=await apiGet('/api/v1/proxies');setText($('proxy-file-status'),`${m.count||0} proxy`);}catch(e){}}
+    $('upload-proxies-btn')?.addEventListener('click',async()=>{const f=$('proxy-file')?.files?.[0];if(!f)return;const fd=new FormData();fd.append('file',f);try{await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});loadProxyStatus();}catch(e){}});
 
     // CATEGORIES
     async function loadCategories(){
-      try{
-        const cats=await apiGet('/api/v1/categories/?include_inactive=1');
-        // populate selects
-        [$('category-select'),$('market-category')].forEach(sel=>{
-          if(!sel)return;
-          const val=sel.value;
-          sel.innerHTML='<option value="">-- wybierz --</option>'+cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-          if(val)sel.value=val;
-        });
-        // category list in settings
-        const list=$('cat-list');
-        if(list){
-          list.innerHTML=cats.map(c=>`<div class="cat-row">
-            <span>${c.name}</span><small>x${c.profitability_multiplier}</small><small>${c.commission_rate?c.commission_rate*100+'%':'-'}</small>
-            <span style="color:${c.is_active?'var(--ok)':'var(--muted)'}; font-size:12px;">${c.is_active?'aktywna':'nieaktywna'}</span>
-            <button class="btn ghost sm" onclick="toggleCat('${c.id}',${!c.is_active})">${c.is_active?'wylacz':'wlacz'}</button>
-          </div>`).join('');
-        }
-        // enable start button
-        validateStart();
-        // hide onboarding if categories exist
-        if(cats.length>0&&$('onboarding')){/* keep onboarding for now */}
+      try{const cats=await apiGet('/api/v1/categories/?include_inactive=1');
+      [$('category-select'),$('market-category')].forEach(sel=>{if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">-- wybierz --</option>'+cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');if(v)sel.value=v;});
+      const list=$('cat-list');
+      if(list)list.innerHTML=cats.map(c=>`<div class="cat-row"><span>${c.name}</span><span style="color:var(--dim);font-size:12px;">x${c.profitability_multiplier}</span><span style="color:var(--dim);font-size:12px;">${c.commission_rate?c.commission_rate*100+'%':'-'}</span><button class="btn sm" onclick="toggleCat('${c.id}',${!c.is_active})">${c.is_active?'Wylacz':'Wlacz'}</button></div>`).join('');
+      validateStart();
       }catch(e){}
     }
-
-    async function toggleCat(id,active){
-      try{await apiPatch(`/api/v1/categories/${id}`,{is_active:active});loadCategories();}catch(e){}
-    }
-
-    $('add-cat-btn')?.addEventListener('click',async()=>{
-      const name=$('cat-name')?.value?.trim();
-      const mult=Number($('cat-mult')?.value);
-      const comm=Number($('cat-comm')?.value||0)/100;
-      if(!name||!mult){show($('cat-add-error'));setText($('cat-add-error'),'podaj nazwe i mnoznik');return;}
-      hide($('cat-add-error'));
-      try{
-        await apiPost('/api/v1/categories/',{name,profitability_multiplier:mult,commission_rate:comm});
-        $('cat-name').value='';$('cat-mult').value='';$('cat-comm').value='';
-        loadCategories();
-      }catch(e){show($('cat-add-error'));setText($('cat-add-error'),'blad dodawania');}
-    });
+    async function toggleCat(id,active){try{await apiPatch(`/api/v1/categories/${id}`,{is_active:active});loadCategories();}catch(e){}}
+    $('add-cat-btn')?.addEventListener('click',async()=>{const n=$('cat-name')?.value?.trim(),m=Number($('cat-mult')?.value),c=Number($('cat-comm')?.value||0)/100;if(!n||!m){show($('cat-add-error'));setText($('cat-add-error'),'podaj nazwe i mnoznik');return;}hide($('cat-add-error'));try{await apiPost('/api/v1/categories/',{name:n,profitability_multiplier:m,commission_rate:c});$('cat-name').value='';$('cat-mult').value='';$('cat-comm').value='';loadCategories();}catch(e){show($('cat-add-error'));setText($('cat-add-error'),'blad');}});
 
     // CURRENCIES
-    async function loadCurrencies(){
-      try{
-        const d=await apiGet('/api/v1/settings/currencies');
-        const rates=d?.rates||[];
-        setHtml($('currency-list'),rates.map(r=>`<div class="row" style="margin-bottom:4px;">
-          <div><input class="control curr-code" value="${r.currency}" readonly style="background:rgba(255,255,255,.01);" /></div>
-          <div><input class="control curr-rate" type="number" step="0.01" value="${r.rate_to_pln}" data-code="${r.currency}" /></div>
-        </div>`).join(''));
-      }catch(e){}
-    }
-    $('save-currencies-btn')?.addEventListener('click',async()=>{
-      const rates=[];
-      document.querySelectorAll('.curr-rate').forEach(inp=>{
-        rates.push({currency:inp.dataset.code,rate_to_pln:Number(inp.value),is_default:inp.dataset.code==='PLN'});
-      });
-      try{await apiPut('/api/v1/settings/currencies',{rates});alert('waluty zapisane');}catch(e){alert('blad zapisu walut');}
-    });
+    async function loadCurrencies(){try{const d=await apiGet('/api/v1/settings/currencies');setHtml($('currency-list'),(d?.rates||[]).map(r=>`<div class="row2" style="margin-bottom:4px;"><div><input class="inp curr-code" value="${r.currency}" readonly style="opacity:.6;" /></div><div><input class="inp curr-rate" type="number" step="0.01" value="${r.rate_to_pln}" data-code="${r.currency}" /></div></div>`).join(''));}catch(e){}}
+    $('save-currencies-btn')?.addEventListener('click',async()=>{const rates=[];document.querySelectorAll('.curr-rate').forEach(i=>{rates.push({currency:i.dataset.code,rate_to_pln:Number(i.value),is_default:i.dataset.code==='PLN'});});try{await apiPut('/api/v1/settings/currencies',{rates});}catch(e){}});
 
     // FILE UPLOAD
-    const fileInput=$('file-input'), dropzone=$('dropzone');
+    const fileInput=$('file-input'),dropzone=$('dropzone');
     dropzone?.addEventListener('click',()=>fileInput?.click());
-    dropzone?.addEventListener('dragover',e=>{e.preventDefault();dropzone.style.borderColor='rgba(96,165,250,.5)';});
+    dropzone?.addEventListener('dragover',e=>{e.preventDefault();dropzone.style.borderColor='var(--blue)';});
     dropzone?.addEventListener('dragleave',()=>{dropzone.style.borderColor='';});
-    dropzone?.addEventListener('drop',e=>{e.preventDefault();dropzone.style.borderColor='';if(e.dataTransfer.files[0]){fileInput.files=e.dataTransfer.files;onFileSelect();}});
-    fileInput?.addEventListener('change',onFileSelect);
-
-    function onFileSelect(){
-      const f=fileInput?.files?.[0];
-      setText($('file-name'),f?f.name:'nie wybrano pliku');
-      validateStart();
-    }
-
-    function validateStart(){
-      const f=fileInput?.files?.[0];
-      const cat=$('category-select')?.value;
-      const btn=$('start-btn');
-      if(btn)btn.disabled=!(f&&cat);
-    }
+    dropzone?.addEventListener('drop',e=>{e.preventDefault();dropzone.style.borderColor='';if(e.dataTransfer.files[0]){fileInput.files=e.dataTransfer.files;onFile();}});
+    fileInput?.addEventListener('change',onFile);
+    function onFile(){setText($('file-name'),fileInput?.files?.[0]?.name||'nie wybrano');validateStart();}
+    function validateStart(){const ok=!!(fileInput?.files?.length)&&!!$('category-select')?.value;const btn=$('start-btn');if(btn)btn.disabled=!ok;}
     $('category-select')?.addEventListener('change',validateStart);
 
-    // START ANALYSIS
-    $('start-btn')?.addEventListener('click',async()=>{
-      const btn=$('start-btn');
-      btn.disabled=true;btn.textContent='start...';
-      hide($('upload-error'));
-      const fd=new FormData();
-      fd.append('file',fileInput.files[0]);
-      fd.append('category_id',$('category-select').value);
-      try{
-        const r=await fetch('/api/v1/analysis/upload',{method:'POST',credentials:'include',body:fd});
-        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||r.status);}
-        // switch to dashboard
-        document.querySelector('#nav button[data-tab="dashboard"]')?.click();
-        await pollActive();
-      }catch(e){show($('upload-error'));setText($('upload-error'),e.message||'blad');}
-      finally{btn.textContent='start analizy';validateStart();}
-    });
+    $('start-btn')?.addEventListener('click',async()=>{const btn=$('start-btn');btn.disabled=true;btn.textContent='...';hide($('upload-error'));
+      const fd=new FormData();fd.append('file',fileInput.files[0]);fd.append('category_id',$('category-select').value);
+      try{const r=await fetch('/api/v1/analysis/upload',{method:'POST',credentials:'include',body:fd});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||r.status);}document.querySelector('#nav button[data-tab="dashboard"]')?.click();await pollActive();}
+      catch(e){show($('upload-error'));setText($('upload-error'),e.message||'blad');}
+      finally{btn.textContent='Start analizy';validateStart();}});
 
-    // DB RUN
-    $('db-run-btn')?.addEventListener('click',async()=>{
-      const btn=$('db-run-btn');btn.disabled=true;btn.textContent='start...';
-      hide($('db-error'));
-      try{
-        const payload={};
-        const days=Number($('db-last-days')?.value);if(days)payload.last_days=days;
-        const ean=$('db-ean-contains')?.value;if(ean)payload.ean_contains=ean;
-        // need category
-        const cat=$('category-select')?.value;
-        if(cat)payload.category_id=cat;
-        await apiPost('/api/v1/analysis/run_from_db',payload);
-        document.querySelector('#nav button[data-tab="dashboard"]')?.click();
-        await pollActive();
-      }catch(e){show($('db-error'));setText($('db-error'),'blad startu');}
-      finally{btn.disabled=false;btn.textContent='start analizy z bazy';}
-    });
+    $('db-run-btn')?.addEventListener('click',async()=>{const btn=$('db-run-btn');btn.disabled=true;btn.textContent='...';hide($('db-error'));
+      try{const p={};const d=Number($('db-last-days')?.value);if(d)p.last_days=d;const e=$('db-ean-contains')?.value;if(e)p.ean_contains=e;const c=$('category-select')?.value;if(c)p.category_id=c;
+      await apiPost('/api/v1/analysis/run_from_db',p);document.querySelector('#nav button[data-tab="dashboard"]')?.click();await pollActive();}
+      catch(e){show($('db-error'));setText($('db-error'),'blad');}
+      finally{btn.disabled=false;btn.textContent='Start z bazy';}});
 
-    // HELP SEARCH
+    // FUZZY HELP SEARCH
+    function fuzzyMatch(query, text){
+      query=query.toLowerCase().replace(/[^a-z0-9\s]/g,'');
+      text=text.toLowerCase();
+      // split query into words, check each word has a close match in text
+      const words=query.split(/\s+/).filter(Boolean);
+      return words.every(w=>{
+        if(text.includes(w))return true;
+        // fuzzy: allow 1 char difference (Levenshtein distance 1)
+        const tokens=text.split(/\s+/);
+        return tokens.some(t=>levenshtein(w,t)<=Math.max(1,Math.floor(w.length/3)));
+      });
+    }
+    function levenshtein(a,b){
+      if(a.length===0)return b.length;
+      if(b.length===0)return a.length;
+      const m=[];
+      for(let i=0;i<=b.length;i++)m[i]=[i];
+      for(let j=0;j<=a.length;j++)m[0][j]=j;
+      for(let i=1;i<=b.length;i++)
+        for(let j=1;j<=a.length;j++)
+          m[i][j]=b[i-1]===a[j-1]?m[i-1][j-1]:Math.min(m[i-1][j-1]+1,m[i][j-1]+1,m[i-1][j]+1);
+      return m[b.length][a.length];
+    }
     $('help-search')?.addEventListener('input',e=>{
-      const q=e.target.value.toLowerCase();
-      document.querySelectorAll('.help-section').forEach(s=>{
-        const text=(s.textContent+' '+s.dataset.help).toLowerCase();
-        s.style.display=(!q||text.includes(q))?'':'none';
+      const q=e.target.value.trim();
+      document.querySelectorAll('.help-item').forEach(s=>{
+        const text=(s.textContent+' '+(s.dataset.help||''));
+        s.style.display=(!q||fuzzyMatch(q,text))?'':'none';
       });
     });
 
-    // THEME TOGGLE
-    function applyTheme(theme){
-      document.documentElement.classList.toggle('light', theme==='light');
-      localStorage.setItem('jj_theme', theme);
-    }
-    $('theme-toggle')?.addEventListener('click',()=>{
-      const current = document.documentElement.classList.contains('light') ? 'light' : 'dark';
-      applyTheme(current==='light' ? 'dark' : 'light');
-    });
-    // restore saved theme
-    const savedTheme = localStorage.getItem('jj_theme');
-    if(savedTheme) applyTheme(savedTheme);
-
-    // MOBILE HAMBURGER
-    const hamburger=$('hamburger-btn'), sidebarEl=$('sidebar'), sidebarOverlay=$('sidebar-overlay');
-    hamburger?.addEventListener('click',()=>{sidebarEl?.classList.toggle('open');sidebarOverlay?.classList.toggle('open');});
-    sidebarOverlay?.addEventListener('click',()=>{sidebarEl?.classList.remove('open');sidebarOverlay?.classList.remove('open');});
-    // close sidebar on nav click (mobile)
-    document.querySelectorAll('#nav button').forEach(btn=>{
-      btn.addEventListener('click',()=>{sidebarEl?.classList.remove('open');sidebarOverlay?.classList.remove('open');});
-    });
-
-    // GOOGLE SHEETS EXPORT (generates CSV data URI - user can paste into Sheets)
-    function exportToGoogleSheets(runId){
-      window.open(`/api/v1/analysis/${runId}/metrics/csv`,'_blank');
-    }
-
-    // SSE - realtime updates for active runs (replaces polling when available)
-    let activeSSE = null;
-    function connectSSE(runId){
-      if(activeSSE){activeSSE.close();activeSSE=null;}
-      try{
-        const es = new EventSource(`/api/v1/analysis/${runId}/stream`);
-        es.addEventListener('progress', (e)=>{
-          try{const d=JSON.parse(e.data);pollActive();}catch(err){}
-        });
-        es.addEventListener('done', (e)=>{
-          es.close(); activeSSE=null; pollActive();
-        });
-        es.addEventListener('stopped', (e)=>{
-          es.close(); activeSSE=null; pollActive();
-        });
-        es.onerror = ()=>{es.close(); activeSSE=null;};
-        activeSSE = es;
-      }catch(e){}
+    // SSE
+    let sseConn=null;
+    function connectSSE(id){
+      if(sseConn){sseConn.close();sseConn=null;}
+      try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);
+      es.addEventListener('progress',()=>pollActive());
+      es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();});
+      es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});
+      es.onerror=()=>{es.close();sseConn=null;};
+      sseConn=es;}catch(e){}
     }
 
     // INIT
     (async()=>{
-      await pollStatus();
-      await loadCategories();
-      await pollActive();
-      // check if we need onboarding
-      try{
-        const runs=await apiGet('/api/v1/analysis?limit=1');
-        if(runs?.length)hide($('onboarding'));
-      }catch(e){}
-      setInterval(pollStatus,5000);
-      setInterval(pollActive,3000);
-
-      // auto-connect SSE for active runs
-      try{
-        const resp=await apiGet('/api/v1/analysis/active');
-        const runs=resp?.runs||resp||[];
-        if(runs.length>0 && !activeSSE){
-          connectSSE(runs[0].id);
-        }
-      }catch(e){}
+      await pollStatus();await loadCategories();await pollActive();
+      try{const r=await apiGet('/api/v1/analysis?limit=1');if(r?.length)hide($('onboarding'));}catch(e){}
+      setInterval(pollStatus,5000);setInterval(pollActive,3000);
+      try{const resp=await apiGet('/api/v1/analysis/active');const runs=resp?.runs||resp||[];if(runs.length>0)connectSSE(runs[0].id);}catch(e){}
     })();
   </script>
 </body>
