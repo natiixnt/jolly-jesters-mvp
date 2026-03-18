@@ -13,7 +13,7 @@ from app.services.analysis_service import serialize_analysis_item
 
 def _status_label(status: Optional[object]) -> str:
     if status is None:
-        return "—"
+        return "-"
     value = getattr(status, "value", status)
     if value == "pending":
         return "pending local"
@@ -35,7 +35,7 @@ def _profitability_label(is_profitable: Optional[bool]) -> str:
         return "tak"
     if is_profitable is False:
         return "nie"
-    return "—"
+    return "-"
 
 
 def _format_original_price(value: Optional[float], currency: Optional[str]) -> Optional[str]:
@@ -82,6 +82,10 @@ def build_analysis_excel(items: Iterable[AnalysisRunItem], category: Optional[Ca
                 "Status": _status_label(result.scrape_status),
                 "Błąd scrapingu": result.scrape_error_message,
                 "Kategoria": category_name,
+                "Latency (ms)": item.latency_ms,
+                "CAPTCHA solves": item.captcha_solves,
+                "Retries": item.retries,
+                "Proxy attempts": item.attempts,
             }
         )
 
