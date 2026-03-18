@@ -39,17 +39,17 @@ class ProxyMeta(BaseModel):
     path: str
     count: int
     size_bytes: int
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
     sample: list[str] = []
-    saved: bool | None = None
-    reload: dict | None = None
-    uploaded_at: datetime | None = None
+    saved: Optional[bool] = None
+    reload: Optional[dict] = None
+    uploaded_at: Optional[datetime] = None
 
 
 class ProxyReloadResponse(BaseModel):
     status: str
-    count: int | None = None
-    path: str | None = None
+    count: Optional[int] = None
+    path: Optional[str] = None
 
 
 # -- Network proxy pool --
@@ -57,16 +57,16 @@ class ProxyReloadResponse(BaseModel):
 class NetworkProxyOut(BaseModel):
     id: int
     url: str
-    label: str | None = None
+    label: Optional[str] = None
     is_active: bool
     success_count: int
     fail_count: int
     health_score: float
-    quarantine_until: datetime | None = None
-    quarantine_reason: str | None = None
-    last_success_at: datetime | None = None
-    last_fail_at: datetime | None = None
-    created_at: datetime | None = None
+    quarantine_until: Optional[datetime] = None
+    quarantine_reason: Optional[str] = None
+    last_success_at: Optional[datetime] = None
+    last_fail_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -77,10 +77,10 @@ class NetworkProxyHealthSummary(BaseModel):
     active: int
     quarantined: int
     available: int
-    avg_health_score: float | None = None
+    avg_health_score: Optional[float] = None
     total_success: int
     total_fail: int
-    success_rate: float | None = None
+    success_rate: Optional[float] = None
 
 
 class NetworkProxyImportResult(BaseModel):

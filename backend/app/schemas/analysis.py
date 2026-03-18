@@ -58,7 +58,7 @@ class AnalysisRunDetail(AnalysisStatusResponse):
 class AnalysisRunSummary(BaseModel):
     id: int
     category_id: UUID
-    category_name: str | None = None
+    category_name: Optional[str] = None
     created_at: Optional[datetime] = None
     status: AnalysisStatus
     started_at: Optional[datetime] = None
