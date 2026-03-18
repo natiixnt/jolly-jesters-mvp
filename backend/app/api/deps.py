@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends, Header, Request
-from sqlalchemy.orm import Session
+from fastapi import Depends, Request
+from sqlalchemy.orm import Session, Query
 
 from app.db.session import get_db
 from app.models.tenant import Tenant
@@ -32,12 +32,10 @@ def get_current_user_optional(
     db: Session = Depends(get_db),
 ) -> Optional[CurrentUser]:
     """Extract user from Bearer token or jj_api_token cookie. Returns None if no multi-tenant auth."""
-    # Try Bearer token
     auth_header = request.headers.get("authorization", "")
     token = None
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
-    # Try cookie
     if not token:
         token = request.cookies.get("jj_api_token")
     if not token:
@@ -52,3 +50,14 @@ def get_current_user_optional(
         return None
 
     return CurrentUser(user=user, tenant=tenant)
+
+
+def tenant_filter(query: Query, model, current_user: Optional[CurrentUser]) -> Query:
+    """Apply tenant_id filter to query if user is authenticated.
+    In single-tenant mode (no Bearer token), returns unfiltered query for backward compatibility.
+    In multi-tenant mode, restricts to tenant's data only."""
+    if current_user is None:
+        return query
+    if hasattr(model, "tenant_id"):
+        return query.filter(model.tenant_id == current_user.tenant_id)
+    return query

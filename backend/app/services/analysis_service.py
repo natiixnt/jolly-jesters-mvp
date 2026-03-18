@@ -233,11 +233,15 @@ def _update_effective_state(
     state.updated_at = datetime.now(timezone.utc)
 
 
-def list_recent_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
-    rows = (
+def list_recent_runs(db: Session, limit: int = 20, tenant_id=None) -> List[AnalysisRun]:
+    query = (
         db.query(AnalysisRun, Category.name.label("category_name"))
         .join(Category, AnalysisRun.category_id == Category.id)
-        .order_by(AnalysisRun.created_at.desc())
+    )
+    if tenant_id is not None:
+        query = query.filter(AnalysisRun.tenant_id == tenant_id)
+    rows = (
+        query.order_by(AnalysisRun.created_at.desc())
         .limit(limit)
         .all()
     )
@@ -248,12 +252,16 @@ def list_recent_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
     return results
 
 
-def list_active_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
-    rows = (
+def list_active_runs(db: Session, limit: int = 20, tenant_id=None) -> List[AnalysisRun]:
+    query = (
         db.query(AnalysisRun, Category.name.label("category_name"))
         .join(Category, AnalysisRun.category_id == Category.id)
         .filter(AnalysisRun.status.in_([AnalysisStatus.running, AnalysisStatus.pending]))
-        .order_by(AnalysisRun.created_at.desc())
+    )
+    if tenant_id is not None:
+        query = query.filter(AnalysisRun.tenant_id == tenant_id)
+    rows = (
+        query.order_by(AnalysisRun.created_at.desc())
         .limit(limit)
         .all()
     )
@@ -264,12 +272,11 @@ def list_active_runs(db: Session, limit: int = 20) -> List[AnalysisRun]:
     return results
 
 
-def get_latest_run(db: Session) -> AnalysisRun | None:
-    return (
-        db.query(AnalysisRun)
-        .order_by(AnalysisRun.created_at.desc())
-        .first()
-    )
+def get_latest_run(db: Session, tenant_id=None) -> AnalysisRun | None:
+    query = db.query(AnalysisRun)
+    if tenant_id is not None:
+        query = query.filter(AnalysisRun.tenant_id == tenant_id)
+    return query.order_by(AnalysisRun.created_at.desc()).first()
 
 
 def get_run_status(db: Session, run_id: int) -> AnalysisRun | None:

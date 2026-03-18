@@ -7,20 +7,23 @@ from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
 
-def list_categories(db: Session, include_inactive: bool = False) -> list[Category]:
+def list_categories(db: Session, include_inactive: bool = False, tenant_id=None) -> list[Category]:
     query = db.query(Category)
     if not include_inactive:
         query = query.filter(Category.is_active.is_(True))
+    if tenant_id is not None:
+        query = query.filter(Category.tenant_id == tenant_id)
     return query.order_by(Category.name).all()
 
 
-def create_category(db: Session, payload: CategoryCreate) -> Category:
+def create_category(db: Session, payload: CategoryCreate, tenant_id=None) -> Category:
     category = Category(
         name=payload.name,
         description=payload.description,
         profitability_multiplier=payload.profitability_multiplier,
         commission_rate=payload.commission_rate,
         is_active=payload.is_active,
+        tenant_id=tenant_id,
     )
     db.add(category)
     try:

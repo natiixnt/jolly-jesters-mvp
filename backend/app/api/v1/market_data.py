@@ -6,6 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import CurrentUser, get_current_user_optional
 from app.db.session import get_db
 from app.schemas.market_data import MarketDataResponse
 from app.services import market_data_service
@@ -25,7 +26,10 @@ def list_market_data(
     offset: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
     result = market_data_service.list_market_data(
         db,
         category_id=category_id,

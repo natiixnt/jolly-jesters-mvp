@@ -26,7 +26,9 @@ from app.schemas.analysis import (
 import csv
 import io
 
+from app.api.deps import CurrentUser, get_current_user_optional, tenant_filter
 from app.core.config import settings as app_settings
+from app.models.analysis_run import AnalysisRun
 from app.services import analysis_service
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
@@ -44,6 +46,12 @@ def _check_concurrent_limit(db: Session) -> None:
 router = APIRouter(tags=["analysis"])
 
 STREAM_POLL_INTERVAL = 2.0
+
+
+def _verify_run_access(run, current_user: Optional[CurrentUser]) -> None:
+    """Raise 404 if run doesn't belong to tenant (when multi-tenant active)."""
+    if current_user and run and run.tenant_id and run.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Analysis not found")
 STREAM_HEARTBEAT_INTERVAL = 5.0
 
 
@@ -57,6 +65,7 @@ async def upload_analysis(
     file: UploadFile = File(...),
     category_id: str = Form(...),
     db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
     try:
         category_uuid = uuid.UUID(category_id)
@@ -80,6 +89,9 @@ async def upload_analysis(
     await file.seek(0)
 
     run = await handle_upload(db, category, file)
+    if current_user:
+        run.tenant_id = current_user.tenant_id
+        run.user_id = current_user.user_id
     result = run_analysis_task.delay(run.id)
     run.root_task_id = result.id
     analysis_service.record_run_task(db, run, result.id, "run_analysis")
@@ -89,31 +101,49 @@ async def upload_analysis(
 
 
 @router.post("/run_from_db", response_model=AnalysisUploadResponse)
-def run_from_db(payload: AnalysisStartFromDbRequest, db: Session = Depends(get_db)):
-    return _start_cached_analysis(payload, db)
+def run_from_db(
+    payload: AnalysisStartFromDbRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    return _start_cached_analysis(payload, db, current_user=current_user)
 
 
 @router.get("", response_model=list[AnalysisRunSummary])
-def list_runs(db: Session = Depends(get_db), limit: int = 20):
-    return analysis_service.list_recent_runs(db, limit=max(1, min(limit, 200)))
+def list_runs(
+    db: Session = Depends(get_db),
+    limit: int = 20,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    runs = analysis_service.list_recent_runs(db, limit=max(1, min(limit, 200)), tenant_id=current_user.tenant_id if current_user else None)
+    return runs
 
 
 @router.get("/active", response_model=AnalysisRunListResponse)
-def list_active_runs(db: Session = Depends(get_db), limit: int = 20):
-    runs = analysis_service.list_active_runs(db, limit=limit)
+def list_active_runs(
+    db: Session = Depends(get_db),
+    limit: int = 20,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    runs = analysis_service.list_active_runs(db, limit=limit, tenant_id=current_user.tenant_id if current_user else None)
     return {"runs": runs}
 
 
 @router.get("/latest", response_model=AnalysisStatusResponse)
-def latest_run(db: Session = Depends(get_db)):
-    run = analysis_service.get_latest_run(db)
+def latest_run(
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    run = analysis_service.get_latest_run(db, tenant_id=current_user.tenant_id if current_user else None)
     if not run:
         raise HTTPException(status_code=404, detail="Brak uruchomień")
     return run
 
 
 @router.get("/{run_id}/metrics", response_model=AnalysisRunMetrics)
-def get_run_metrics(run_id: int, db: Session = Depends(get_db)):
+def get_run_metrics(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
+    run = analysis_service.get_run_status(db, run_id)
+    _verify_run_access(run, current_user)
     metrics = analysis_service.get_run_metrics(db, run_id)
     if not metrics:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -121,7 +151,9 @@ def get_run_metrics(run_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{run_id}/metrics/csv")
-def export_metrics_csv(run_id: int, db: Session = Depends(get_db)):
+def export_metrics_csv(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
+    run = analysis_service.get_run_status(db, run_id)
+    _verify_run_access(run, current_user)
     metrics = analysis_service.get_run_metrics(db, run_id)
     if not metrics:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -139,18 +171,20 @@ def export_metrics_csv(run_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{run_id}", response_model=AnalysisStatusResponse)
-def get_analysis_status(run_id: int, db: Session = Depends(get_db)):
+def get_analysis_status(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    _verify_run_access(run, current_user)
     return run
 
 
 @router.get("/{run_id}/download")
-def download_results(run_id: int, inline: bool = False, db: Session = Depends(get_db)):
+def download_results(run_id: int, inline: bool = False, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    _verify_run_access(run, current_user)
     if run.status not in {AnalysisStatus.completed, AnalysisStatus.stopped}:
         raise HTTPException(status_code=400, detail="Analysis not completed yet")
 
@@ -174,7 +208,10 @@ def get_analysis_results(
     limit: int = 100,
     debug: bool = False,
     db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
+    run = analysis_service.get_run_status(db, run_id)
+    _verify_run_access(run, current_user)
     offset = max(0, offset)
     limit = max(1, min(limit, 1000))
     results = analysis_service.get_run_results(
@@ -203,7 +240,10 @@ def get_analysis_results_updates(
     limit: int = 200,
     debug: bool = False,
     db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
+    run = analysis_service.get_run_status(db, run_id)
+    _verify_run_access(run, current_user)
     results = analysis_service.get_run_results_since(
         db,
         run_id=run_id,
@@ -343,10 +383,11 @@ async def stream_analysis(run_id: int, request: Request, debug: bool = False):
 
 
 @router.post("/{run_id}/cancel", response_model=AnalysisStatusResponse)
-def cancel_analysis_run(run_id: int, db: Session = Depends(get_db)):
+def cancel_analysis_run(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    _verify_run_access(run, current_user)
     if run.status in {AnalysisStatus.completed, AnalysisStatus.failed, AnalysisStatus.stopped}:
         raise HTTPException(status_code=400, detail="Analysis already finished")
 
@@ -363,7 +404,7 @@ def cancel_analysis_run(run_id: int, db: Session = Depends(get_db)):
     return run
 
 
-def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> AnalysisUploadResponse:
+def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session, current_user: Optional[CurrentUser] = None) -> AnalysisUploadResponse:
     category = db.query(Category).filter(Category.id == payload.category_id).first()
     if not category or not category.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
@@ -402,6 +443,9 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session) -> 
         products,
         run_metadata=run_metadata,
     )
+    if current_user:
+        run.tenant_id = current_user.tenant_id
+        run.user_id = current_user.user_id
     result = run_analysis_task.delay(run.id)
     run.root_task_id = result.id
     analysis_service.record_run_task(db, run, result.id, "run_analysis")
