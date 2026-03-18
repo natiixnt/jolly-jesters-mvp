@@ -4,138 +4,180 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Jolly Jesters</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#09090b; --bg2:#18181b; --bg3:#27272a;
-      --text:#fafafa; --muted:#a1a1aa; --dim:#71717a; --subtle:#3f3f46;
-      --border:#27272a; --border2:#1f1f23;
-      --blue:#3b82f6; --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
-      --r:8px; --r2:12px;
+      --bg:#09090b; --bg2:#111113; --bg3:#1a1a1f;
+      --text:#f0f0f3; --muted:#8b8b96; --dim:#55555e; --subtle:#2a2a30;
+      --border:#1e1e24; --border2:#16161a;
+      --accent:136,58,234; --accent2:52,211,153;
+      --blue:99,102,241; --green:34,197,94; --red:239,68,68; --amber:245,158,11;
+      --glow:rgba(136,58,234,.08);
+      --r:10px; --r2:14px;
     }
     html.light{
-      --bg:#ffffff; --bg2:#f4f4f5; --bg3:#e4e4e7;
-      --text:#09090b; --muted:#71717a; --dim:#a1a1aa; --subtle:#d4d4d8;
-      --border:#e4e4e7; --border2:#f4f4f5;
+      --bg:#fafafa; --bg2:#f4f4f5; --bg3:#ebebee;
+      --text:#111113; --muted:#6b6b76; --dim:#9b9ba5; --subtle:#d4d4d8;
+      --border:#e2e2e6; --border2:#ededf0;
+      --glow:rgba(136,58,234,.04);
     }
     *{box-sizing:border-box;margin:0;padding:0;}
     body{
-      font-family:Inter,system-ui,-apple-system,sans-serif;
+      font-family:'Inter',system-ui,sans-serif;
       background:var(--bg); color:var(--text);
       display:flex; min-height:100vh; font-size:14px; line-height:1.5;
+    }
+    /* subtle background glow */
+    body::before{
+      content:''; position:fixed; top:-20%; left:-10%; width:50%; height:60%;
+      background:radial-gradient(ellipse,rgba(var(--accent),.07),transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    body::after{
+      content:''; position:fixed; bottom:-20%; right:-10%; width:45%; height:55%;
+      background:radial-gradient(ellipse,rgba(var(--accent2),.05),transparent 70%);
+      pointer-events:none; z-index:0;
     }
 
     /* SIDEBAR */
     .side{
       width:240px; flex-shrink:0; border-right:1px solid var(--border);
       display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;
-      background:var(--bg);
+      background:var(--bg); z-index:10;
     }
     .side-head{padding:20px 20px 16px; border-bottom:1px solid var(--border);}
-    .side-head h1{font-size:14px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
+    .side-head h1{font-size:13px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(var(--accent),.9);}
     .side-nav{flex:1; padding:8px;}
     .side-nav button{
-      width:100%; text-align:left; padding:9px 14px; border:none; background:none;
+      width:100%; text-align:left; padding:8px 12px; border:none; background:none;
       color:var(--muted); font-size:13px; font-weight:500; border-radius:var(--r); cursor:pointer;
-      display:flex; align-items:center; gap:10px; transition:all .12s;
+      display:flex; align-items:center; gap:10px; transition:all .15s;
     }
-    .side-nav button:hover{background:var(--bg2); color:var(--text);}
-    .side-nav button.active{background:var(--bg2); color:var(--text); font-weight:600;}
-    .side-nav button .ic{width:18px; height:18px; flex-shrink:0; opacity:.5;}
-    .side-nav button.active .ic{opacity:.8;}
+    .side-nav button:hover{background:var(--bg3); color:var(--text);}
+    .side-nav button.active{background:rgba(var(--accent),.1); color:rgb(var(--accent)); font-weight:600;}
+    .side-nav button .ic{width:18px; height:18px; flex-shrink:0; opacity:.45;}
+    .side-nav button.active .ic{opacity:.9;}
     .side-foot{padding:12px 16px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px;}
     .side-foot .status{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim);}
-    .dot{width:7px;height:7px;border-radius:99px;background:var(--amber);}
-    .dot.ok{background:var(--green);}
+    .dot{width:7px;height:7px;border-radius:99px;background:rgb(var(--amber));}
+    .dot.ok{background:rgb(var(--green));}
     .side-foot .row{display:flex; gap:8px; align-items:center;}
-    .side-foot a,.side-foot button{font-size:12px; color:var(--dim); text-decoration:none; background:none; border:1px solid var(--border); border-radius:6px; padding:4px 10px; cursor:pointer;}
-    .side-foot a:hover,.side-foot button:hover{color:var(--text); border-color:var(--subtle);}
+    .side-foot a,.side-foot button{font-size:12px; color:var(--dim); text-decoration:none; background:none; border:1px solid var(--border); border-radius:8px; padding:5px 10px; cursor:pointer; transition:all .15s;}
+    .side-foot a:hover,.side-foot button:hover{color:var(--text); border-color:var(--subtle); background:var(--bg3);}
 
     /* MOBILE */
-    .hamburger{display:none; position:fixed; top:12px; left:12px; z-index:3000; width:36px; height:36px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:18px; cursor:pointer; align-items:center; justify-content:center;}
-    .overlay{display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2400;}
+    .hamburger{display:none; position:fixed; top:12px; left:12px; z-index:3000; width:38px; height:38px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; align-items:center; justify-content:center; backdrop-filter:blur(8px);}
+    .overlay{display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2400; backdrop-filter:blur(4px);}
     .overlay.open{display:block;}
     @media(max-width:768px){
-      .side{position:fixed; left:-260px; z-index:2500; transition:left .2s; width:240px;}
+      .side{position:fixed; left:-260px; z-index:2500; transition:left .25s cubic-bezier(.4,0,.2,1); width:240px;}
       .side.open{left:0;}
       .hamburger{display:flex;}
-      .main{padding-top:52px;}
+      .main{padding-top:56px;}
     }
 
     /* MAIN */
-    .main{flex:1; padding:32px 40px 64px; max-width:960px; overflow-y:auto;}
+    .main{flex:1; padding:32px 40px 64px; max-width:980px; overflow-y:auto; position:relative; z-index:1;}
     @media(max-width:768px){.main{padding:16px;}}
-    .page-title{font-size:24px; font-weight:700; letter-spacing:-.03em; margin-bottom:24px;}
+    .page-title{font-size:26px; font-weight:700; letter-spacing:-.04em; margin-bottom:24px; background:linear-gradient(135deg,var(--text),var(--muted)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;}
 
-    /* TAB PANELS */
-    .tab{display:none;}
-    .tab.active{display:block;}
+    .tab{display:none;} .tab.active{display:block;}
 
     /* CARD */
-    .card{border:1px solid var(--border); border-radius:var(--r2); padding:24px; margin-bottom:16px; background:var(--bg);}
-    .card-label{font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-bottom:12px;}
-    .card-title{font-size:16px; font-weight:600; margin-bottom:4px;}
+    .card{
+      border:1px solid var(--border); border-radius:var(--r2); padding:24px; margin-bottom:16px;
+      background:linear-gradient(180deg,var(--bg2),var(--bg));
+      position:relative; overflow:hidden;
+    }
+    .card::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.15),transparent);}
+    .card-label{font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(var(--accent),.7); margin-bottom:12px;}
+    .card-title{font-size:17px; font-weight:600; letter-spacing:-.02em; margin-bottom:4px;}
     .card-desc{font-size:13px; color:var(--muted); margin-bottom:16px;}
 
     /* FORM */
-    label{display:block; font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;}
+    label{display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px;}
     .inp{
-      width:100%; height:40px; padding:0 12px; border-radius:var(--r);
-      border:1px solid var(--border); background:var(--bg2); color:var(--text);
-      font-size:13px; outline:none; transition:border-color .15s;
+      width:100%; height:42px; padding:0 14px; border-radius:var(--r);
+      border:1px solid var(--border); background:var(--bg); color:var(--text);
+      font-size:13px; outline:none; transition:all .2s;
     }
-    .inp:focus{border-color:var(--blue); box-shadow:0 0 0 3px rgba(59,130,246,.1);}
+    .inp:focus{border-color:rgba(var(--accent),.5); box-shadow:0 0 0 3px rgba(var(--accent),.08);}
     select.inp{appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2371717a'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center;}
     .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
     @media(max-width:500px){.row2{grid-template-columns:1fr;}}
 
     /* BUTTONS */
     .btn{
-      height:36px; padding:0 18px; border-radius:9px; border:1px solid var(--border);
-      background:var(--bg2); color:var(--text); font-size:13px; font-weight:500; letter-spacing:-.01em;
+      height:38px; padding:0 18px; border-radius:var(--r); border:1px solid var(--border);
+      background:var(--bg3); color:var(--text); font-size:13px; font-weight:500;
       cursor:pointer; display:inline-flex; align-items:center; gap:7px;
-      transition:all .15s ease; user-select:none;
+      transition:all .2s ease; user-select:none; text-decoration:none;
     }
-    .btn:hover{background:var(--bg3); border-color:var(--subtle); transform:translateY(-1px); box-shadow:0 2px 8px rgba(0,0,0,.12);}
+    .btn:hover{background:var(--subtle); border-color:var(--subtle); transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.2);}
     .btn:active{transform:translateY(0); box-shadow:none;}
-    .btn.primary{background:var(--blue); color:#fff; border-color:transparent; font-weight:600; box-shadow:0 1px 3px rgba(59,130,246,.25);}
-    .btn.primary:hover{background:#2563eb; box-shadow:0 4px 12px rgba(59,130,246,.3); transform:translateY(-1px);}
-    .btn.primary:active{transform:translateY(0); box-shadow:0 1px 3px rgba(59,130,246,.2);}
-    .btn.primary[disabled]{opacity:.35; cursor:not-allowed; transform:none; box-shadow:none;}
-    .btn.sm{height:30px; padding:0 12px; font-size:12px; border-radius:7px;}
-    .btn.danger{background:rgba(239,68,68,.1); color:var(--red); border-color:rgba(239,68,68,.2);}
-    .btn.danger:hover{background:rgba(239,68,68,.18);}
+    .btn.primary{
+      background:linear-gradient(135deg,rgb(var(--accent)),rgb(var(--blue)));
+      color:#fff; border:none; font-weight:600;
+      box-shadow:0 2px 12px rgba(var(--accent),.25);
+    }
+    .btn.primary:hover{box-shadow:0 6px 20px rgba(var(--accent),.35); transform:translateY(-2px); filter:brightness(1.1);}
+    .btn.primary:active{transform:translateY(0); box-shadow:0 2px 8px rgba(var(--accent),.2);}
+    .btn.primary[disabled]{opacity:.3; cursor:not-allowed; transform:none; box-shadow:none; filter:none;}
+    .btn.sm{height:32px; padding:0 12px; font-size:12px; border-radius:8px;}
+    .btn.ghost{background:transparent; border:1px solid var(--border);}
+    .btn.ghost:hover{background:var(--bg3);}
     .btn-row{display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; align-items:center;}
-    .err{color:var(--red); font-size:12px; margin-top:8px;}
+    .err{color:rgb(var(--red)); font-size:12px; margin-top:8px;}
     .hint{color:var(--dim); font-size:12px; margin-top:6px;}
-    .sep{height:1px; background:var(--border); margin:16px 0;}
 
     /* DROPZONE */
     .dz{
-      border:2px dashed var(--border); border-radius:var(--r2); padding:32px;
-      text-align:center; cursor:pointer; transition:all .2s;
+      border:2px dashed var(--border); border-radius:var(--r2); padding:36px;
+      text-align:center; cursor:pointer; transition:all .25s;
+      background:linear-gradient(180deg,var(--bg3),var(--bg));
     }
-    .dz:hover{border-color:var(--blue); background:rgba(59,130,246,.04);}
-    .dz-title{font-size:14px; font-weight:500; margin-bottom:4px;}
+    .dz:hover{border-color:rgba(var(--accent),.4); background:rgba(var(--accent),.04);}
+    .dz-title{font-size:14px; font-weight:600; margin-bottom:4px;}
     .dz-sub{font-size:12px; color:var(--dim);}
 
     /* STATUS BOX */
-    .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px;}
+    .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px; background:var(--bg);}
+
+    /* STAT CARDS (dashboard) */
+    .stats{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:20px;}
+    .stat{
+      border:1px solid var(--border); border-radius:var(--r2); padding:20px;
+      background:linear-gradient(135deg,var(--bg2),var(--bg));
+      position:relative; overflow:hidden;
+    }
+    .stat::before{content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:2px 2px 0 0;}
+    .stat.purple::before{background:linear-gradient(90deg,rgb(var(--accent)),rgb(var(--blue)));}
+    .stat.green::before{background:linear-gradient(90deg,rgb(var(--green)),rgb(var(--accent2)));}
+    .stat.amber::before{background:linear-gradient(90deg,rgb(var(--amber)),rgb(var(--red)));}
+    .stat.blue::before{background:linear-gradient(90deg,rgb(var(--blue)),rgb(var(--accent)));}
+    .stat-label{font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.08em;}
+    .stat-val{font-size:28px; font-weight:700; letter-spacing:-.03em; margin-top:6px;}
+    .stat-sub{font-size:12px; color:var(--dim); margin-top:2px;}
+
+    /* MINI BAR CHART */
+    .chart{display:flex; align-items:flex-end; gap:3px; height:48px; margin-top:12px;}
+    .chart-bar{flex:1; border-radius:3px 3px 0 0; min-width:4px; transition:height .3s ease;}
 
     /* METRIC GRID */
     .mg{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin-bottom:16px;}
-    .mc{border:1px solid var(--border); border-radius:var(--r); padding:12px;}
+    .mc{border:1px solid var(--border); border-radius:var(--r); padding:12px; background:var(--bg);}
     .mc-label{font-size:10px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.06em;}
     .mc-val{font-size:18px; font-weight:600; margin-top:4px;}
 
     /* TABLE */
     .tbl{width:100%; border-collapse:collapse; font-size:13px;}
-    .tbl th{text-align:left; padding:8px 10px; font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border);}
-    .tbl td{padding:8px 10px; border-bottom:1px solid var(--border2);}
+    .tbl th{text-align:left; padding:10px 12px; font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border); background:var(--bg2);}
+    .tbl td{padding:10px 12px; border-bottom:1px solid var(--border2);}
     .tbl tr:hover td{background:var(--bg2);}
     .mono{font-family:ui-monospace,'SF Mono',monospace; font-size:12px;}
 
     /* MODAL */
-    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:2000;}
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;padding:16px;z-index:2000;backdrop-filter:blur(4px);}
     .modal-bg.open{display:flex;}
     .modal{width:min(1000px,96vw);max-height:88vh;display:flex;flex-direction:column;border-radius:var(--r2);border:1px solid var(--border);background:var(--bg);overflow:hidden;}
     .modal-hd{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;}
@@ -144,25 +186,31 @@
 
     /* BANNER */
     .banner{padding:12px 16px;border-radius:var(--r);font-size:13px;margin-bottom:12px;}
-    .banner.red{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:var(--red);}
-    .banner.green{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);color:var(--green);}
-    .banner.blue{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.15);color:var(--blue);}
+    .banner.red{background:rgba(var(--red),.06);border:1px solid rgba(var(--red),.12);color:rgb(var(--red));}
+    .banner.green{background:rgba(var(--green),.06);border:1px solid rgba(var(--green),.12);color:rgb(var(--green));}
+    .banner.blue{background:rgba(var(--blue),.06);border:1px solid rgba(var(--blue),.12);color:rgb(var(--blue));}
 
     /* HELP */
-    .help-item{margin-bottom:20px;}
-    .help-item h4{font-size:14px; font-weight:600; margin-bottom:6px;}
-    .help-item p,.help-item li{font-size:13px; color:var(--muted); line-height:1.6;}
+    .help-item{margin-bottom:20px; padding:16px; border:1px solid var(--border); border-radius:var(--r2); background:var(--bg);}
+    .help-item h4{font-size:14px; font-weight:600; margin-bottom:8px; color:rgb(var(--accent));}
+    .help-item p,.help-item li{font-size:13px; color:var(--muted); line-height:1.7;}
     .help-item ul{padding-left:18px; margin-top:4px;}
 
-    /* ONBOARDING STEPS */
+    /* ONBOARDING */
     .step{display:flex; gap:14px; margin-bottom:16px;}
-    .step-num{width:28px;height:28px;border-radius:99px;background:var(--text);color:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+    .step-num{width:28px;height:28px;border-radius:99px;background:linear-gradient(135deg,rgb(var(--accent)),rgb(var(--blue)));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
     .step-body h4{font-size:14px;font-weight:600;margin-bottom:2px;}
     .step-body p{font-size:13px;color:var(--muted);}
 
-    /* CATEGORY ROW */
-    .cat-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;font-size:13px;}
+    .cat-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;font-size:13px;background:var(--bg);}
     @media(max-width:500px){.cat-row{grid-template-columns:1fr;}}
+
+    /* BADGE */
+    .badge{display:inline-flex; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600;}
+    .badge.ok{background:rgba(var(--green),.1); color:rgb(var(--green));}
+    .badge.err{background:rgba(var(--red),.1); color:rgb(var(--red));}
+    .badge.warn{background:rgba(var(--amber),.1); color:rgb(var(--amber));}
+    .badge.info{background:rgba(var(--blue),.1); color:rgb(var(--blue));}
   </style>
 </head>
 <body>
@@ -170,7 +218,7 @@
   <div class="overlay" id="overlay"></div>
 
   <nav class="side" id="sidebar">
-    <div class="side-head"><h1>jolly jesters</h1></div>
+    <div class="side-head"><h1>Jolly Jesters</h1></div>
     <div class="side-nav" id="nav">
       <button data-tab="dashboard" class="active"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
       <button data-tab="new-run"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8m-4-4h8"/></svg>Nowa analiza</button>
@@ -181,11 +229,11 @@
       <button data-tab="help"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>Pomoc</button>
     </div>
     <div class="side-foot">
-      <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">laczenie...</span></div>
+      <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">łączenie...</span></div>
       <div class="row">
-        <button id="theme-toggle" title="Zmie\u0144 motyw" style="padding:4px 8px; display:flex; align-items:center;">
-          <svg id="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg id="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <button id="theme-toggle" title="Zmień motyw" style="display:flex;align-items:center;padding:5px 8px;">
+          <svg id="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg id="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
         </button>
         <a href="/logout">wyloguj</a>
       </div>
@@ -197,8 +245,24 @@
     <!-- DASHBOARD -->
     <div class="tab active" id="tab-dashboard">
       <div class="page-title">Dashboard</div>
+
+      <!-- stats row -->
+      <div class="stats" id="dash-stats">
+        <div class="stat purple"><div class="stat-label">Wszystkie analizy</div><div class="stat-val" id="ds-total">-</div><div class="stat-sub">łącznie runów</div></div>
+        <div class="stat green"><div class="stat-label">Przetworzone EAN-y</div><div class="stat-val" id="ds-eans">-</div><div class="stat-sub">produktów sprawdzonych</div></div>
+        <div class="stat amber"><div class="stat-label">CAPTCHA rozwiązane</div><div class="stat-val" id="ds-captcha">-</div><div class="stat-sub">łącznie solves</div></div>
+        <div class="stat blue"><div class="stat-label">Proxy aktywne</div><div class="stat-val" id="ds-proxy">-</div><div class="stat-sub">w puli</div></div>
+      </div>
+
+      <!-- mini chart -->
+      <div class="card" id="dash-chart-card">
+        <div class="card-label">Ostatnie analizy</div>
+        <div class="chart" id="dash-chart"></div>
+        <div class="hint" id="dash-chart-hint"></div>
+      </div>
+
       <div class="card" id="onboarding">
-        <div class="card-label">pierwsze kroki</div>
+        <div class="card-label">Pierwsze kroki</div>
         <div class="card-title">Witaj w Jolly Jesters</div>
         <div class="card-desc">Konfiguracja w 4 krokach - potem możesz analizować opłacalność produktów</div>
         <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorię</h4><p>Ustawienia - stwórz kategorię z mnożnikiem i prowizją Allegro</p></div></div>
@@ -206,9 +270,10 @@
         <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analizę</h4><p>Nowa analiza - wrzuć Excel z EAN-ami i cenami zakupu</p></div></div>
         <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdź wyniki</h4><p>Pobierz Excel lub przeglądaj metryki w podglądzie</p></div></div>
       </div>
+
       <div class="card">
-        <div class="card-label">aktywne analizy</div>
-        <div id="dash-empty" class="sbox">Brak aktywnych analiz</div>
+        <div class="card-label">Aktywne analizy</div>
+        <div id="dash-empty" class="sbox">Brak aktywnych analiz - uruchom nową z zakładki "Nowa analiza"</div>
         <div id="dash-active"></div>
       </div>
     </div>
@@ -217,7 +282,7 @@
     <div class="tab" id="tab-new-run">
       <div class="page-title">Nowa analiza</div>
       <div class="card">
-        <div class="card-label">z pliku</div>
+        <div class="card-label">Z pliku</div>
         <div class="card-title">Upload Excel / CSV</div>
         <div class="card-desc">Kolumny: EAN, cena zakupu, nazwa (opcjonalnie)</div>
         <div class="dz" id="dropzone" tabindex="0">
@@ -228,16 +293,16 @@
         <div id="file-name" class="hint" style="margin-top:8px;">nie wybrano pliku</div>
         <div class="err" id="file-error" style="display:none;"></div>
         <div style="height:12px;"></div>
-        <div class="row2"><div><label>kategoria</label><select class="inp" id="category-select"></select></div></div>
+        <div class="row2"><div><label>Kategoria</label><select class="inp" id="category-select"></select></div></div>
         <div class="btn-row"><button class="btn primary" id="start-btn" disabled>Start analizy</button></div>
         <div class="err" id="upload-error" style="display:none;"></div>
       </div>
       <div class="card">
-        <div class="card-label">z bazy danych</div>
+        <div class="card-label">Z bazy danych</div>
         <div class="card-desc">Analizuj produkty już zapisane w bazie</div>
         <div class="row2">
-          <div><label>ostatnie dni</label><input class="inp" id="db-last-days" type="number" min="1" placeholder="7" /></div>
-          <div><label>ean zawiera</label><input class="inp" id="db-ean-contains" type="text" placeholder="590" /></div>
+          <div><label>Ostatnie dni</label><input class="inp" id="db-last-days" type="number" min="1" placeholder="7" /></div>
+          <div><label>EAN zawiera</label><input class="inp" id="db-ean-contains" type="text" placeholder="590" /></div>
         </div>
         <div class="btn-row"><button class="btn primary" id="db-run-btn">Start z bazy</button></div>
         <div class="err" id="db-error" style="display:none;"></div>
@@ -255,14 +320,14 @@
       <div class="page-title">Market data</div>
       <div class="card">
         <div class="row2">
-          <div><label>kategoria</label><select class="inp" id="market-category"></select></div>
-          <div><label>ean</label><input class="inp" id="market-ean" placeholder="590" /></div>
+          <div><label>Kategoria</label><select class="inp" id="market-category"></select></div>
+          <div><label>EAN</label><input class="inp" id="market-ean" placeholder="590" /></div>
         </div>
         <div class="btn-row" style="margin-bottom:12px;">
           <button class="btn sm" id="market-load">Szukaj</button>
-          <button class="btn sm" id="market-prev">Prev</button>
-          <button class="btn sm" id="market-next">Next</button>
-          <span class="hint" id="market-meta" style="margin:0;">0 rekordow</span>
+          <button class="btn ghost sm" id="market-prev">Prev</button>
+          <button class="btn ghost sm" id="market-next">Next</button>
+          <span class="hint" id="market-meta" style="margin:0;">0 rekordów</span>
         </div>
         <div id="market-table"></div>
       </div>
@@ -271,38 +336,34 @@
     <!-- PROXY POOL -->
     <div class="tab" id="tab-proxies">
       <div class="page-title">Proxy pool</div>
-      <div class="card">
-        <div class="card-label">health</div>
-        <div class="mg" id="proxy-health"></div>
-        <div class="btn-row"><button class="btn sm" id="proxy-refresh">Odśwież</button></div>
-      </div>
-      <div class="card"><div class="card-label">lista</div><div id="proxy-list" style="overflow:auto;"></div></div>
+      <div class="card"><div class="card-label">Health</div><div class="mg" id="proxy-health"></div><div class="btn-row"><button class="btn sm" id="proxy-refresh">Odśwież</button></div></div>
+      <div class="card"><div class="card-label">Lista</div><div id="proxy-list" style="overflow:auto;"></div></div>
     </div>
 
     <!-- USTAWIENIA -->
     <div class="tab" id="tab-settings">
       <div class="page-title">Ustawienia</div>
       <div class="card">
-        <div class="card-label">cache</div>
+        <div class="card-label">Cache</div>
         <div class="row2"><div><label>TTL (dni)</label><input class="inp" id="cache-ttl-input" type="number" min="0" placeholder="7" /></div></div>
         <div class="btn-row"><button class="btn primary" id="save-ttl-btn">Zapisz</button></div>
         <div class="hint" id="cache-ttl-status"></div>
       </div>
       <div class="card">
-        <div class="card-label">stop-loss</div>
+        <div class="card-label">Stop-loss</div>
         <div class="card-desc">Automatyczne zatrzymanie przy złej jakości</div>
         <div class="row2">
-          <div><label>max error rate (%)</label><input class="inp" id="sl-error-rate" type="number" min="0" max="100" /></div>
-          <div><label>max captcha rate (%)</label><input class="inp" id="sl-captcha-rate" type="number" min="0" max="100" /></div>
+          <div><label>Max error rate (%)</label><input class="inp" id="sl-error-rate" type="number" min="0" max="100" /></div>
+          <div><label>Max captcha rate (%)</label><input class="inp" id="sl-captcha-rate" type="number" min="0" max="100" /></div>
         </div>
         <div class="row2">
-          <div><label>window size</label><input class="inp" id="sl-window" type="number" min="5" /></div>
-          <div><label>max consecutive errors</label><input class="inp" id="sl-consec" type="number" min="1" /></div>
+          <div><label>Window size</label><input class="inp" id="sl-window" type="number" min="5" /></div>
+          <div><label>Max consecutive errors</label><input class="inp" id="sl-consec" type="number" min="1" /></div>
         </div>
         <div class="btn-row"><button class="btn primary" id="save-stoploss-btn">Zapisz stop-loss</button></div>
       </div>
       <div class="card">
-        <div class="card-label">proxy</div>
+        <div class="card-label">Proxy</div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <input class="inp" id="proxy-file" type="file" accept=".txt" style="max-width:260px;" />
           <button class="btn primary" id="upload-proxies-btn">Wgraj</button>
@@ -310,115 +371,33 @@
         <div class="sbox" id="proxy-file-status" style="margin-top:10px;">brak danych</div>
       </div>
       <div class="card">
-        <div class="card-label">kategorie</div>
+        <div class="card-label">Kategorie</div>
         <div style="display:grid; grid-template-columns:2fr 1fr 1fr; gap:8px; margin-bottom:10px;">
           <input class="inp" id="cat-name" placeholder="nazwa" />
-          <input class="inp" id="cat-mult" type="number" step="0.01" placeholder="mnoznik" />
+          <input class="inp" id="cat-mult" type="number" step="0.01" placeholder="mnożnik" />
           <input class="inp" id="cat-comm" type="number" step="0.1" placeholder="prowizja %" />
         </div>
         <div class="btn-row" style="margin-bottom:10px;"><button class="btn primary" id="add-cat-btn">Dodaj</button></div>
         <div id="cat-list"></div>
         <div class="err" id="cat-add-error" style="display:none;"></div>
       </div>
-      <div class="card">
-        <div class="card-label">waluty</div>
-        <div id="currency-list"></div>
-        <div class="btn-row"><button class="btn primary" id="save-currencies-btn">Zapisz waluty</button></div>
-      </div>
+      <div class="card"><div class="card-label">Waluty</div><div id="currency-list"></div><div class="btn-row"><button class="btn primary" id="save-currencies-btn">Zapisz waluty</button></div></div>
     </div>
 
     <!-- POMOC -->
     <div class="tab" id="tab-help">
       <div class="page-title">Pomoc</div>
-      <input class="inp" id="help-search" type="text" placeholder="szukaj w dokumentacji..." style="margin-bottom:20px;" />
+      <input class="inp" id="help-search" type="text" placeholder="Szukaj w dokumentacji..." style="margin-bottom:20px;" />
       <div id="help-content">
-        <div class="help-item" data-help="start zaczac rozpoczac jak">
-          <h4>Jak zaczac?</h4>
-          <p>System sprawdza ceny produktow na Allegro na podstawie kodow EAN.</p>
-          <ul>
-            <li>Dodaj kategorie w ustawieniach (np. "perfumy" z mnoznikiem 1.25 i prowizja 10%)</li>
-            <li>Wgraj proxy w ustawieniach</li>
-            <li>Przygotuj plik Excel z kolumnami: EAN, cena zakupu</li>
-            <li>Nowa analiza - wrzuc plik, wybierz kategorie, kliknij Start</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="plik excel csv format kolumny">
-          <h4>Format pliku</h4>
-          <p>Obslugiwane: .xlsx, .xls, .csv. Wymagane kolumny:</p>
-          <ul>
-            <li><strong>EAN</strong> - kod kreskowy (8-13 cyfr)</li>
-            <li><strong>cena zakupu</strong> - Twoja cena nabycia</li>
-            <li><strong>nazwa</strong> - opcjonalna</li>
-            <li><strong>waluta</strong> - opcjonalna (domyslnie PLN)</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="wyniki oplacalnosc cena marza zysk allegro">
-          <h4>Jak czytac wyniki?</h4>
-          <ul>
-            <li><strong>Cena Allegro</strong> - najnizsza cena na Allegro</li>
-            <li><strong>Marża</strong> - roznica miedzy cena Allegro a cena zakupu (minus prowizja)</li>
-            <li><strong>Oplacalny</strong> - tak, jesli marza przekracza mnoznik</li>
-            <li><strong>Sprzedanych</strong> - ilosc sprzedanych sztuk</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="metryki koszt ean przepustowosc czas latency">
-          <h4>Metryki i koszty</h4>
-          <ul>
-            <li><strong>EAN/min</strong> - predkosc przetwarzania</li>
-            <li><strong>Koszt/1000 EAN</strong> - estymacja (z CAPTCHA solving)</li>
-            <li><strong>Retry rate</strong> - % zapytan ponawianych</li>
-            <li><strong>Latency P50/P95</strong> - czas odpowiedzi</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="stoploss stop loss zatrzymanie blad ochrona bezpieczenstwo">
-          <h4>Stop-loss</h4>
-          <p>System automatycznie zatrzymuje analize przy problemach:</p>
-          <ul>
-            <li><strong>Error rate</strong> - zbyt wiele bledow (domyslnie > 50%)</li>
-            <li><strong>Captcha rate</strong> - zbyt wiele CAPTCHA (> 80%)</li>
-            <li><strong>Consecutive errors</strong> - seria bledow z rzedu (10)</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="proxy siec polaczenie ip kwarantanna zablokowane blocked">
-          <h4>Proxy</h4>
-          <ul>
-            <li>Wgraj plik .txt w ustawieniach (1 proxy na linie)</li>
-            <li>System automatycznie ocenia jakosc (health score 0-1)</li>
-            <li>Slabe proxy trafiaja na kwarantanne (15 min)</li>
-            <li>Zakladka Proxy pool pokazuje aktualny stan</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="kategoria prowizja mnoznik oplacalnosc ustawienia konfiguracja">
-          <h4>Kategorie</h4>
-          <ul>
-            <li><strong>Mnoznik</strong> - min marza (np. 1.25 = min 25% ROI)</li>
-            <li><strong>Prowizja</strong> - % prowizji Allegro (np. 10%)</li>
-            <li>Kazda kategoria moze miec inne parametry</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="baza analiza cache odswiezanie powtorka ponowna">
-          <h4>Analiza z bazy</h4>
-          <p>Mozesz ponownie analizowac produkty bez uploadu pliku. System uzyje danych juz zapisanych.</p>
-        </div>
-        <div class="help-item" data-help="api eksport excel csv pobieranie download google sheets prometheus">
-          <h4>API i eksport</h4>
-          <ul>
-            <li><strong>Excel</strong> - pelne wyniki z metrykami</li>
-            <li><strong>CSV metryk</strong> - podsumowanie runu</li>
-            <li><strong>REST API</strong> - /api/v1/ (analysis, categories, settings)</li>
-            <li><strong>Prometheus</strong> - /api/v1/metrics/prometheus</li>
-          </ul>
-        </div>
-        <div class="help-item" data-help="blad problem nie dziala error timeout zablokowany troubleshooting pomoc">
-          <h4>Rozwiązywanie problemów</h4>
-          <ul>
-            <li><strong>"brak proxy"</strong> - wgraj plik w ustawieniach</li>
-            <li><strong>"brak kategorii"</strong> - dodaj w ustawieniach</li>
-            <li><strong>Duzo blocked</strong> - sprawdz proxy pool</li>
-            <li><strong>Run stopped</strong> - stop-loss wykryl problem</li>
-            <li><strong>Limit analiz</strong> - max 3 jednoczesnie</li>
-          </ul>
-        </div>
+        <div class="help-item" data-help="start zaczac rozpoczac jak"><h4>Jak zacząć?</h4><p>System sprawdza ceny produktów na Allegro na podstawie kodów EAN.</p><ul><li>Dodaj kategorię w ustawieniach (np. "perfumy" z mnożnikiem 1.25 i prowizją 10%)</li><li>Wgraj proxy w ustawieniach</li><li>Przygotuj plik Excel z kolumnami: EAN, cena zakupu</li><li>Nowa analiza - wrzuć plik, wybierz kategorię, kliknij Start</li></ul></div>
+        <div class="help-item" data-help="plik excel csv format kolumny"><h4>Format pliku</h4><p>Obsługiwane: .xlsx, .xls, .csv. Wymagane kolumny:</p><ul><li><strong>EAN</strong> - kod kreskowy (8-13 cyfr)</li><li><strong>cena zakupu</strong> - Twoja cena nabycia</li><li><strong>nazwa</strong> - opcjonalna</li><li><strong>waluta</strong> - opcjonalna (domyślnie PLN)</li></ul></div>
+        <div class="help-item" data-help="wyniki oplacalnosc cena marza zysk allegro"><h4>Jak czytać wyniki?</h4><ul><li><strong>Cena Allegro</strong> - najniższa cena na Allegro</li><li><strong>Marża</strong> - różnica między ceną Allegro a ceną zakupu (minus prowizja)</li><li><strong>Opłacalny</strong> - tak, jeśli marża przekracza mnożnik</li><li><strong>Sprzedanych</strong> - ilość sprzedanych sztuk</li></ul></div>
+        <div class="help-item" data-help="metryki koszt ean przepustowosc czas latency"><h4>Metryki i koszty</h4><ul><li><strong>EAN/min</strong> - prędkość przetwarzania</li><li><strong>Koszt/1000 EAN</strong> - estymacja (z CAPTCHA solving)</li><li><strong>Retry rate</strong> - % zapytań ponawianych</li><li><strong>Latency P50/P95</strong> - czas odpowiedzi</li></ul></div>
+        <div class="help-item" data-help="stoploss stop loss zatrzymanie blad ochrona"><h4>Stop-loss</h4><p>System automatycznie zatrzymuje analizę przy problemach:</p><ul><li><strong>Error rate</strong> - zbyt wiele błędów (domyślnie > 50%)</li><li><strong>Captcha rate</strong> - zbyt wiele CAPTCHA (> 80%)</li><li><strong>Consecutive errors</strong> - seria błędów z rzędu (10)</li></ul></div>
+        <div class="help-item" data-help="proxy siec polaczenie ip kwarantanna"><h4>Proxy</h4><ul><li>Wgraj plik .txt w ustawieniach (1 proxy na linię)</li><li>System automatycznie ocenia jakość (health score 0-1)</li><li>Słabe proxy trafiają na kwarantannę (15 min)</li></ul></div>
+        <div class="help-item" data-help="kategoria prowizja mnoznik"><h4>Kategorie</h4><ul><li><strong>Mnożnik</strong> - min marża (np. 1.25 = min 25% ROI)</li><li><strong>Prowizja</strong> - % prowizji Allegro</li><li>Każda kategoria może mieć inne parametry</li></ul></div>
+        <div class="help-item" data-help="api eksport excel csv prometheus"><h4>API i eksport</h4><ul><li><strong>Excel</strong> - pełne wyniki z metrykami</li><li><strong>CSV</strong> - podsumowanie runu</li><li><strong>REST API</strong> - /api/v1/</li><li><strong>Prometheus</strong> - /api/v1/metrics/prometheus</li></ul></div>
+        <div class="help-item" data-help="blad problem nie dziala troubleshooting"><h4>Rozwiązywanie problemów</h4><ul><li><strong>"brak proxy"</strong> - wgraj plik w ustawieniach</li><li><strong>"brak kategorii"</strong> - dodaj w ustawieniach</li><li><strong>Dużo blocked</strong> - sprawdź proxy pool</li><li><strong>Run stopped</strong> - stop-loss wykrył problem</li><li><strong>Limit analiz</strong> - max 3 jednocześnie</li></ul></div>
       </div>
     </div>
   </div>
@@ -426,17 +405,9 @@
   <!-- PREVIEW MODAL -->
   <div class="modal-bg" id="preview-modal">
     <div class="modal">
-      <div class="modal-hd">
-        <h3 id="preview-title">Podgląd</h3>
-        <div style="display:flex;gap:8px;">
-          <a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a>
-          <a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV metryk</a>
-          <button class="btn sm" id="preview-refresh">Odśwież</button>
-          <button class="btn sm" id="preview-close">Zamknij</button>
-        </div>
-      </div>
+      <div class="modal-hd"><h3 id="preview-title">Podgląd</h3><div style="display:flex;gap:8px;"><a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a><a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV</a><button class="btn sm" id="preview-refresh">Odśwież</button><button class="btn sm" id="preview-close">Zamknij</button></div></div>
       <div class="modal-bd">
-        <div id="preview-metrics" style="display:none;"><div class="card-label">metryki</div><div class="mg" id="preview-mg"></div></div>
+        <div id="preview-metrics" style="display:none;"><div class="card-label">Metryki</div><div class="mg" id="preview-mg"></div></div>
         <div id="preview-stoploss" class="banner red" style="display:none;"></div>
         <div id="preview-body"><div class="hint">ładowanie...</div></div>
       </div>
@@ -449,7 +420,6 @@
     const hide=el=>{if(el)el.style.display='none';};
     const setText=(el,t)=>{if(el)el.textContent=t;};
     const setHtml=(el,t)=>{if(el)el.innerHTML=t;};
-
     async function apiGet(u){const r=await fetch(u,{credentials:'include'});if(!r.ok)throw new Error(r.status);return r.json();}
     async function apiPost(u,b){const r=await fetch(u,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
     async function apiPut(u,b){const r=await fetch(u,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
@@ -463,17 +433,10 @@
         document.querySelectorAll('.tab').forEach(p=>p.classList.remove('active'));
         $('tab-'+btn.dataset.tab)?.classList.add('active');
         const t=btn.dataset.tab;
-        if(t==='history')loadHistory();
-        if(t==='market')loadMarket(0);
-        if(t==='proxies')loadProxyPool();
-        if(t==='settings')loadSettings();
-        // mobile: close sidebar
-        $('sidebar')?.classList.remove('open');
-        $('overlay')?.classList.remove('open');
+        if(t==='history')loadHistory();if(t==='market')loadMarket(0);if(t==='proxies')loadProxyPool();if(t==='settings')loadSettings();
+        $('sidebar')?.classList.remove('open');$('overlay')?.classList.remove('open');
       });
     });
-
-    // MOBILE
     $('hamburger')?.addEventListener('click',()=>{$('sidebar')?.classList.toggle('open');$('overlay')?.classList.toggle('open');});
     $('overlay')?.addEventListener('click',()=>{$('sidebar')?.classList.remove('open');$('overlay')?.classList.remove('open');});
 
@@ -481,29 +444,65 @@
     function applyTheme(t){
       document.documentElement.classList.toggle('light',t==='light');
       localStorage.setItem('jj_theme',t);
-      const moon=$('theme-icon-moon'),sun=$('theme-icon-sun');
-      if(t==='light'){if(moon)moon.style.display='none';if(sun)sun.style.display='';}
-      else{if(moon)moon.style.display='';if(sun)sun.style.display='none';}
+      const m=$('theme-icon-moon'),s=$('theme-icon-sun');
+      if(t==='light'){if(m)m.style.display='none';if(s)s.style.display='';}
+      else{if(m)m.style.display='';if(s)s.style.display='none';}
     }
     $('theme-toggle')?.addEventListener('click',()=>applyTheme(document.documentElement.classList.contains('light')?'dark':'light'));
     applyTheme(localStorage.getItem('jj_theme')||'dark');
 
-    // MODAL
     const previewModal=$('preview-modal');
     function openModal(m){m?.classList.add('open');}
     function closeModal(m){m?.classList.remove('open');}
     $('preview-close')?.addEventListener('click',()=>closeModal(previewModal));
     previewModal?.addEventListener('click',e=>{if(e.target===previewModal)closeModal(previewModal);});
 
-    function mc(label,value,color){return `<div class="mc"><div class="mc-label">${label}</div><div class="mc-val" style="color:${color||'var(--text)'}">${value??'-'}</div></div>`;}
+    function mc(l,v,c){return `<div class="mc"><div class="mc-label">${l}</div><div class="mc-val" style="color:${c||'var(--text)'}">${v??'-'}</div></div>`;}
 
-    // STATUS
+    // DASHBOARD STATS
+    async function loadDashStats(){
+      try{
+        const runs=await apiGet('/api/v1/analysis?limit=100');
+        const totalRuns=runs?.length||0;
+        let totalEans=0,totalCaptcha=0;
+        const recent=[];
+        for(const r of (runs||[])){
+          totalEans+=r.processed_products||0;
+          recent.push(r.processed_products||0);
+        }
+        setText($('ds-total'),totalRuns);
+        setText($('ds-eans'),totalEans.toLocaleString());
+
+        // mini chart - last 20 runs as bars
+        const chart=$('dash-chart');
+        if(chart&&recent.length){
+          const last=recent.slice(0,20).reverse();
+          const max=Math.max(...last,1);
+          chart.innerHTML=last.map((v,i)=>{
+            const h=Math.max(4,Math.round(v/max*48));
+            const colors=['rgba(136,58,234,.6)','rgba(99,102,241,.5)','rgba(52,211,153,.5)'];
+            return `<div class="chart-bar" style="height:${h}px;background:${colors[i%3]};"></div>`;
+          }).join('');
+          setText($('dash-chart-hint'),`ostatnie ${last.length} analiz`);
+        }
+
+        if(totalRuns>0)hide($('onboarding'));
+      }catch(e){}
+      // proxy count
+      try{const h=await apiGet('/api/v1/proxy-pool/health');setText($('ds-proxy'),h.active??h.total??'-');}catch(e){setText($('ds-proxy'),'-');}
+      // captcha
+      try{
+        const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
+        const m=txt.match(/jj_captcha_solves_total (\d+)/);
+        if(m)setText($('ds-captcha'),Number(m[1]).toLocaleString());
+      }catch(e){}
+    }
+
     async function pollStatus(){
       try{await apiGet('/api/v1/status');$('status-dot')?.classList.add('ok');setText($('status-text'),'online');}
       catch(e){$('status-dot')?.classList.remove('ok');setText($('status-text'),'offline');}
     }
 
-    // ACTIVE RUNS
     async function pollActive(){
       try{
         const resp=await apiGet('/api/v1/analysis/active');
@@ -512,11 +511,11 @@
         hide($('dash-empty'));hide($('onboarding'));
         setHtml($('dash-active'),runs.map(r=>{
           const st=r.status||'running';
-          const c=st==='stopped'?'var(--red)':st==='completed'?'var(--green)':'var(--blue)';
-          return `<div class="sbox"><div style="display:flex;justify-content:space-between;"><strong>${r.category_name||'run'} #${r.id}</strong><span style="color:${c};font-weight:600;font-size:12px;">${st}</span></div>
-          <div style="font-size:12px;color:var(--dim);">${r.processed_products}/${r.total_products} EAN</div>
-          <div class="btn-row" style="margin-top:6px;">
-            ${['pending','running'].includes(st)?`<button class="btn sm" onclick="cancelRun(${r.id})">Anuluj</button>`:''}
+          const bc=st==='stopped'?'err':st==='completed'?'ok':st==='failed'?'err':'info';
+          return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${r.category_name||'run'} #${r.id}</strong><span class="badge ${bc}">${st}</span></div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px;">${r.processed_products}/${r.total_products} EAN</div>
+          <div class="btn-row" style="margin-top:8px;">
+            ${['pending','running'].includes(st)?`<button class="btn sm ghost" onclick="cancelRun(${r.id})">Anuluj</button>`:''}
             <button class="btn sm" onclick="openPreview(${r.id})">Podgląd</button>
             ${['completed','stopped'].includes(st)?`<a class="btn sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;
         }).join(''));
@@ -524,206 +523,72 @@
     }
     async function cancelRun(id){try{await apiPost(`/api/v1/analysis/${id}/cancel`,{});}catch(e){}pollActive();}
 
-    // PREVIEW
     async function openPreview(id){
       openModal(previewModal);
       const body=$('preview-body'),mg=$('preview-metrics'),mgg=$('preview-mg'),sl=$('preview-stoploss'),dx=$('preview-dl-xlsx'),dc=$('preview-dl-csv');
       setHtml(body,'<div class="hint">ładowanie...</div>');hide(mg);hide(sl);hide(dx);hide(dc);
       $('preview-refresh')?.setAttribute('data-id',id);
       $('preview-refresh')?.addEventListener('click',()=>openPreview($('preview-refresh')?.getAttribute('data-id')));
-
-      const [data,metrics,info]=await Promise.all([
-        apiGet(`/api/v1/analysis/${id}/results?limit=50`).catch(()=>null),
-        apiGet(`/api/v1/analysis/${id}/metrics`).catch(()=>null),
-        apiGet(`/api/v1/analysis/${id}`).catch(()=>null),
-      ]);
-
+      const [data,metrics,info]=await Promise.all([apiGet(`/api/v1/analysis/${id}/results?limit=50`).catch(()=>null),apiGet(`/api/v1/analysis/${id}/metrics`).catch(()=>null),apiGet(`/api/v1/analysis/${id}`).catch(()=>null)]);
       if(info&&['completed','stopped'].includes(info.status)&&dx){dx.href=`/api/v1/analysis/${id}/download`;show(dx);}
       if(metrics&&dc){dc.href=`/api/v1/analysis/${id}/metrics/csv`;show(dc);}
-
       if(metrics&&mgg){
-        mgg.innerHTML=[
-          mc('EAN/min',metrics.ean_per_min,'var(--blue)'),
-          mc('Koszt/1k',metrics.cost_per_1000_ean!=null?`$${metrics.cost_per_1000_ean}`:null,'var(--amber)'),
-          mc('Avg lat.',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),
-          mc('P95 lat.',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),
-          mc('Retry',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),
-          mc('CAPTCHA',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'var(--red)':null),
-          mc('OK',`${metrics.completed_items}/${metrics.total_items}`,'var(--green)'),
-          mc('Blocked',metrics.blocked_items,'var(--red)'),
-          mc('Czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null),
-        ].join('');show(mg);
+        mgg.innerHTML=[mc('EAN/min',metrics.ean_per_min,'rgb(var(--blue))'),mc('Koszt/1k',metrics.cost_per_1000_ean!=null?`$${metrics.cost_per_1000_ean}`:null,'rgb(var(--amber))'),mc('Avg lat.',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),mc('P95',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),mc('Retry',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),mc('CAPTCHA',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'rgb(var(--red))':null),mc('OK',`${metrics.completed_items}/${metrics.total_items}`,'rgb(var(--green))'),mc('Blocked',metrics.blocked_items,'rgb(var(--red))'),mc('Czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null)].join('');show(mg);
       }
-
-      if(info?.status==='stopped'&&sl){
-        const m=info.run_metadata||{};
-        let msg=`Stop-loss: ${m.stop_reason||'nieznany'}`;
-        if(m.stop_details?.rate)msg+=` (${(m.stop_details.rate*100).toFixed(1)}%)`;
-        if(m.stopped_at_item)msg+=` - pozycja #${m.stopped_at_item}`;
-        setText(sl,msg);show(sl);
-      }
-
+      if(info?.status==='stopped'&&sl){const m=info.run_metadata||{};let msg=`Stop-loss: ${m.stop_reason||'nieznany'}`;if(m.stop_details?.rate)msg+=` (${(m.stop_details.rate*100).toFixed(1)}%)`;if(m.stopped_at_item)msg+=` - pozycja #${m.stopped_at_item}`;setText(sl,msg);show(sl);}
       const rows=data?.items||[];
       if(!rows.length){setHtml(body,'<div class="hint">Brak wyników</div>');return;}
-      setHtml(body,`<div style="overflow:auto;"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Kupno</th><th>Allegro</th><th>Marża</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr>
-        <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,50)}</td>
-        <td>${r.purchase_price_pln??'-'}</td><td>${r.allegro_price_pln??'-'}</td>
-        <td>${r.margin_pln!=null?r.margin_pln.toFixed(2):'-'}</td>
-        <td>${r.scrape_status||'-'}</td></tr>`).join('')}</tbody></table></div>`);
+      setHtml(body,`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Kupno</th><th>Allegro</th><th>Marża</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,50)}</td><td>${r.purchase_price_pln??'-'}</td><td>${r.allegro_price_pln??'-'}</td><td>${r.margin_pln!=null?r.margin_pln.toFixed(2):'-'}</td><td>${r.scrape_status||'-'}</td></tr>`).join('')}</tbody></table></div>`);
     }
 
-    // HISTORY
     async function loadHistory(){
-      try{
-        const runs=await apiGet('/api/v1/analysis?limit=50');
-        if(!runs?.length){setHtml($('history-list'),'<div class="sbox">Brak historii</div>');return;}
-        setHtml($('history-list'),runs.map(r=>{
-          const c=r.status==='completed'?'var(--green)':r.status==='stopped'?'var(--red)':r.status==='failed'?'var(--red)':'var(--dim)';
-          return `<div class="sbox"><div style="display:flex;justify-content:space-between;"><strong>${r.category_name||''} #${r.id}</strong><span style="color:${c};font-size:12px;font-weight:600;">${r.status}</span></div>
-          <div style="font-size:12px;color:var(--dim);">${r.created_at?new Date(r.created_at).toLocaleString():''} - ${r.processed_products}/${r.total_products}</div>
-          <div class="btn-row" style="margin-top:4px;"><button class="btn sm" onclick="openPreview(${r.id})">Podgląd</button>
-          ${['completed','stopped'].includes(r.status)?`<a class="btn sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;
-        }).join(''));
-      }catch(e){setHtml($('history-list'),'<div class="err">blad</div>');}
+      try{const runs=await apiGet('/api/v1/analysis?limit=50');if(!runs?.length){setHtml($('history-list'),'<div class="sbox">Brak historii</div>');return;}
+      setHtml($('history-list'),runs.map(r=>{const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';
+      return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${r.category_name||''} #${r.id}</strong><span class="badge ${bc}">${r.status}</span></div><div style="font-size:12px;color:var(--dim);margin-top:2px;">${r.created_at?new Date(r.created_at).toLocaleString():''} - ${r.processed_products}/${r.total_products} EAN</div><div class="btn-row" style="margin-top:6px;"><button class="btn sm" onclick="openPreview(${r.id})">Podgląd</button>${['completed','stopped'].includes(r.status)?`<a class="btn sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;}).join(''));}catch(e){setHtml($('history-list'),'<div class="err">błąd</div>');}
     }
 
-    // MARKET
     let mOff=0;
-    async function loadMarket(off){
-      mOff=off||0;
-      try{
-        let u=`/api/v1/market-data?offset=${mOff}&limit=50`;
-        const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;
-        const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;
-        const d=await apiGet(u);
-        const items=d?.items||d||[];
-        setText($('market-meta'),`${items.length} rekordow`);
-        if(!items.length){setHtml($('market-table'),'<div class="sbox">Brak danych</div>');return;}
-        setHtml($('market-table'),`<div style="overflow:auto;"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzedanych</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr>
-          <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,40)}</td>
-          <td>${r.price??r.allegro_price??'-'}</td><td>${r.sold_count??'-'}</td>
-          <td style="font-size:11px;">${r.last_checked_at?new Date(r.last_checked_at).toLocaleString():'-'}</td></tr>`).join('')}</tbody></table></div>`);
-      }catch(e){setHtml($('market-table'),'<div class="err">blad</div>');}
-    }
+    async function loadMarket(off){mOff=off||0;try{let u=`/api/v1/market-data?offset=${mOff}&limit=50`;const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;const d=await apiGet(u);const items=d?.items||d||[];setText($('market-meta'),`${items.length} rekordów`);if(!items.length){setHtml($('market-table'),'<div class="sbox">Brak danych</div>');return;}setHtml($('market-table'),`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzed.</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr><td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,40)}</td><td>${r.price??r.allegro_price??'-'}</td><td>${r.sold_count??'-'}</td><td style="font-size:11px;">${r.last_checked_at?new Date(r.last_checked_at).toLocaleString():'-'}</td></tr>`).join('')}</tbody></table></div>`);}catch(e){setHtml($('market-table'),'<div class="err">błąd</div>');}}
     $('market-load')?.addEventListener('click',()=>loadMarket(0));
     $('market-prev')?.addEventListener('click',()=>loadMarket(Math.max(0,mOff-50)));
     $('market-next')?.addEventListener('click',()=>loadMarket(mOff+50));
 
-    // PROXY POOL
-    async function loadProxyPool(){
-      try{const h=await apiGet('/api/v1/proxy-pool/health');
-      $('proxy-health').innerHTML=[mc('Total',h.total),mc('Active',h.active,'var(--green)'),mc('Quarantined',h.quarantined,'var(--red)'),mc('Available',h.available,'var(--blue)'),mc('Health',h.avg_health_score),mc('Success',h.success_rate!=null?`${(h.success_rate*100).toFixed(0)}%`:'-')].join('');}catch(e){setHtml($('proxy-health'),'<div class="hint">brak danych</div>');}
-      try{const list=await apiGet('/api/v1/proxy-pool?active_only=false');
-      if(!list?.length){setHtml($('proxy-list'),'<div class="sbox">brak</div>');return;}
-      setHtml($('proxy-list'),`<table class="tbl"><thead><tr><th>ID</th><th>Label</th><th>Health</th><th>OK/Fail</th><th>Q</th></tr></thead><tbody>${list.slice(0,100).map(p=>`<tr><td>${p.id}</td><td>${p.label||'-'}</td><td style="color:${p.health_score>.7?'var(--green)':p.health_score>.3?'var(--amber)':'var(--red)'}">${p.health_score}</td><td>${p.success_count}/${p.fail_count}</td><td>${p.quarantine_until&&new Date(p.quarantine_until)>new Date()?'tak':'-'}</td></tr>`).join('')}</tbody></table>`);}catch(e){}
-    }
+    async function loadProxyPool(){try{const h=await apiGet('/api/v1/proxy-pool/health');$('proxy-health').innerHTML=[mc('Total',h.total),mc('Aktywne',h.active,'rgb(var(--green))'),mc('Kwarantanna',h.quarantined,'rgb(var(--red))'),mc('Dostępne',h.available,'rgb(var(--blue))'),mc('Health',h.avg_health_score),mc('Success',h.success_rate!=null?`${(h.success_rate*100).toFixed(0)}%`:'-')].join('');}catch(e){setHtml($('proxy-health'),'<div class="hint">brak danych</div>');}
+    try{const list=await apiGet('/api/v1/proxy-pool?active_only=false');if(!list?.length){setHtml($('proxy-list'),'<div class="sbox">brak</div>');return;}setHtml($('proxy-list'),`<table class="tbl"><thead><tr><th>ID</th><th>Label</th><th>Health</th><th>OK/Fail</th><th>Q</th></tr></thead><tbody>${list.slice(0,100).map(p=>`<tr><td>${p.id}</td><td>${p.label||'-'}</td><td style="color:${p.health_score>.7?'rgb(var(--green))':p.health_score>.3?'rgb(var(--amber))':'rgb(var(--red))'}">${p.health_score}</td><td>${p.success_count}/${p.fail_count}</td><td>${p.quarantine_until&&new Date(p.quarantine_until)>new Date()?'tak':'-'}</td></tr>`).join('')}</tbody></table>`);}catch(e){}}
     $('proxy-refresh')?.addEventListener('click',loadProxyPool);
 
-    // SETTINGS
-    async function loadSettings(){
-      try{const s=await apiGet('/api/v1/settings/');
-      if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;
-      if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);
-      if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);
-      if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;
-      if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;
-      }catch(e){}
-      loadCategories();loadProxyStatus();loadCurrencies();
-    }
-    $('save-ttl-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30)});setText($('cache-ttl-status'),'zapisano');}catch(e){setText($('cache-ttl-status'),'blad');}});
-    $('save-stoploss-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30),stoploss_max_error_rate:(Number($('sl-error-rate')?.value)||50)/100,stoploss_max_captcha_rate:(Number($('sl-captcha-rate')?.value)||80)/100,stoploss_window_size:Number($('sl-window')?.value)||20,stoploss_max_consecutive_errors:Number($('sl-consec')?.value)||10});alert('zapisano');}catch(e){alert('blad');}});
-
-    // PROXY UPLOAD
+    async function loadSettings(){try{const s=await apiGet('/api/v1/settings/');if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;}catch(e){}loadCategories();loadProxyStatus();loadCurrencies();}
+    $('save-ttl-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30)});setText($('cache-ttl-status'),'zapisano');}catch(e){setText($('cache-ttl-status'),'błąd');}});
+    $('save-stoploss-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30),stoploss_max_error_rate:(Number($('sl-error-rate')?.value)||50)/100,stoploss_max_captcha_rate:(Number($('sl-captcha-rate')?.value)||80)/100,stoploss_window_size:Number($('sl-window')?.value)||20,stoploss_max_consecutive_errors:Number($('sl-consec')?.value)||10});alert('zapisano');}catch(e){alert('błąd');}});
     async function loadProxyStatus(){try{const m=await apiGet('/api/v1/proxies');setText($('proxy-file-status'),`${m.count||0} proxy`);}catch(e){}}
     $('upload-proxies-btn')?.addEventListener('click',async()=>{const f=$('proxy-file')?.files?.[0];if(!f)return;const fd=new FormData();fd.append('file',f);try{await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});loadProxyStatus();}catch(e){}});
-
-    // CATEGORIES
-    async function loadCategories(){
-      try{const cats=await apiGet('/api/v1/categories/?include_inactive=1');
-      [$('category-select'),$('market-category')].forEach(sel=>{if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">-- wybierz --</option>'+cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');if(v)sel.value=v;});
-      const list=$('cat-list');
-      if(list)list.innerHTML=cats.map(c=>`<div class="cat-row"><span>${c.name}</span><span style="color:var(--dim);font-size:12px;">x${c.profitability_multiplier}</span><span style="color:var(--dim);font-size:12px;">${c.commission_rate?c.commission_rate*100+'%':'-'}</span><button class="btn sm" onclick="toggleCat('${c.id}',${!c.is_active})">${c.is_active?'Wylacz':'Wlacz'}</button></div>`).join('');
-      validateStart();
-      }catch(e){}
-    }
-    async function toggleCat(id,active){try{await apiPatch(`/api/v1/categories/${id}`,{is_active:active});loadCategories();}catch(e){}}
-    $('add-cat-btn')?.addEventListener('click',async()=>{const n=$('cat-name')?.value?.trim(),m=Number($('cat-mult')?.value),c=Number($('cat-comm')?.value||0)/100;if(!n||!m){show($('cat-add-error'));setText($('cat-add-error'),'podaj nazwe i mnoznik');return;}hide($('cat-add-error'));try{await apiPost('/api/v1/categories/',{name:n,profitability_multiplier:m,commission_rate:c});$('cat-name').value='';$('cat-mult').value='';$('cat-comm').value='';loadCategories();}catch(e){show($('cat-add-error'));setText($('cat-add-error'),'blad');}});
-
-    // CURRENCIES
-    async function loadCurrencies(){try{const d=await apiGet('/api/v1/settings/currencies');setHtml($('currency-list'),(d?.rates||[]).map(r=>`<div class="row2" style="margin-bottom:4px;"><div><input class="inp curr-code" value="${r.currency}" readonly style="opacity:.6;" /></div><div><input class="inp curr-rate" type="number" step="0.01" value="${r.rate_to_pln}" data-code="${r.currency}" /></div></div>`).join(''));}catch(e){}}
+    async function loadCategories(){try{const cats=await apiGet('/api/v1/categories/?include_inactive=1');[$('category-select'),$('market-category')].forEach(sel=>{if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">-- wybierz --</option>'+cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');if(v)sel.value=v;});const list=$('cat-list');if(list)list.innerHTML=cats.map(c=>`<div class="cat-row"><span>${c.name}</span><span style="color:var(--dim);font-size:12px;">x${c.profitability_multiplier}</span><span style="color:var(--dim);font-size:12px;">${c.commission_rate?(c.commission_rate*100).toFixed(1)+'%':'-'}</span><button class="btn sm ghost" onclick="toggleCat('${c.id}',${!c.is_active})">${c.is_active?'Wyłącz':'Włącz'}</button></div>`).join('');validateStart();}catch(e){}}
+    async function toggleCat(id,a){try{await apiPatch(`/api/v1/categories/${id}`,{is_active:a});loadCategories();}catch(e){}}
+    $('add-cat-btn')?.addEventListener('click',async()=>{const n=$('cat-name')?.value?.trim(),m=Number($('cat-mult')?.value),c=Number($('cat-comm')?.value||0)/100;if(!n||!m){show($('cat-add-error'));setText($('cat-add-error'),'podaj nazwę i mnożnik');return;}hide($('cat-add-error'));try{await apiPost('/api/v1/categories/',{name:n,profitability_multiplier:m,commission_rate:c});$('cat-name').value='';$('cat-mult').value='';$('cat-comm').value='';loadCategories();}catch(e){show($('cat-add-error'));setText($('cat-add-error'),'błąd');}});
+    async function loadCurrencies(){try{const d=await apiGet('/api/v1/settings/currencies');setHtml($('currency-list'),(d?.rates||[]).map(r=>`<div class="row2" style="margin-bottom:4px;"><div><input class="inp curr-code" value="${r.currency}" readonly style="opacity:.5;" /></div><div><input class="inp curr-rate" type="number" step="0.01" value="${r.rate_to_pln}" data-code="${r.currency}" /></div></div>`).join(''));}catch(e){}}
     $('save-currencies-btn')?.addEventListener('click',async()=>{const rates=[];document.querySelectorAll('.curr-rate').forEach(i=>{rates.push({currency:i.dataset.code,rate_to_pln:Number(i.value),is_default:i.dataset.code==='PLN'});});try{await apiPut('/api/v1/settings/currencies',{rates});}catch(e){}});
-
-    // FILE UPLOAD
     const fileInput=$('file-input'),dropzone=$('dropzone');
     dropzone?.addEventListener('click',()=>fileInput?.click());
-    dropzone?.addEventListener('dragover',e=>{e.preventDefault();dropzone.style.borderColor='var(--blue)';});
+    dropzone?.addEventListener('dragover',e=>{e.preventDefault();dropzone.style.borderColor='rgba(var(--accent),.5)';});
     dropzone?.addEventListener('dragleave',()=>{dropzone.style.borderColor='';});
     dropzone?.addEventListener('drop',e=>{e.preventDefault();dropzone.style.borderColor='';if(e.dataTransfer.files[0]){fileInput.files=e.dataTransfer.files;onFile();}});
     fileInput?.addEventListener('change',onFile);
     function onFile(){setText($('file-name'),fileInput?.files?.[0]?.name||'nie wybrano');validateStart();}
     function validateStart(){const ok=!!(fileInput?.files?.length)&&!!$('category-select')?.value;const btn=$('start-btn');if(btn)btn.disabled=!ok;}
     $('category-select')?.addEventListener('change',validateStart);
+    $('start-btn')?.addEventListener('click',async()=>{const btn=$('start-btn');btn.disabled=true;btn.textContent='...';hide($('upload-error'));const fd=new FormData();fd.append('file',fileInput.files[0]);fd.append('category_id',$('category-select').value);try{const r=await fetch('/api/v1/analysis/upload',{method:'POST',credentials:'include',body:fd});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||r.status);}document.querySelector('#nav button[data-tab="dashboard"]')?.click();await pollActive();}catch(e){show($('upload-error'));setText($('upload-error'),e.message||'błąd');}finally{btn.textContent='Start analizy';validateStart();}});
+    $('db-run-btn')?.addEventListener('click',async()=>{const btn=$('db-run-btn');btn.disabled=true;btn.textContent='...';hide($('db-error'));try{const p={};const d=Number($('db-last-days')?.value);if(d)p.last_days=d;const e=$('db-ean-contains')?.value;if(e)p.ean_contains=e;const c=$('category-select')?.value;if(c)p.category_id=c;await apiPost('/api/v1/analysis/run_from_db',p);document.querySelector('#nav button[data-tab="dashboard"]')?.click();await pollActive();}catch(e){show($('db-error'));setText($('db-error'),'błąd');}finally{btn.disabled=false;btn.textContent='Start z bazy';}});
 
-    $('start-btn')?.addEventListener('click',async()=>{const btn=$('start-btn');btn.disabled=true;btn.textContent='...';hide($('upload-error'));
-      const fd=new FormData();fd.append('file',fileInput.files[0]);fd.append('category_id',$('category-select').value);
-      try{const r=await fetch('/api/v1/analysis/upload',{method:'POST',credentials:'include',body:fd});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||r.status);}document.querySelector('#nav button[data-tab="dashboard"]')?.click();await pollActive();}
-      catch(e){show($('upload-error'));setText($('upload-error'),e.message||'blad');}
-      finally{btn.textContent='Start analizy';validateStart();}});
+    // FUZZY SEARCH
+    function levenshtein(a,b){if(!a.length)return b.length;if(!b.length)return a.length;const m=[];for(let i=0;i<=b.length;i++)m[i]=[i];for(let j=0;j<=a.length;j++)m[0][j]=j;for(let i=1;i<=b.length;i++)for(let j=1;j<=a.length;j++)m[i][j]=b[i-1]===a[j-1]?m[i-1][j-1]:Math.min(m[i-1][j-1]+1,m[i][j-1]+1,m[i-1][j]+1);return m[b.length][a.length];}
+    function fuzzyMatch(q,text){q=q.toLowerCase().replace(/[^a-ząćęłńóśźż0-9\s]/g,'');text=text.toLowerCase();const words=q.split(/\s+/).filter(Boolean);return words.every(w=>{if(text.includes(w))return true;return text.split(/\s+/).some(t=>levenshtein(w,t)<=Math.max(1,Math.floor(w.length/3)));});}
+    $('help-search')?.addEventListener('input',e=>{const q=e.target.value.trim();document.querySelectorAll('.help-item').forEach(s=>{s.style.display=(!q||fuzzyMatch(q,(s.textContent+' '+(s.dataset.help||''))))?'':'none';});});
 
-    $('db-run-btn')?.addEventListener('click',async()=>{const btn=$('db-run-btn');btn.disabled=true;btn.textContent='...';hide($('db-error'));
-      try{const p={};const d=Number($('db-last-days')?.value);if(d)p.last_days=d;const e=$('db-ean-contains')?.value;if(e)p.ean_contains=e;const c=$('category-select')?.value;if(c)p.category_id=c;
-      await apiPost('/api/v1/analysis/run_from_db',p);document.querySelector('#nav button[data-tab="dashboard"]')?.click();await pollActive();}
-      catch(e){show($('db-error'));setText($('db-error'),'blad');}
-      finally{btn.disabled=false;btn.textContent='Start z bazy';}});
-
-    // FUZZY HELP SEARCH
-    function fuzzyMatch(query, text){
-      query=query.toLowerCase().replace(/[^a-z0-9\s]/g,'');
-      text=text.toLowerCase();
-      // split query into words, check each word has a close match in text
-      const words=query.split(/\s+/).filter(Boolean);
-      return words.every(w=>{
-        if(text.includes(w))return true;
-        // fuzzy: allow 1 char difference (Levenshtein distance 1)
-        const tokens=text.split(/\s+/);
-        return tokens.some(t=>levenshtein(w,t)<=Math.max(1,Math.floor(w.length/3)));
-      });
-    }
-    function levenshtein(a,b){
-      if(a.length===0)return b.length;
-      if(b.length===0)return a.length;
-      const m=[];
-      for(let i=0;i<=b.length;i++)m[i]=[i];
-      for(let j=0;j<=a.length;j++)m[0][j]=j;
-      for(let i=1;i<=b.length;i++)
-        for(let j=1;j<=a.length;j++)
-          m[i][j]=b[i-1]===a[j-1]?m[i-1][j-1]:Math.min(m[i-1][j-1]+1,m[i][j-1]+1,m[i-1][j]+1);
-      return m[b.length][a.length];
-    }
-    $('help-search')?.addEventListener('input',e=>{
-      const q=e.target.value.trim();
-      document.querySelectorAll('.help-item').forEach(s=>{
-        const text=(s.textContent+' '+(s.dataset.help||''));
-        s.style.display=(!q||fuzzyMatch(q,text))?'':'none';
-      });
-    });
-
-    // SSE
     let sseConn=null;
-    function connectSSE(id){
-      if(sseConn){sseConn.close();sseConn=null;}
-      try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);
-      es.addEventListener('progress',()=>pollActive());
-      es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();});
-      es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});
-      es.onerror=()=>{es.close();sseConn=null;};
-      sseConn=es;}catch(e){}
-    }
+    function connectSSE(id){if(sseConn){sseConn.close();sseConn=null;}try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);es.addEventListener('progress',()=>pollActive());es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();loadDashStats();});es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});es.onerror=()=>{es.close();sseConn=null;};sseConn=es;}catch(e){}}
 
-    // INIT
     (async()=>{
-      await pollStatus();await loadCategories();await pollActive();
-      try{const r=await apiGet('/api/v1/analysis?limit=1');if(r?.length)hide($('onboarding'));}catch(e){}
+      await pollStatus();await loadCategories();await pollActive();await loadDashStats();
       setInterval(pollStatus,5000);setInterval(pollActive,3000);
       try{const resp=await apiGet('/api/v1/analysis/active');const runs=resp?.runs||resp||[];if(runs.length>0)connectSSE(runs[0].id);}catch(e){}
     })();
