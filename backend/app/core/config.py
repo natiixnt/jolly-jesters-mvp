@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     allegro_scraper_poll_interval: float = Field(default=1.0, env="ALLEGRO_SCRAPER_POLL_INTERVAL")
     allegro_scraper_timeout_seconds: float = Field(default=90.0, env="ALLEGRO_SCRAPER_TIMEOUT_SECONDS")
 
+    # Concurrency limits
+    max_concurrent_runs: int = Field(default=3, env="MAX_CONCURRENT_RUNS")
+
     sqlalchemy_echo: bool = Field(default=False)
 
     ui_basic_auth_user: str = Field(default="admin", env="UI_BASIC_AUTH_USER")

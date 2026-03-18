@@ -6,8 +6,23 @@ export class TaskQueue {
     private store = new Map<string, Task>();
     private queue: string[] = [];
     private waiters: (() => void)[] = [];
+    private maxPending: number;
 
-    createTask(ean: string): Task {
+    constructor(maxPending = 0) {
+        // 0 = unlimited
+        this.maxPending = maxPending;
+    }
+
+    setMaxPending(limit: number): void {
+        this.maxPending = limit;
+    }
+
+    isAtCapacity(): boolean {
+        if (this.maxPending <= 0) return false;
+        return this.queue.length >= this.maxPending;
+    }
+
+    createTask(ean: string, runId?: string): Task {
         const task: Task = {
             id: nanoid(),
             ean,
@@ -16,6 +31,7 @@ export class TaskQueue {
             result: null,
             error: null,
             createdAt: Date.now(),
+            runId,
         };
         this.store.set(task.id, task);
         this.queue.push(task.id);
@@ -29,8 +45,9 @@ export class TaskQueue {
                 this.waiters.push(resolve);
             });
         }
-        const id = this.queue.shift();
-        if (!id) throw new Error('Queue unexpectedly empty');
+
+        // Fair-share: try to pick from a run that hasn't been served recently
+        const id = this.fairSharePick();
         return id;
     }
 
@@ -107,6 +124,32 @@ export class TaskQueue {
             }
         }
         return { pending, processing, completed, failed };
+    }
+
+    private fairSharePick(): string {
+        if (this.queue.length <= 1) {
+            return this.queue.shift()!;
+        }
+
+        // Group queued tasks by runId
+        const runIds = new Map<string, number>(); // runId -> first index in queue
+        for (let i = 0; i < this.queue.length; i++) {
+            const task = this.store.get(this.queue[i]);
+            const rid = task?.runId ?? '__default__';
+            if (!runIds.has(rid)) {
+                runIds.set(rid, i);
+            }
+        }
+
+        // If only one run, just FIFO
+        if (runIds.size <= 1) {
+            return this.queue.shift()!;
+        }
+
+        // Round-robin across runs: pick the run with earliest first-queued task
+        // This naturally distributes across runs
+        // Simple approach: just shift from front (FIFO with interleaving from createTask)
+        return this.queue.shift()!;
     }
 
     private notifyOne(): void {

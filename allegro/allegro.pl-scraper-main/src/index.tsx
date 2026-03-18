@@ -14,7 +14,7 @@ const proxiesFile = process.env.PROXIES_FILE ?? 'proxies.txt';
 const stats = new Stats();
 const logger = new Logger(stats);
 const serverLog = logger.scoped('Server');
-const taskQueue = new TaskQueue();
+const taskQueue = new TaskQueue(config.MAX_PENDING_TASKS);
 stats.taskQueue = taskQueue;
 
 let pool: WorkerPool | null = null;

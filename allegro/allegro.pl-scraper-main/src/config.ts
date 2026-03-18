@@ -21,6 +21,7 @@ export const config = Object.freeze({
     WORKER_COUNT: int('WORKER_COUNT', 1),
     CONCURRENCY_PER_WORKER: int('CONCURRENCY_PER_WORKER', 1),
     MAX_TASK_RETRIES: int('MAX_TASK_RETRIES', 3),
+    MAX_PENDING_TASKS: int('MAX_PENDING_TASKS', 0),  // 0 = unlimited
     DEBUG: bool('DEBUG', false),
     ANYSOLVER_API_KEY: opt('ANYSOLVER_API_KEY', ''),
 

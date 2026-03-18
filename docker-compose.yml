@@ -43,9 +43,10 @@ services:
       - ./backend/.env
     environment:
       - PORT=3000
-      - WORKER_COUNT=${SCRAPER_WORKER_COUNT:-1}
-      - CONCURRENCY_PER_WORKER=${SCRAPER_CONCURRENCY_PER_WORKER:-1}
+      - WORKER_COUNT=${SCRAPER_WORKER_COUNT:-3}
+      - CONCURRENCY_PER_WORKER=${SCRAPER_CONCURRENCY_PER_WORKER:-3}
       - MAX_TASK_RETRIES=${SCRAPER_MAX_TASK_RETRIES:-3}
+      - MAX_PENDING_TASKS=${SCRAPER_MAX_PENDING_TASKS:-100}
       - PROXIES_FILE=${SCRAPER_PROXIES_FILE:-/workspace/data/proxies.txt}
       - ANYSOLVER_API_KEY=${ANYSOLVER_API_KEY:-dummy}
     healthcheck:
@@ -65,6 +66,7 @@ services:
       - ./backend/.env
     environment:
       - ALLEGRO_SCRAPER_URL=http://allegro_scraper:3000
+      - MAX_CONCURRENT_RUNS=${MAX_CONCURRENT_RUNS:-3}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
@@ -95,8 +97,9 @@ services:
       - ./backend/.env
     environment:
       - ALLEGRO_SCRAPER_URL=http://allegro_scraper:3000
+      - MAX_CONCURRENT_RUNS=${MAX_CONCURRENT_RUNS:-3}
     command: >
-      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=1 --prefetch-multiplier=1 --max-tasks-per-child=20"
+      sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=${CELERY_CONCURRENCY:-3} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
       - ./workspace_data:/workspace
     depends_on:
