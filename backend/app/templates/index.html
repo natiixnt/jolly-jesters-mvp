@@ -3,1445 +3,899 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MVP: import i analiza produktow</title>
+  <title>Jolly Jesters - analiza oplacalnosci</title>
   <style>
     :root{
-      --bg0:#070A12;
-      --bg1:#0A1020;
-      --card:#0E162C;
-      --card2:#0B1224;
-      --text:#E7EDF7;
-      --muted:#A7B3C7;
-      --border:rgba(255,255,255,.10);
-      --border2:rgba(255,255,255,.07);
+      --bg0:#070A12; --bg1:#0A1020;
+      --card:rgba(14,22,44,.92); --card2:rgba(10,16,32,.92);
+      --text:#E7EDF7; --muted:#A7B3C7;
+      --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.07);
       --shadow:0 18px 46px rgba(0,0,0,.45);
-      --r:18px;
-      --r2:14px;
-      --pad:20px;
-      --pad2:16px;
-      --accent:#60A5FA;
-      --accent2:#34D399;
-      --danger:#FCA5A5;
-      --ok:#34D399;
-      --warn:#FBBF24;
-      --btn:linear-gradient(135deg, #60A5FA, #34D399);
-      --btnText:#06101F;
+      --r:16px; --r2:12px; --pad:20px;
+      --accent:#60A5FA; --accent2:#34D399;
+      --danger:#FCA5A5; --ok:#34D399; --warn:#FBBF24;
+      --btn:linear-gradient(135deg,#60A5FA,#34D399); --btnText:#06101F;
     }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;}
     body{
-      margin:0;
       color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      background:
-        radial-gradient(1200px 700px at 20% -10%, rgba(96,165,250,.18), transparent 55%),
-        radial-gradient(900px 600px at 85% 0%, rgba(52,211,153,.14), transparent 55%),
-        radial-gradient(1100px 900px at 50% 120%, rgba(96,165,250,.10), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:radial-gradient(1200px 700px at 20% -10%,rgba(96,165,250,.15),transparent 55%),radial-gradient(900px 600px at 85% 0%,rgba(52,211,153,.12),transparent 55%),linear-gradient(180deg,var(--bg0),var(--bg1));
+      display:flex; min-height:100vh;
     }
-
-    /* layout */
-    .wrap{ max-width:1120px; margin:0 auto; padding:28px 18px 56px; }
-    .top{
-      display:flex; align-items:center; justify-content:space-between; gap:16px;
-      padding:18px 18px 8px;
+    /* sidebar */
+    .sidebar{
+      width:220px; min-height:100vh; flex-shrink:0;
+      background:rgba(10,16,32,.95); border-right:1px solid var(--border);
+      display:flex; flex-direction:column; padding:20px 0;
+      position:sticky; top:0; height:100vh; overflow-y:auto;
     }
-    .brand h1{ margin:0; font-size:28px; letter-spacing:-.02em; }
-    .brand p{ margin:8px 0 0; color:var(--muted); font-size:14px; line-height:1.45; max-width:72ch; }
-    .nav{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    .sidebar-brand{padding:0 16px 20px; border-bottom:1px solid var(--border2);}
+    .sidebar-brand h1{font-size:16px; letter-spacing:-.01em;}
+    .sidebar-brand p{font-size:11px; color:var(--muted); margin-top:4px;}
+    .sidebar-nav{flex:1; padding:12px 8px; display:flex; flex-direction:column; gap:2px;}
+    .sidebar-nav button{
+      width:100%; text-align:left; padding:10px 12px; border:none; background:none;
+      color:var(--muted); font-size:13px; font-weight:500; border-radius:8px; cursor:pointer;
+      display:flex; align-items:center; gap:10px; transition:background .15s;
     }
-    .pill{
-      display:inline-flex; align-items:center; gap:10px;
-      padding:10px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.03);
-      border:1px solid var(--border2);
-      color:var(--text);
-      font-size:13px;
-      text-decoration:none;
-      cursor:pointer;
-      user-select:none;
+    .sidebar-nav button:hover{background:rgba(255,255,255,.05); color:var(--text);}
+    .sidebar-nav button.active{background:rgba(96,165,250,.12); color:var(--accent); font-weight:600;}
+    .sidebar-nav button .icon{font-size:16px; width:20px; text-align:center;}
+    .sidebar-footer{padding:12px 16px; border-top:1px solid var(--border2); display:flex; flex-direction:column; gap:8px;}
+    .sidebar-footer .status-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);}
+    .dot{width:8px;height:8px;border-radius:99px;background:var(--warn);}
+    .dot.ok{background:var(--ok);}
+    /* main content */
+    .main{flex:1; padding:28px 32px 56px; overflow-y:auto; max-width:1100px;}
+    @media(max-width:860px){
+      .sidebar{display:none;}
+      .main{padding:16px;}
     }
-    .dot{ width:10px; height:10px; border-radius:999px; background:var(--warn); box-shadow:0 0 0 4px rgba(251,191,36,.12); }
-    .dot.ok{ background:var(--ok); box-shadow:0 0 0 4px rgba(52,211,153,.12); }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap:16px;
-      margin-top:10px;
-    }
-    @media (max-width: 980px){
-      .grid{ grid-template-columns:1fr; }
-      .top{ padding:16px 10px 8px; }
-    }
-
+    /* tab panels */
+    .tab-panel{display:none;}
+    .tab-panel.active{display:block;}
     /* cards */
     .card{
-      background: linear-gradient(180deg, rgba(14,22,44,.92), rgba(10,16,32,.92));
-      border:1px solid var(--border);
-      border-radius: var(--r);
-      box-shadow: var(--shadow);
-      overflow:hidden;
+      background:linear-gradient(180deg,var(--card),var(--card2));
+      border:1px solid var(--border); border-radius:var(--r);
+      box-shadow:var(--shadow); padding:var(--pad); margin-bottom:16px;
     }
-    .card-inner{ padding: var(--pad); }
-    .card-head{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
-      margin-bottom:14px;
-    }
-    .eyebrow{
-      font-size:11px;
-      letter-spacing:.14em;
-      text-transform:uppercase;
-      color:rgba(167,179,199,.85);
-      margin:0 0 8px;
-    }
-    .title{ margin:0; font-size:18px; letter-spacing:-.01em; }
-    .lead{ margin:8px 0 0; color:var(--muted); font-size:13px; line-height:1.5; }
-
-    /* form controls */
-    label{ display:block; font-size:13px; color:rgba(167,179,199,.95); margin:0 0 6px; }
+    .card-title{font-size:18px; font-weight:600; margin-bottom:4px;}
+    .card-sub{font-size:13px; color:var(--muted); margin-bottom:16px;}
+    .eyebrow{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:rgba(167,179,199,.8); margin-bottom:8px;}
+    /* form */
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:5px;}
     .control{
-      width:100%;
-      height:44px;
-      padding:10px 14px;
-      border-radius:12px;
-      border:1px solid var(--border2);
-      background: rgba(255,255,255,.03);
-      color:var(--text);
-      outline:none;
+      width:100%; height:42px; padding:8px 12px; border-radius:10px;
+      border:1px solid var(--border2); background:rgba(255,255,255,.03);
+      color:var(--text); font-size:13px; outline:none;
     }
-    .control:focus{
-      border-color: rgba(96,165,250,.55);
-      box-shadow: 0 0 0 4px rgba(96,165,250,.12);
-    }
-    select.control{ appearance:none; padding-right:44px; background-image:
-      linear-gradient(45deg, transparent 50%, rgba(231,237,247,.6) 50%),
-      linear-gradient(135deg, rgba(231,237,247,.6) 50%, transparent 50%);
-      background-position: calc(100% - 18px) 19px, calc(100% - 12px) 19px;
-      background-size: 6px 6px, 6px 6px;
-      background-repeat:no-repeat;
-    }
-
-    .row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    @media (max-width: 720px){ .row{ grid-template-columns:1fr; } }
-    .market-filters{ display:none; }
-    .modal-filters-grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      align-items:center;
-    }
-    @media(max-width: 720px){
-      .modal-filters-grid{ grid-template-columns:1fr; }
-    }
-    .toggle-pill{
-      height:44px;
-      padding:0 14px;
-      border:1px solid var(--border2);
-      border-radius:12px;
-      background:rgba(255,255,255,.03);
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-size:13px;
-      cursor:pointer;
-    }
-    .toggle-pill input{ width:18px; height:18px; }
-
-    .dz{
-      border:1px dashed rgba(255,255,255,.16);
-      background: rgba(255,255,255,.02);
-      border-radius: var(--r2);
-      padding:16px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      min-height:120px;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-    }
-    .dz:hover{ border-color: rgba(96,165,250,.35); background: rgba(255,255,255,.04); }
-    .dz strong{ font-size:14px; }
-    .dz .muted{ color:var(--muted); font-size:13px; }
-    .dz-row{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
-
-    .file-name{
-      max-width:360px;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-      color:var(--muted);
-      font-size:13px;
-      border:1px solid var(--border2);
-      background: rgba(255,255,255,.02);
-      border-radius:999px;
-      padding:8px 10px;
-    }
-
+    .control:focus{border-color:rgba(96,165,250,.5); box-shadow:0 0 0 3px rgba(96,165,250,.1);}
+    select.control{appearance:none; padding-right:36px;
+      background-image:linear-gradient(45deg,transparent 50%,rgba(231,237,247,.5) 50%),linear-gradient(135deg,rgba(231,237,247,.5) 50%,transparent 50%);
+      background-position:calc(100% - 16px) 18px,calc(100% - 10px) 18px; background-size:6px 6px; background-repeat:no-repeat;}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
+    @media(max-width:600px){.row{grid-template-columns:1fr;}}
     /* buttons */
     .btn{
-      height:44px;
-      padding:0 16px;
-      border-radius:12px;
-      border:1px solid transparent;
-      background: rgba(255,255,255,.04);
-      color:var(--text);
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      cursor:pointer;
-      text-decoration:none;
-      user-select:none;
-      font-weight:600;
-      font-size:13px;
+      height:40px; padding:0 16px; border-radius:10px; border:1px solid transparent;
+      background:rgba(255,255,255,.04); color:var(--text); display:inline-flex; align-items:center;
+      justify-content:center; gap:8px; cursor:pointer; font-weight:600; font-size:13px; text-decoration:none;
     }
-    .btn:hover{ background: rgba(255,255,255,.07); }
-    .btn:focus-visible{ outline:3px solid rgba(96,165,250,.35); outline-offset:2px; }
-
-    .btn.primary{
-      background: var(--btn);
-      color: var(--btnText);
-      box-shadow: 0 10px 26px rgba(96,165,250,.16);
+    .btn:hover{background:rgba(255,255,255,.07);}
+    .btn.primary{background:var(--btn); color:var(--btnText); box-shadow:0 8px 20px rgba(96,165,250,.15);}
+    .btn.primary:hover{filter:brightness(1.04);}
+    .btn.primary[disabled]{background:rgba(255,255,255,.06); color:rgba(231,237,247,.5); cursor:not-allowed; box-shadow:none;}
+    .btn.ghost{background:rgba(255,255,255,.02); border:1px solid var(--border2);}
+    .btn.sm{height:34px; padding:0 12px; font-size:12px; border-radius:8px;}
+    .btn-row{display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;}
+    .err{color:var(--danger); font-size:12px; margin-top:6px;}
+    .hint{color:var(--muted); font-size:12px; margin-top:6px;}
+    .sep{border-top:1px solid var(--border2); margin:16px 0;}
+    /* dropzone */
+    .dz{
+      border:1px dashed rgba(255,255,255,.15); background:rgba(255,255,255,.02);
+      border-radius:var(--r2); padding:24px; text-align:center; cursor:pointer; transition:border-color .2s;
     }
-    .btn.primary:hover{ filter:brightness(1.04); transform: translateY(-1px); }
-    .btn.primary:active{ transform: translateY(0px); filter:brightness(.98); }
-    .btn.primary[disabled]{
-      background: rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      color: rgba(231,237,247,.55);
-      box-shadow:none;
-      cursor:not-allowed;
-      filter:none;
-      transform:none;
-    }
-
-    .btn.ghost{ background: rgba(255,255,255,.02); border:1px solid var(--border2); }
-    .btn.small{ height:40px; padding:0 14px; border-radius:12px; font-weight:600; }
-
-    .actions{
-      margin-top:18px;
-      padding-top:16px;
-      border-top:1px solid var(--border2);
-      display:flex;
-      align-items:center;
-      justify-content:flex-end;
-      gap:10px;
-    }
-
-    .err{ margin-top:8px; color:var(--danger); font-size:12px; }
-    .hint{ color:var(--muted); font-size:12px; margin-top:10px; }
-
-    /* right column status */
-    .status-box{
-      border:1px solid var(--border2);
-      border-radius: var(--r2);
-      padding:14px;
-      background: rgba(255,255,255,.02);
-      color:var(--muted);
-      font-size:13px;
-    }
-
-    /* full width section */
-    .full{ margin-top:16px; }
-    .full .card-inner{ padding:22px; }
-
+    .dz:hover{border-color:rgba(96,165,250,.4); background:rgba(255,255,255,.04);}
+    .dz strong{font-size:14px; display:block; margin-bottom:4px;}
+    .dz .muted{color:var(--muted); font-size:12px;}
+    /* status box */
+    .sbox{border:1px solid var(--border2); border-radius:var(--r2); padding:12px; background:rgba(255,255,255,.02); color:var(--muted); font-size:13px; margin-bottom:8px;}
+    /* metric card grid */
+    .mgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(145px,1fr)); gap:8px; margin-bottom:12px;}
+    .mcard{background:rgba(255,255,255,.04); border:1px solid var(--border2); border-radius:10px; padding:10px 12px;}
+    .mcard-label{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em;}
+    .mcard-val{font-size:17px; font-weight:700; margin-top:3px;}
+    /* table */
+    .tbl{width:100%; border-collapse:collapse; font-size:13px;}
+    .tbl th{text-align:left; padding:8px 10px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border);}
+    .tbl td{padding:8px 10px; border-bottom:1px solid var(--border2);}
+    .tbl tr:hover td{background:rgba(255,255,255,.02);}
+    .tbl .mono{font-family:ui-monospace,monospace;}
     /* modal */
-    .modal-backdrop{
-      position:fixed; inset:0;
-      background: rgba(0,0,0,.55);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      z-index:2000;
-    }
-    .modal-backdrop.open{ display:flex; }
-    .modal{
-      width:min(960px, 96vw);
-      max-height:92vh;
-      display:flex;
-      flex-direction:column;
-      border-radius: 18px;
-      border:1px solid var(--border);
-      background: linear-gradient(180deg, rgba(14,22,44,.98), rgba(10,16,32,.98));
-      box-shadow: 0 22px 70px rgba(0,0,0,.6);
-      overflow:hidden;
-    }
-    .modal-head{
-      padding:18px 20px;
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      border-bottom:1px solid var(--border2);
-      flex-shrink:0;
-    }
-    .modal-head h3{ margin:0; font-size:15px; }
-    .modal-body{
-      padding:18px 20px 22px;
-      overflow:auto;
-      flex:1;
-    }
-    .modal-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    @media (max-width: 1100px){ .modal-grid{ grid-template-columns:1fr; } }
-    .modal-col{ display:flex; flex-direction:column; gap:14px; }
-    .cache-card .control{ max-width:320px; }
-    .cat-list{ margin-top:12px; display:flex; flex-direction:column; gap:8px; }
-    .cat-row{
-      display:grid;
-      grid-template-columns: 2fr 0.9fr 0.9fr auto auto;
-      gap:10px;
-      align-items:center;
-      padding:10px 12px;
-      border:1px solid var(--border2);
-      border-radius:12px;
-      background:rgba(255,255,255,.02);
-    }
-    .cat-row small{ color:var(--muted); }
-
-    /* hide legacy stuff if present */
-    .legacy-hidden{ display:none !important; }
-
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:2000;}
+    .modal-bg.open{display:flex;}
+    .modal{width:min(960px,96vw);max-height:90vh;display:flex;flex-direction:column;border-radius:16px;border:1px solid var(--border);background:linear-gradient(180deg,rgba(14,22,44,.98),rgba(10,16,32,.98));box-shadow:0 22px 70px rgba(0,0,0,.6);overflow:hidden;}
+    .modal-hd{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2);flex-shrink:0;}
+    .modal-hd h3{font-size:15px;}
+    .modal-bd{padding:16px 20px;overflow:auto;flex:1;}
+    /* help */
+    .help-section{margin-bottom:20px;}
+    .help-section h4{font-size:14px; margin-bottom:8px; color:var(--accent);}
+    .help-section p,.help-section li{font-size:13px; color:var(--muted); line-height:1.6;}
+    .help-section ul{padding-left:20px;}
+    .help-search{margin-bottom:16px;}
+    /* onboarding */
+    .onboard-step{display:flex; gap:14px; margin-bottom:16px; align-items:flex-start;}
+    .onboard-num{width:32px;height:32px;border-radius:99px;background:var(--btn);color:var(--btnText);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;}
+    .onboard-body h4{font-size:14px; margin-bottom:4px;}
+    .onboard-body p{font-size:13px; color:var(--muted); line-height:1.5;}
+    /* cat list */
+    .cat-row{display:grid;grid-template-columns:2fr .9fr .9fr auto auto;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--border2);border-radius:10px;background:rgba(255,255,255,.02);margin-bottom:6px;font-size:13px;}
+    .cat-row small{color:var(--muted);}
+    /* banner */
+    .banner{padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;}
+    .banner.danger{background:rgba(252,165,165,.1);border:1px solid rgba(252,165,165,.2);color:var(--danger);}
+    .banner.info{background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);color:var(--accent);}
+    .banner.ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);color:var(--ok);}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div class="brand">
-        <h1>MVP: import i analiza produktow</h1>
-        <p>wgraj plik, wybierz kategorie i uruchom analize, ustawienia sa pod ikonka</p>
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <h1>Jolly Jesters</h1>
+      <p>analiza oplacalnosci</p>
+    </div>
+    <div class="sidebar-nav" id="nav">
+      <button data-tab="dashboard" class="active"><span class="icon">&#9632;</span> dashboard</button>
+      <button data-tab="new-run"><span class="icon">&#9654;</span> nowa analiza</button>
+      <button data-tab="history"><span class="icon">&#9776;</span> historia runow</button>
+      <button data-tab="market"><span class="icon">&#9733;</span> market data</button>
+      <button data-tab="proxies"><span class="icon">&#9673;</span> proxy pool</button>
+      <button data-tab="settings"><span class="icon">&#9881;</span> ustawienia</button>
+      <button data-tab="help"><span class="icon">&#63;</span> pomoc</button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="status-row"><span class="dot" id="status-dot"></span><span id="status-text">laczenie...</span></div>
+      <a href="/logout" style="font-size:12px; color:var(--muted); text-decoration:none;">wyloguj</a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TAB: DASHBOARD -->
+    <div class="tab-panel active" id="tab-dashboard">
+      <h2 style="margin-bottom:16px;">dashboard</h2>
+
+      <!-- onboarding (shown if no runs yet) -->
+      <div class="card" id="onboarding">
+        <div class="eyebrow">pierwsze kroki</div>
+        <div class="card-title">witaj w Jolly Jesters</div>
+        <div class="card-sub">wykonaj te kroki, zeby zaczac analizowac oplacalnosc produktow</div>
+        <div class="onboard-step"><div class="onboard-num">1</div><div class="onboard-body"><h4>dodaj kategorie</h4><p>przejdz do ustawien i stworz kategorie (np. "perfumy") z mnoznikiem oplacalnosci i prowizja allegro</p></div></div>
+        <div class="onboard-step"><div class="onboard-num">2</div><div class="onboard-body"><h4>wgraj proxy</h4><p>w ustawieniach wgraj plik .txt z listą proxy (1 na linie) - scraper potrzebuje ich do pracy</p></div></div>
+        <div class="onboard-step"><div class="onboard-num">3</div><div class="onboard-body"><h4>uruchom analize</h4><p>przejdz do "nowa analiza", wrzuc plik Excel z EAN-ami i cenami zakupu, wybierz kategorie i kliknij start</p></div></div>
+        <div class="onboard-step"><div class="onboard-num">4</div><div class="onboard-body"><h4>sprawdz wyniki</h4><p>sledz postep na dashboardzie, po zakonczeniu pobierz Excel z wynikami lub przegladaj metryki</p></div></div>
       </div>
-      <div class="nav">
-        <div class="pill" id="status-pill" title="status backendu i scrapera">
-          <span class="dot" id="status-dot"></span>
-          <span id="status-text">sprawdzanie statusu...</span>
-        </div>
-        <button class="pill" id="terminal-btn" type="button">terminal</button>
-        <button class="pill icon" id="open-settings" type="button" title="ustawienia" aria-label="ustawienia"><span style="font-size:18px; line-height:1;">&#9881;</span></button>
-        <button class="pill" id="faq-btn" type="button">faq / pomoc</button>
-        <a class="pill" id="logout-btn" href="/logout">wyloguj</a>
+
+      <!-- active runs -->
+      <div class="card">
+        <div class="eyebrow">aktywne analizy</div>
+        <div id="dash-active-empty" class="sbox">brak aktywnych analiz - uruchom nowa z zakladki "nowa analiza"</div>
+        <div id="dash-active"></div>
+      </div>
+
+      <!-- quick stats -->
+      <div class="card" id="dash-stats-card" style="display:none;">
+        <div class="eyebrow">statystyki systemu</div>
+        <div class="mgrid" id="dash-stats"></div>
       </div>
     </div>
 
-    <div class="grid">
-      <!-- left: input -->
-      <section class="card" id="input-card">
-        <div class="card-inner">
-          <div class="card-head">
-            <div>
-              <div class="eyebrow">krok 1</div>
-              <h2 class="title">dane wejsciowe</h2>
-              <p class="lead">wrzuc plik, wybierz kategorie i start, </p>
-            </div>
-            
-          </div>
+    <!-- TAB: NEW RUN -->
+    <div class="tab-panel" id="tab-new-run">
+      <h2 style="margin-bottom:16px;">nowa analiza</h2>
 
-          <div class="dz" id="dropzone" role="button" tabindex="0" aria-label="dropzone pliku">
-            <strong>wrzuc lub kliknij aby wybrac plik excel</strong>
-            <div class="muted">obsługiwane: .xlsx, .xls, .csv</div>
-            <div class="file-name" id="fileName" style="margin-top:8px;">nie wybrano pliku</div>
-            <input id="file-input" type="file" accept=".csv,.xlsx,.xls" hidden />
-          </div>
+      <div class="card">
+        <div class="eyebrow">z pliku</div>
+        <div class="card-title">upload i start</div>
+        <div class="card-sub">wrzuc plik Excel/CSV z kolumnami EAN i cena zakupu</div>
 
-          <div class="hint">obslugiwane formaty: .xlsx, .xls, .csv</div>
-          <div class="err" id="file-error" style="display:none;"></div>
-
-          <div style="height:16px;"></div>
-
-          <div class="row">
-            <div>
-              <label for="category-select">kategoria</label>
-              <select class="control" id="category-select"></select>
-              <div class="err" id="category-select-error" style="display:none;"></div>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="btn primary" id="start-btn" type="button" disabled>start analizy</button>
-          </div>
-
-          <div class="err" id="error" style="display:none;"></div>
+        <div class="dz" id="dropzone" tabindex="0">
+          <strong>kliknij lub przeciagnij plik</strong>
+          <div class="muted">.xlsx, .xls, .csv</div>
+          <input id="file-input" type="file" accept=".csv,.xlsx,.xls" hidden />
         </div>
-      </section>
+        <div id="file-name" class="hint" style="margin-top:8px;">nie wybrano pliku</div>
+        <div class="err" id="file-error" style="display:none;"></div>
 
-      <!-- right: running -->
-      <section class="card">
-        <div class="card-inner">
-          <div class="card-head">
-            <div>
-              <div class="eyebrow">biezaca analiza</div>
-              <h2 class="title">status i log</h2>
-              <p class="lead">status, postep i log zawsze widoczne</p>
-            </div>
-          </div>
-
-      <div class="status-box" id="active-runs-empty">brak aktywnej analizy</div>
-      <div id="active-runs" style="display:none;"></div>
-      <div class="err" id="active-runs-error" style="display:none;"></div>
-
-          <div style="height:12px;"></div>
-
-          <div class="actions" style="justify-content:space-between;">
-            <button class="btn ghost" id="cancel-run-btn" type="button" style="display:none;">cancel</button>
-            <div style="display:flex; gap:10px; margin-left:auto;">
-              <a class="btn ghost" id="download-link" href="#" style="display:none;">download</a>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <!-- full width: db analysis -->
-    <section class="card full" id="db-card">
-      <div class="card-inner">
-        <div class="card-head">
-          <div>
-            <div class="eyebrow">baza allegro</div>
-            <h2 class="title">analiza z bazy</h2>
-            <p class="lead">uruchom analize na danych zapisanych w bazie (bez pliku), ta sekcja jest zawsze widoczna</p>
-          </div>
-        </div>
-
+        <div style="height:12px;"></div>
         <div class="row">
           <div>
-            <label for="db-source">zrodlo</label>
-            <select class="control" id="db-source">
-              <option value="allegro">allegro</option>
-            </select>
-          </div>
-          <div>
-            <label for="db-limit">limit</label>
-            <input class="control" id="db-limit" type="number" min="1" step="1" placeholder="np 500" />
+            <label for="category-select">kategoria</label>
+            <select class="control" id="category-select"></select>
           </div>
         </div>
 
-        <div style="height:14px;"></div>
+        <div class="btn-row">
+          <button class="btn primary" id="start-btn" type="button" disabled>start analizy</button>
+        </div>
+        <div class="err" id="upload-error" style="display:none;"></div>
+      </div>
 
+      <div class="card">
+        <div class="eyebrow">z bazy danych</div>
+        <div class="card-title">analiza cached data</div>
+        <div class="card-sub">analizuj produkty juz zapisane w bazie bez uploadu pliku</div>
         <div class="row">
-          <div>
-            <label for="db-last-days">ostatnie dni</label>
-            <input class="control" id="db-last-days" type="number" min="1" step="1" placeholder="np 7" />
-          </div>
-          <div>
-            <label for="db-ean-contains">ean zawiera</label>
-            <input class="control" id="db-ean-contains" type="text" placeholder="np 590" />
-          </div>
+          <div><label>ostatnie dni</label><input class="control" id="db-last-days" type="number" min="1" placeholder="np 7" /></div>
+          <div><label>ean zawiera</label><input class="control" id="db-ean-contains" type="text" placeholder="np 590" /></div>
         </div>
-
-        <div class="actions" style="justify-content:space-between;">
-          <div class="err" id="db-error" style="display:none;"></div>
+        <div class="btn-row">
           <button class="btn primary" id="db-run-btn" type="button">start analizy z bazy</button>
         </div>
-      </div>
-    </section>
-
-  </div>
-
-  <!-- settings modal -->
-  <div class="modal-backdrop" id="settings-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-      <div class="modal-head">
-        <h3 id="settings-title">ustawienia</h3>
-        <button class="btn ghost small" id="close-settings" type="button">zamknij</button>
-      </div>
-      <div class="modal-body">
-        <div class="modal-grid">
-          <div class="card cache-card" style="background:rgba(255,255,255,.02); box-shadow:none; border-color:var(--border2);">
-            <div class="card-inner" style="padding:16px;">
-              <div class="eyebrow">cache</div>
-              <label for="cache-ttl-input">ttl cache (dni)</label>
-              <input class="control" id="cache-ttl-input" type="number" min="0" step="1" placeholder="np 7" />
-              <div class="hint">0 = bez cache (zawsze odswiezaj), 7 = trzymamy dane 7 dni</div>
-              <div class="actions" style="justify-content:flex-end;">
-                <button class="btn primary" id="save-ttl-btn" type="button">zapisz</button>
-              </div>
-              <div class="hint" id="cache-ttl">ustawienia cache wplywaja na odczyt z bazy vs odswiezanie</div>
-            </div>
-          </div>
-
-          <div class="card" style="background:rgba(255,255,255,.02); box-shadow:none; border-color:var(--border2);">
-            <div class="card-inner" style="padding:16px;">
-              <div class="eyebrow">proxies</div>
-              <div class="hint">mozna wgrac plik .txt (1 proxy na linie) przez api /api/v1/proxies, albo ustawic PROXIES w env</div>
-              <div class="actions" style="gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-start; margin-top:8px;">
-                <input class="control" id="proxy-file" type="file" accept=".txt" style="max-width:260px;" />
-                <button class="btn primary" id="upload-proxies-btn" type="button">wgraj</button>
-              </div>
-              <div class="status-box" id="proxy-status" style="margin-top:10px;">brak danych</div>
-              <div class="hint" style="margin-top:6px;">po wgraniu scraper automatycznie korzysta z nowego pliku</div>
-              <div class="err" id="proxy-error" style="display:none;"></div>
-            </div>
-          </div>
-        </div>
-
-        <div style="height:14px;"></div>
-
-        <div class="card" style="background:rgba(255,255,255,.02); box-shadow:none; border-color:var(--border2);">
-          <div class="card-inner" style="padding:16px;">
-            <div class="eyebrow">kategorie</div>
-            <div class="hint">kategorie sa wymagane do startu. dodaj nowa, jesli lista jest pusta.</div>
-            <div style="display:grid; grid-template-columns: 1.4fr 1fr 1fr; gap:10px; margin-top:10px;">
-              <input class="control" id="cat-name" placeholder="nazwa (np perfumy)" />
-              <input class="control" id="cat-mult" type="number" step="0.01" placeholder="mnoznik (np 1.25)" />
-              <input class="control" id="cat-comm" type="number" step="0.1" placeholder="prowizja % (np 10)" />
-            </div>
-            <div class="actions" style="justify-content:flex-end; margin-top:10px;">
-              <button class="btn primary" id="add-cat-btn" type="button">dodaj kategorie</button>
-            </div>
-            <div class="cat-list" id="cat-list"></div>
-            <div class="err" id="cat-add-error" style="display:none;"></div>
-          </div>
-        </div>
-
-        <div style="height:14px;"></div>
-
-        <div class="card" style="background:rgba(255,255,255,.02); box-shadow:none; border-color:var(--border2);">
-          <div class="card-inner" style="padding:16px;">
-            <div class="eyebrow">kursy walut</div>
-            <div id="currency-body"></div>
-            <div class="actions" style="justify-content:space-between;">
-              <button class="btn ghost" id="add-currency-btn" type="button">dodaj walute</button>
-              <button class="btn primary" id="save-currency-btn" type="button">zapisz kursy</button>
-            </div>
-            <div class="err" id="currency-error" style="display:none;"></div>
-            <div class="hint" id="currency-helper">pln musi miec kurs 1.0</div>
-          </div>
-        </div>
-
+        <div class="err" id="db-error" style="display:none;"></div>
       </div>
     </div>
-  </div>
 
-  <!-- faq modal (simple) -->
-  <div class="modal-backdrop" id="faq-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="faq-title">
-      <div class="modal-head">
-        <h3 id="faq-title">faq / pomoc</h3>
-        <button class="btn ghost small" id="faq-close" type="button">zamknij</button>
-      </div>
-      <div class="modal-body">
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">jak dziala scraper</div>
-          <div>wszystkie zapytania ida przez jeden allegro.pl-scraper-main (TLS client + AnySolver). nie ma wyboru trybu ani providera.</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">proxy / limity</div>
-          <div>scraper wymaga listy proxy http(s). ustaw PROXIES albo wgraj plik proxies.txt w ustawieniach. timeouty i poll zobaczysz w sekcji statusu.</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">jak dodac kategorie</div>
-          <div>uzyj przycisku \"+\" w sekcji kategorie i wypelnij formularz.</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">pliki</div>
-          <div>csv, xls, xlsx. wymagane kolumny: ean, name, purchase_price.</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">gdy analiza konczy sie bledem</div>
-          <div>sprawdz komunikat w sekcji statusu. upewnij sie, ze kategoria jest aktywna oraz w ustawieniach wybrales zrodla danych (jesli tryb nie jest \"tylko baza\").</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">pola kategorii</div>
-          <div><strong>nazwa</strong> – dowolna etykieta (np. perfumy, chemia, zabawki).<br><strong>mnoznik oplacalnosci</strong> – minimalny ROI vs cena zakupu; 1.5 = min. 50% marzy po prowizji.<br><strong>prowizja allegro (%)</strong> – procent prowizji od sprzedazy; odejmujemy go przed liczeniem marzy.</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">szybki start</div>
-          <div>1) dodaj kategorie (ustawienia -> sekcja kategorie), 2) wybierz kategorie, 3) wrzuc plik csv/xlsx, 4) start analizy</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">cache</div>
-          <div>ttl cache podajesz w dniach. backend dostaje to jako cache_ttl_seconds (dni * 86400)</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">baza allegro (market)</div>
-          <div>na dole strony jest sekcja \"baza allegro\", to podglad danych z /api/v1/market-data (filtry: kategoria, ean, data)</div>
-        </div>
-
-        <div style="height:10px;"></div>
-
-        <div class="status-box">
-          <div style="color:var(--text); font-weight:800; margin-bottom:8px;">status i bledy</div>
-          <div>jesli status pokazuje problemy, sprawdz env: PROXIES, ANYSOLVER_API_KEY. logi w kontenerach backend/worker/scraper</div>
-        </div>
+    <!-- TAB: HISTORY -->
+    <div class="tab-panel" id="tab-history">
+      <h2 style="margin-bottom:16px;">historia runow</h2>
+      <div class="card">
+        <div id="history-list"><div class="sbox">ladowanie...</div></div>
       </div>
     </div>
-  </div>
-  <!-- terminal modal -->
-  <div class="modal-backdrop" id="terminal-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="terminal-title">
-      <div class="modal-head">
-        <h3 id="terminal-title">terminal / logi</h3>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button class="btn ghost small" id="terminal-refresh" type="button">odswiez</button>
-          <button class="btn ghost small" id="terminal-close" type="button">zamknij</button>
+
+    <!-- TAB: MARKET DATA -->
+    <div class="tab-panel" id="tab-market">
+      <h2 style="margin-bottom:16px;">market data</h2>
+      <div class="card">
+        <div class="card-sub">podglad danych zapisanych w bazie z Allegro</div>
+        <div class="row">
+          <div><label>kategoria</label><select class="control" id="market-category"></select></div>
+          <div><label>ean</label><input class="control" id="market-ean" placeholder="np 590" /></div>
         </div>
-      </div>
-      <div class="modal-body">
-        <div class="status-box" style="max-height:60vh; overflow:auto; background:rgba(0,0,0,.25);" id="terminal-body">
-          laduje logi...
+        <div class="btn-row" style="margin-bottom:12px;">
+          <button class="btn ghost sm" id="market-load">szukaj</button>
+          <button class="btn ghost sm" id="market-prev">prev</button>
+          <button class="btn ghost sm" id="market-next">next</button>
+          <span class="hint" id="market-meta" style="margin:0;">0 rekordow</span>
         </div>
+        <div id="market-table"></div>
       </div>
     </div>
-  </div>
-  <!-- market filters modal -->
-  <div class="modal-backdrop" id="market-filters-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="market-filters-title">
-      <div class="modal-head">
-        <h3 id="market-filters-title">filtry market data</h3>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button class="btn ghost small" id="market-filters-reset" type="button">wyczysc</button>
-          <button class="btn primary small" id="market-filters-apply" type="button">zastosuj</button>
-          <button class="btn ghost small" id="market-filters-close" type="button">zamknij</button>
-        </div>
+
+    <!-- TAB: PROXY POOL -->
+    <div class="tab-panel" id="tab-proxies">
+      <h2 style="margin-bottom:16px;">proxy pool</h2>
+      <div class="card">
+        <div class="eyebrow">health summary</div>
+        <div class="mgrid" id="proxy-health-grid"></div>
+        <div class="btn-row"><button class="btn ghost sm" id="proxy-refresh">odswiez</button></div>
       </div>
-      <div class="modal-body">
-        <div class="row" style="margin-top:12px;">
+      <div class="card">
+        <div class="eyebrow">lista proxy</div>
+        <div id="proxy-list-table" style="overflow:auto;"></div>
+      </div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div class="tab-panel" id="tab-settings">
+      <h2 style="margin-bottom:16px;">ustawienia</h2>
+
+      <div class="card">
+        <div class="eyebrow">cache</div>
+        <div class="row">
           <div>
-            <label for="mf-date">zaktualizowane od</label>
-            <input class="control" id="mf-date" type="date" />
-          </div>
-          <div class="modal-filters-grid" style="margin-top:22px;">
-            <label class="toggle-pill">
-              <input type="checkbox" id="mf-with-data" /> <span>tylko z danymi</span>
-            </label>
-            <label class="toggle-pill">
-              <input type="checkbox" id="mf-profitable" /> <span>tylko oplacalne</span>
-            </label>
+            <label>ttl cache (dni)</label>
+            <input class="control" id="cache-ttl-input" type="number" min="0" placeholder="np 7" />
+            <div class="hint">0 = bez cache, 7 = dane trzymane 7 dni</div>
           </div>
         </div>
+        <div class="btn-row"><button class="btn primary" id="save-ttl-btn">zapisz cache</button></div>
+        <div class="hint" id="cache-ttl-status"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">stop-loss</div>
+        <div class="card-sub">automatyczne zatrzymanie analizy przy zlej jakosci scrapingu</div>
+        <div class="row">
+          <div><label>max error rate (%)</label><input class="control" id="sl-error-rate" type="number" min="0" max="100" step="1" /></div>
+          <div><label>max captcha rate (%)</label><input class="control" id="sl-captcha-rate" type="number" min="0" max="100" step="1" /></div>
+        </div>
+        <div class="row">
+          <div><label>window size</label><input class="control" id="sl-window" type="number" min="5" max="1000" step="1" /></div>
+          <div><label>max consecutive errors</label><input class="control" id="sl-consec" type="number" min="1" max="1000" step="1" /></div>
+        </div>
+        <div class="btn-row"><button class="btn primary" id="save-stoploss-btn">zapisz stop-loss</button></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">proxy</div>
+        <div class="card-sub">wgraj plik .txt z lista proxy (1 na linie)</div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input class="control" id="proxy-file" type="file" accept=".txt" style="max-width:280px;" />
+          <button class="btn primary" id="upload-proxies-btn">wgraj proxy</button>
+        </div>
+        <div class="sbox" id="proxy-file-status" style="margin-top:10px;">brak danych</div>
+        <div class="err" id="proxy-error" style="display:none;"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">kategorie</div>
+        <div class="card-sub">dodaj kategorie - wymagane do startu analizy</div>
+        <div style="display:grid; grid-template-columns:1.5fr 1fr 1fr; gap:8px; margin-bottom:10px;">
+          <input class="control" id="cat-name" placeholder="nazwa (np perfumy)" />
+          <input class="control" id="cat-mult" type="number" step="0.01" placeholder="mnoznik (np 1.25)" />
+          <input class="control" id="cat-comm" type="number" step="0.1" placeholder="prowizja % (np 10)" />
+        </div>
+        <div class="btn-row" style="margin-bottom:10px;"><button class="btn primary" id="add-cat-btn">dodaj kategorie</button></div>
+        <div id="cat-list"></div>
+        <div class="err" id="cat-add-error" style="display:none;"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">waluty</div>
+        <div id="currency-list"></div>
+        <div class="btn-row"><button class="btn primary" id="save-currencies-btn">zapisz waluty</button></div>
+      </div>
+    </div>
+
+    <!-- TAB: HELP -->
+    <div class="tab-panel" id="tab-help">
+      <h2 style="margin-bottom:16px;">pomoc i dokumentacja</h2>
+
+      <input class="control help-search" id="help-search" type="text" placeholder="szukaj w dokumentacji..." style="margin-bottom:20px;" />
+
+      <div id="help-content">
+        <div class="help-section" data-help="start">
+          <h4>jak zaczac?</h4>
+          <p>Jolly Jesters automatycznie sprawdza ceny produktow na Allegro na podstawie kodow EAN. Aby rozpoczac:</p>
+          <ul>
+            <li>dodaj przynajmniej jedna kategorie w ustawieniach (np. "perfumy" z mnoznikiem 1.25 i prowizja 10%)</li>
+            <li>wgraj plik proxy w ustawieniach - scraper potrzebuje proxy do pracy</li>
+            <li>przygotuj plik Excel/CSV z kolumnami: EAN, nazwa (opcjonalnie), cena zakupu</li>
+            <li>przejdz do "nowa analiza", wrzuc plik, wybierz kategorie i kliknij start</li>
+          </ul>
+        </div>
+
+        <div class="help-section" data-help="plik">
+          <h4>format pliku</h4>
+          <p>system obsluguje pliki .xlsx, .xls i .csv. wymagane kolumny:</p>
+          <ul>
+            <li><strong>EAN</strong> - kod kreskowy produktu (8-13 cyfr)</li>
+            <li><strong>cena zakupu</strong> - cena po jakiej kupujesz produkt</li>
+            <li><strong>nazwa</strong> - opcjonalna, do identyfikacji w wynikach</li>
+            <li><strong>waluta</strong> - opcjonalna (domyslnie PLN), jesli kupujesz w EUR/USD system przeliczy automatycznie</li>
+          </ul>
+        </div>
+
+        <div class="help-section" data-help="analiza wyniki">
+          <h4>jak czytac wyniki?</h4>
+          <ul>
+            <li><strong>cena Allegro</strong> - najnizsza cena znaleziona na Allegro dla danego EAN</li>
+            <li><strong>marza</strong> - roznica miedzy cena Allegro a cena zakupu (minus prowizja)</li>
+            <li><strong>oplacalny</strong> - "tak" jesli marza przekracza ustawiony mnoznik</li>
+            <li><strong>sprzedanych</strong> - ilosc sprzedanych sztuk w ostatnim czasie</li>
+          </ul>
+        </div>
+
+        <div class="help-section" data-help="metryki koszt">
+          <h4>metryki i koszty</h4>
+          <p>system zbiera metryki dla kazdego runu:</p>
+          <ul>
+            <li><strong>EAN/min</strong> - przepustowosc przetwarzania</li>
+            <li><strong>koszt/1000 EAN</strong> - estymowany koszt (glownie z CAPTCHA solving)</li>
+            <li><strong>retry rate</strong> - procent zapytan wymagajacych ponowienia</li>
+            <li><strong>captcha rate</strong> - procent zapytan z CAPTCHA</li>
+            <li><strong>blocked rate</strong> - procent zablokowanych zapytan</li>
+            <li><strong>latency P50/P95</strong> - czas odpowiedzi (mediana i 95 percentyl)</li>
+          </ul>
+          <p>metryki sa dostepne w podgladzie runu oraz do pobrania jako CSV</p>
+        </div>
+
+        <div class="help-section" data-help="stoploss bezpieczenstwo">
+          <h4>stop-loss (ochrona kosztowa)</h4>
+          <p>system automatycznie zatrzymuje analize gdy wykryje problemy:</p>
+          <ul>
+            <li><strong>error rate</strong> - zbyt wiele bledow (domyslnie > 50%)</li>
+            <li><strong>captcha rate</strong> - zbyt wiele CAPTCHA (domyslnie > 80%) - sygnal wysokiego kosztu</li>
+            <li><strong>consecutive errors</strong> - seria bledow z rzedu (domyslnie 10)</li>
+          </ul>
+          <p>progi mozna konfigurowac w ustawieniach. po zatrzymaniu zobaczysz banner z przyczynaml</p>
+        </div>
+
+        <div class="help-section" data-help="proxy siec">
+          <h4>proxy i siec</h4>
+          <ul>
+            <li>scraper wymaga proxy do pracy - wgraj plik .txt w ustawieniach</li>
+            <li>proxy pool automatycznie ocenia jakosc kazdego proxy (health score 0-1)</li>
+            <li>slabe proxy sa automatycznie wycofywane na 15 minut (kwarantanna)</li>
+            <li>zakladka "proxy pool" pokazuje aktualny stan wszystkich proxy</li>
+          </ul>
+        </div>
+
+        <div class="help-section" data-help="kategorie prowizja mnoznik">
+          <h4>kategorie i oplacalnosc</h4>
+          <ul>
+            <li><strong>mnoznik oplacalnosci</strong> - minimalny mnoznik marzy (np. 1.25 = produkt oplacalny gdy marza >= 25% ceny zakupu)</li>
+            <li><strong>prowizja Allegro</strong> - procent prowizji pobranej przez Allegro (np. 10% = 0.10), odliczany od ceny sprzedazy</li>
+            <li>kazda kategoria moze miec inne parametry</li>
+          </ul>
+        </div>
+
+        <div class="help-section" data-help="analiza baza cache">
+          <h4>analiza z bazy</h4>
+          <p>mozesz ponownie przeanalizowac produkty bez uploadu pliku. system uzyje danych juz zapisanych w bazie.
+          filtry: ostatnie N dni, EAN zawierajacy tekst. przydatne do re-analizy lub sprawdzenia zmian cen.</p>
+        </div>
+
+        <div class="help-section" data-help="api eksport">
+          <h4>API i eksport</h4>
+          <ul>
+            <li><strong>Excel (.xlsx)</strong> - pelne wyniki z metrykami scrapingu</li>
+            <li><strong>CSV metryk</strong> - podsumowanie runu (koszt, przepustowosc, bledy)</li>
+            <li><strong>REST API</strong> - pelne API pod /api/v1/ (analysis, categories, settings, proxies, metrics)</li>
+            <li><strong>Prometheus</strong> - metryki pod /api/v1/metrics/prometheus</li>
+          </ul>
+        </div>
+
+        <div class="help-section" data-help="bledy troubleshooting">
+          <h4>typowe problemy</h4>
+          <ul>
+            <li><strong>"brak proxy"</strong> - wgraj plik proxy w ustawieniach</li>
+            <li><strong>"brak kategorii"</strong> - dodaj kategorie w ustawieniach</li>
+            <li><strong>duzo blocked/error</strong> - sprawdz jakosc proxy w zakladce proxy pool</li>
+            <li><strong>run zatrzymany (stopped)</strong> - stop-loss wykryl problemy, sprawdz metryki runu</li>
+            <li><strong>wolne przetwarzanie</strong> - sprawdz EAN/min w metrykach, rozważ lepsze proxy</li>
+            <li><strong>limit analiz</strong> - max 3 rownoczesne analizy, poczekaj na zakonczenie</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PREVIEW MODAL -->
+  <div class="modal-bg" id="preview-modal">
+    <div class="modal" style="max-width:1100px;">
+      <div class="modal-hd">
+        <h3 id="preview-title">podglad runu</h3>
+        <div style="display:flex;gap:8px;">
+          <a class="btn ghost sm" id="preview-dl-xlsx" style="display:none; text-decoration:none;">xlsx</a>
+          <a class="btn ghost sm" id="preview-dl-csv" style="display:none; text-decoration:none;">metryki csv</a>
+          <button class="btn ghost sm" id="preview-refresh">odswiez</button>
+          <button class="btn ghost sm" id="preview-close">zamknij</button>
+        </div>
+      </div>
+      <div class="modal-bd">
+        <div id="preview-metrics" style="display:none;"><div class="eyebrow">metryki</div><div class="mgrid" id="preview-metrics-grid"></div></div>
+        <div id="preview-stoploss" class="banner danger" style="display:none;"></div>
+        <div id="preview-body"><div class="hint">ladowanie...</div></div>
       </div>
     </div>
   </div>
-  <!-- preview modal -->
-  <div class="modal-backdrop" id="preview-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="preview-title">
-      <div class="modal-head">
-        <h3 id="preview-title">podglad wynikow</h3>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button class="btn ghost small" id="preview-refresh" type="button">odswiez</button>
-          <button class="btn ghost small" id="preview-close" type="button">zamknij</button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="status-box" style="max-height:60vh; overflow:auto; background:rgba(0,0,0,.25);" id="preview-body">
-          wybierz run aby zobaczyc wyniki
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- baza allegro / market data (full width at bottom) -->
-  <section class="card full" id="market-card" style="margin-top:18px;">
-    <div class="card-inner">
-      <div class="card-head">
-        <div>
-          <div class="eyebrow">baza allegro</div>
-          <h2 style="margin:0;">market data</h2>
-          <p class="lead">podglad rekordow zapisanych w bazie (api /api/v1/market-data)</p>
-        </div>
-        <div class="actions">
-          <button class="btn ghost" id="market-filters-btn" type="button">filtry</button>
-        </div>
-      </div>
-
-      <div class="form">
-        <!-- advanced filter values -->
-        <input type="hidden" id="market-date-val" />
-        <input type="hidden" id="market-with-data-val" />
-        <input type="hidden" id="market-profitable-val" />
-
-        <div class="row" style="margin-top:10px;">
-          <div>
-            <label for="market-category">kategoria</label>
-            <select class="control" id="market-category"></select>
-          </div>
-          <div>
-            <label for="market-ean">ean</label>
-            <input class="control" id="market-ean" placeholder="np 590" />
-          </div>
-        </div>
-
-        <div class="actions" style="justify-content:space-between; margin-top:12px; flex-wrap:wrap;">
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <div class="hint" id="market-meta">0 rekordow</div>
-            <div class="hint" id="market-summary" style="color:var(--muted);">filtry: brak</div>
-          </div>
-          <div class="actions">
-            <button class="btn ghost" id="market-prev" type="button">prev</button>
-            <button class="btn ghost" id="market-next" type="button">next</button>
-          </div>
-        </div>
-
-        <div class="err" id="market-error" style="display:none;"></div>
-        <div style="height:10px;"></div>
-        <div class="table" id="market-table"></div>
-      </div>
-    </div>
-  </section>
-
 
   <script>
-    // small helpers
-    const $ = (id) => document.getElementById(id);
-    const show = (el) => { if(el){ el.style.display = ""; } };
-    const hide = (el) => { if(el){ el.style.display = "none"; } };
-    const setText = (el, t) => { if(el){ el.textContent = t; } };
-    const setHtml = (el, t) => { if(el){ el.innerHTML = t; } };
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const $=id=>document.getElementById(id);
+    const show=el=>{if(el)el.style.display='';};
+    const hide=el=>{if(el)el.style.display='none';};
+    const setText=(el,t)=>{if(el)el.textContent=t;};
+    const setHtml=(el,t)=>{if(el)el.innerHTML=t;};
 
-    // elements
-    const fileInput = $("file-input");
-    const dropzone = $("dropzone");
-    const fileNameEl = $("fileName");
-    const fileErr = $("file-error");
-    const catSelect = $("category-select");
-    const catErr = $("category-select-error");
-    const startBtn = $("start-btn");
-    const errBox = $("error");
+    // API helpers
+    async function apiGet(url){const r=await fetch(url,{credentials:'include'});if(!r.ok)throw new Error(r.status);return r.json();}
+    async function apiPost(url,body){const r=await fetch(url,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status);return r.json();}
+    async function apiPut(url,body){const r=await fetch(url,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status);return r.json();}
+    async function apiPatch(url,body){const r=await fetch(url,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status);return r.json();}
 
-    const statusDot = $("status-dot");
-    const statusText = $("status-text");
-
-    const activeEmpty = $("active-runs-empty");
-    const activeRuns = $("active-runs");
-    const activeErr = $("active-runs-error");
-    const cancelBtn = $("cancel-run-btn");
-    const downloadLink = $("download-link");
-
-    const dbRunBtn = $("db-run-btn");
-    const dbErr = $("db-error");
-
-    // modals
-    const settingsModal = $("settings-modal");
-    const openSettings = $("open-settings");
-    const closeSettings = $("close-settings");
-
-    const faqBtn = $("faq-btn");
-    const faqModal = $("faq-modal");
-    const faqClose = $("faq-close");
-    const terminalBtn = $("terminal-btn");
-    const terminalModal = $("terminal-modal");
-    const terminalClose = $("terminal-close");
-    const terminalRefresh = $("terminal-refresh");
-    const mfModal = $("market-filters-modal");
-    const mfOpen = $("market-filters-btn");
-    const mfClose = $("market-filters-close");
-    const mfApply = $("market-filters-apply");
-    const mfReset = $("market-filters-reset");
-    const previewModal = $("preview-modal");
-    const previewClose = $("preview-close");
-    const previewRefresh = $("preview-refresh");
-
-    function openModal(m){ if(!m) return; m.classList.add("open"); m.setAttribute("aria-hidden","false"); }
-    function closeModal(m){ if(!m) return; m.classList.remove("open"); m.setAttribute("aria-hidden","true"); }
-
-    // wire modals
-    openSettings?.addEventListener("click", () => openModal(settingsModal));
-    closeSettings?.addEventListener("click", () => closeModal(settingsModal));
-    settingsModal?.addEventListener("click", (e) => { if(e.target === settingsModal) closeModal(settingsModal); });
-
-    faqBtn?.addEventListener("click", () => openModal(faqModal));
-    faqClose?.addEventListener("click", () => closeModal(faqModal));
-    faqModal?.addEventListener("click", (e) => { if(e.target === faqModal) closeModal(faqModal); });
-    terminalBtn?.addEventListener("click", () => { openModal(terminalModal); loadLogs(); });
-    terminalClose?.addEventListener("click", () => closeModal(terminalModal));
-    terminalModal?.addEventListener("click", (e) => { if(e.target === terminalModal) closeModal(terminalModal); });
-    terminalRefresh?.addEventListener("click", () => loadLogs());
-    previewClose?.addEventListener("click", () => closeModal(previewModal));
-    previewModal?.addEventListener("click", (e) => { if(e.target === previewModal) closeModal(previewModal); });
-
-    // file selection
-    function setFileName(name){
-      setText(fileNameEl, name || "nie wybrano pliku");
-    }
-    function validateReady(){
-      const ok = !!(fileInput?.files && fileInput.files.length) && !!catSelect?.value;
-      if(startBtn) startBtn.disabled = !ok;
-      return ok;
-    }
-
-    dropzone?.addEventListener("click", () => fileInput?.click());
-    dropzone?.addEventListener("dragover", (e)=>{ e.preventDefault(); dropzone.style.borderColor = "rgba(96,165,250,.45)"; });
-    dropzone?.addEventListener("dragleave", ()=>{ dropzone.style.borderColor = ""; });
-    dropzone?.addEventListener("drop", (e)=>{
-      e.preventDefault();
-      dropzone.style.borderColor = "";
-      const f = e.dataTransfer?.files?.[0];
-      if(!f) return;
-      const dt = new DataTransfer();
-      dt.items.add(f);
-      fileInput.files = dt.files;
-      setFileName(f.name);
-      hide(fileErr);
-      validateReady();
+    // TAB NAVIGATION
+    document.querySelectorAll('#nav button').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+        const tab=$('tab-'+btn.dataset.tab);
+        if(tab)tab.classList.add('active');
+        // load tab data
+        const t=btn.dataset.tab;
+        if(t==='history')loadHistory();
+        if(t==='market')loadMarket(0);
+        if(t==='proxies')loadProxyPool();
+        if(t==='settings')loadSettings();
+      });
     });
 
-    fileInput?.addEventListener("change", ()=>{
-      const f = fileInput.files?.[0];
-      setFileName(f?.name || "");
-      hide(fileErr);
-      validateReady();
-    });
+    // MODAL
+    function openModal(el){el?.classList.add('open');}
+    function closeModal(el){el?.classList.remove('open');}
+    const previewModal=$('preview-modal');
+    $('preview-close')?.addEventListener('click',()=>closeModal(previewModal));
+    previewModal?.addEventListener('click',e=>{if(e.target===previewModal)closeModal(previewModal);});
 
-    catSelect?.addEventListener("change", ()=>{
-      hide(catErr);
-      validateReady();
-    });
-
-    // fetch helpers
-    async function apiGet(url){
-      const r = await fetch(url, { credentials:"include" });
-      if(!r.ok) throw new Error("http " + r.status);
-      return await r.json();
-    }
-    async function apiPost(url, body){
-      const r = await fetch(url, {
-        method:"POST",
-        credentials:"include",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(body ?? {})
-      });
-      if(!r.ok){
-        let detail = "";
-        try{ detail = await r.text(); }catch(_){}
-        throw new Error("http " + r.status + " " + detail);
-      }
-      const ct = r.headers.get("content-type") || "";
-      return ct.includes("application/json") ? await r.json() : await r.text();
-    }
-    async function apiPatch(url, body){
-      const r = await fetch(url, {
-        method:"PATCH",
-        credentials:"include",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(body ?? {})
-      });
-      if(!r.ok){
-        let detail = "";
-        try{ detail = await r.text(); }catch(_){}
-        throw new Error("http " + r.status + " " + detail);
-      }
-      const ct = r.headers.get("content-type") || "";
-      return ct.includes("application/json") ? await r.json() : await r.text();
-    }
-    async function apiPut(url, body){
-      const r = await fetch(url, {
-        method:"PUT",
-        credentials:"include",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(body ?? {})
-      });
-      if(!r.ok){
-        let detail = "";
-        try{ detail = await r.text(); }catch(_){}
-        throw new Error("http " + r.status + " " + detail);
-      }
-      const ct = r.headers.get("content-type") || "";
-      return ct.includes("application/json") ? await r.json() : await r.text();
+    // METRIC CARD helper
+    function mc(label,value,color){
+      return `<div class="mcard"><div class="mcard-label">${label}</div><div class="mcard-val" style="color:${color||'var(--text)'}">${value??'-'}</div></div>`;
     }
 
-    // logs / terminal
-    async function loadLogs(){
-      const box = $("terminal-body");
-      if(box) box.textContent = "laduje logi (ostatnie 50)...";
-      try{
-        const data = await apiGet("/api/v1/status/logs");
-        const logs = data?.logs || [];
-        if(!logs.length){
-          if(box) box.textContent = "brak logow";
-          return;
-        }
-        const lines = logs.map((l) => {
-          const ts = l.time ? new Date(l.time).toLocaleTimeString() : "";
-          const worker = l.workerId || "scraper";
-          const type = l.type || "info";
-          return `<div style="padding:6px 0; border-bottom:1px solid var(--border2);">
-            <span style="color:var(--muted); font-size:12px;">${ts}</span>
-            <span style="margin-left:8px; color:${type==="error" ? "var(--danger)" : "var(--text)"};">[${type}]</span>
-            <span style="margin-left:8px; color:var(--muted); font-size:12px;">${worker}</span>
-            <div style="margin-top:4px; color:var(--text); white-space:pre-wrap;">${(l.message||"").toString()}</div>
-          </div>`;
-        }).join("");
-        if(box) box.innerHTML = lines;
-      }catch(e){
-        if(box) box.textContent = "nie mozna pobrac logow (sprawdz scraper)";
-      }
-    }
-
-    // load categories
-    async function loadCategories(){
-      try{
-        const data = await apiGet("/api/v1/categories/?include_inactive=1");
-        const cats = data?.items || data || [];
-        const activeCats = cats.filter(c => c.is_active !== false);
-
-        // selects
-        setHtml(catSelect, "");
-        const opt0 = document.createElement("option");
-        opt0.value = "";
-        opt0.textContent = "wybierz kategorie";
-        catSelect.appendChild(opt0);
-        for(const c of activeCats){
-          const o = document.createElement("option");
-          o.value = c.id ?? c.slug ?? c.value ?? c;
-          o.textContent = c.name ?? c.label ?? String(c);
-          catSelect.appendChild(o);
-        }
-        const marketSel = $("market-category");
-        if(marketSel){
-          setHtml(marketSel, "");
-          const m0 = document.createElement("option"); m0.value=""; m0.textContent="wszystkie";
-          marketSel.appendChild(m0);
-          for(const c of activeCats){
-            const mo = document.createElement("option");
-            mo.value = c.id ?? c.slug ?? c.value ?? c;
-            mo.textContent = c.name ?? c.label ?? String(c);
-            marketSel.appendChild(mo);
-          }
-        }
-
-        // settings list
-        const listHost = $("cat-list");
-        if(listHost){
-          listHost.innerHTML = cats.length ? "" : '<div class="status-box">brak kategorii</div>';
-          for(const c of cats){
-            const row = document.createElement("div");
-            row.className = "cat-row";
-            row.dataset.catId = c.id || c.slug || "";
-            row.innerHTML = `
-              <input class="control" data-cat-name value="${c.name || ''}" />
-              <input class="control" data-cat-mult type="number" step="0.01" value="${c.profitability_multiplier ?? 1}" />
-              <input class="control" data-cat-comm type="number" step="0.1" value="${c.commission_rate ?? 0}" />
-              <label style="display:flex; align-items:center; gap:6px; font-size:12px;">
-                <input type="checkbox" data-cat-active ${c.is_active ? "checked" : ""}/> aktywna
-              </label>
-              <button class="btn ghost small" data-cat-save>Zapisz</button>
-            `;
-            listHost.appendChild(row);
-          }
-          listHost.querySelectorAll("[data-cat-save]").forEach(btn=>{
-            btn.addEventListener("click", async (e)=>{
-              const row = e.target.closest(".cat-row");
-              if(!row || !row.dataset.catId) return;
-              const name = row.querySelector("[data-cat-name]")?.value.trim();
-              const mult = Number(row.querySelector("[data-cat-mult]")?.value || 0);
-              const comm = Number(row.querySelector("[data-cat-comm]")?.value || 0);
-              const active = !!row.querySelector("[data-cat-active]")?.checked;
-              try{
-                await apiPatch(`/api/v1/categories/${row.dataset.catId}`, {
-                  name,
-                  profitability_multiplier: mult || 1,
-                  commission_rate: comm || 0,
-                  is_active: active
-                });
-                await loadCategories();
-              }catch(err){
-                if(catErr){ catErr.style.display=""; catErr.textContent="nie mozna zapisac kategorii"; }
-              }
-            });
-          });
-        }
-      }catch(e){
-        if(catErr){ catErr.style.display=""; catErr.textContent="nie mozna zaladowac kategorii"; }
-      }
-    }
-
-    // status
+    // STATUS POLLING
     async function pollStatus(){
       try{
-        const st = await apiGet("/api/v1/status");
-        const ok = !!(st?.ok ?? st?.healthy ?? st?.status === "ok");
-        statusDot?.classList.toggle("ok", ok);
-        setText(statusText, ok ? "status ok" : "problemy");
+        const d=await apiGet('/api/v1/status');
+        $('status-dot')?.classList.add('ok');
+        setText($('status-text'),'system ok');
       }catch(e){
-        statusDot?.classList.remove("ok");
-        setText(statusText, "brak polaczenia");
+        $('status-dot')?.classList.remove('ok');
+        setText($('status-text'),'brak polaczenia');
       }
     }
 
-    // active analysis
+    // ACTIVE RUNS POLLING
     async function pollActive(){
       try{
-        const resp = await apiGet("/api/v1/analysis/active");
-        const runs = resp?.runs || resp || [];
-        if(!runs.length){
-          show(activeEmpty); hide(activeRuns); hide(cancelBtn); hide(downloadLink);
-          setText(activeEmpty, "brak aktywnej analizy");
-          const t = $("active-table"); if(t) t.innerHTML = "";
-          return;
-        }
-        hide(activeEmpty); show(activeRuns);
-        const cards = runs.map(r => {
-          const pct = (r.processed_products != null && r.total_products) ? `${r.processed_products}/${r.total_products}` : (r.progress ?? "-");
-          const cat = r.category_name || r.category_id || "kategoria ?";
-          const status = r.status || "running";
-          const created = r.created_at ? new Date(r.created_at).toLocaleString() : "";
-          return `
-            <div class="status-box" style="margin-top:8px;">
-              <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; color:var(--text); font-weight:700;">
-                <span>${cat}</span>
-                <span style="color:var(--muted); font-weight:600;">id: ${r.id}</span>
-              </div>
-              <div>status: ${status}</div>
-              <div>postep: ${pct}</div>
-              ${created ? `<div class="hint">utworzono: ${created}</div>` : ""}
-              <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                ${["pending","running"].includes(status)
-                  ? `<button class="btn ghost small" data-cancel-run="${r.id}">anuluj</button>`
-                  : ""
-                }
-                <button class="btn ghost small" data-preview-run="${r.id}">podglad</button>
-              </div>
+        const resp=await apiGet('/api/v1/analysis/active');
+        const runs=resp?.runs||resp||[];
+        const empty=$('dash-active-empty'), container=$('dash-active');
+        if(!runs.length){show(empty);setHtml(container,'');return;}
+        hide(empty);
+        // hide onboarding if runs exist
+        hide($('onboarding'));
+        const cards=runs.map(r=>{
+          const pct=r.total_products?`${r.processed_products}/${r.total_products}`:'-';
+          const cat=r.category_name||'kategoria';
+          const st=r.status||'running';
+          const stColor=st==='stopped'?'var(--danger)':st==='completed'?'var(--ok)':st==='failed'?'var(--danger)':'var(--accent)';
+          return `<div class="sbox">
+            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;"><strong>${cat}</strong><span style="color:var(--muted);font-size:12px;">id: ${r.id}</span></div>
+            <div>status: <span style="color:${stColor};font-weight:600;">${st}</span> - postep: ${pct}</div>
+            <div class="btn-row" style="margin-top:8px;">
+              ${['pending','running'].includes(st)?`<button class="btn ghost sm" onclick="cancelRun(${r.id})">anuluj</button>`:''}
+              <button class="btn ghost sm" onclick="openPreview(${r.id})">podglad</button>
+              ${['completed','stopped'].includes(st)?`<a class="btn ghost sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">xlsx</a>`:''}
             </div>
-          `;
-        }).join("");
-        setHtml(activeRuns, cards);
-        // wire cancel buttons
-        activeRuns.querySelectorAll("[data-cancel-run]").forEach(btn=>{
-          btn.addEventListener("click", async ()=>{
-            const id = btn.getAttribute("data-cancel-run");
-            btn.disabled = true;
-            btn.textContent = "anulowanie...";
-            try{
-              await apiPost(`/api/v1/analysis/${id}/cancel`, {});
-            }catch(_){}
-            await pollActive();
-          });
-        });
-        activeRuns.querySelectorAll("[data-preview-run]").forEach(btn=>{
-          btn.addEventListener("click", async ()=>{
-            const id = btn.getAttribute("data-preview-run");
-            if(!id) return;
-            openModal(previewModal);
-            await loadPreview(id);
-          });
-        });
-      }catch(e){
-        if(activeErr){ activeErr.style.display=""; activeErr.textContent="blad pobierania aktywnej analizy"; }
-      }
-    }
-
-    async function loadPreview(runId){
-      const host = $("preview-body");
-      if(host) host.innerHTML = '<div class="hint">ladowanie wynikow...</div>';
-      previewRefresh?.setAttribute("data-run-id", runId);
-      try{
-        const data = await apiGet(`/api/v1/analysis/${runId}/results?limit=50`);
-        const rows = data?.items || [];
-        if(!rows.length){
-          if(host) host.innerHTML = '<div class="hint">brak wynikow (jeszcze trwa?)</div>';
-          return;
-        }
-        const html = `
-          <div style="overflow:auto; border:1px solid var(--border2); border-radius:12px; margin-top:6px;">
-            <table style="width:100%; border-collapse:collapse; min-width:760px;">
-              <thead>
-                <tr style="text-align:left; font-size:12px; color:var(--muted);">
-                  <th style="padding:8px 10px;">ean</th>
-                  <th style="padding:8px 10px;">nazwa</th>
-                  <th style="padding:8px 10px;">cena kupna</th>
-                  <th style="padding:8px 10px;">cena allegro</th>
-                  <th style="padding:8px 10px;">status scrape</th>
-                  <th style="padding:8px 10px;">blad</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows.map(r => `
-                  <tr style="border-bottom:1px solid var(--border2);">
-                    <td style="padding:8px 10px; font-family: ui-monospace;">${r.ean || ""}</td>
-                    <td style="padding:8px 10px;">${(r.name||"").toString().slice(0,80)}</td>
-                    <td style="padding:8px 10px;">${r.original_purchase_price ?? "-"}</td>
-                    <td style="padding:8px 10px;">${r.allegro_price_pln ?? "-"}</td>
-                    <td style="padding:8px 10px;">${r.scrape_status || "-"}</td>
-                    <td style="padding:8px 10px; color:var(--danger);">${r.scrape_error_message || ""}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
-        if(host) host.innerHTML = html;
-      }catch(e){
-        if(host) host.innerHTML = '<div class="err">blad pobierania wynikow</div>';
-      }
-    }
-
-    // run upload
-    startBtn?.addEventListener("click", async ()=>{
-      if(!validateReady()) return;
-      hide(errBox);
-      const f = fileInput.files[0];
-      const category = catSelect.value;
-
-      const fd = new FormData();
-      fd.append("file", f);
-      fd.append("category_id", category);
-
-      startBtn.disabled = true;
-      startBtn.textContent = "start...";
-      try{
-        const r = await fetch("/api/v1/analysis/upload", { method:"POST", credentials:"include", body: fd });
-        if(!r.ok) throw new Error("http " + r.status);
-        await pollActive();
-      }catch(e){
-        if(errBox){ errBox.style.display=""; errBox.textContent="nie udalo sie uruchomic analizy"; }
-      }finally{
-        startBtn.textContent = "start analizy";
-        validateReady();
-      }
-    });
-
-    // run from db
-    dbRunBtn?.addEventListener("click", async ()=>{
-      hide(dbErr);
-      dbRunBtn.disabled = true;
-      dbRunBtn.textContent = "start...";
-      try{
-        const payload = {
-          source: $("db-source")?.value || "allegro",
-          // limit removed in ui
-           
-          last_days: Number($("db-last-days")?.value || 0) || null,
-          ean_contains: $("db-ean-contains")?.value || ""
-        };
-        // clean nulls
-        for(const k of Object.keys(payload)){
-          if(payload[k] === "" || payload[k] === 0 || payload[k] === null) delete payload[k];
-        }
-        await apiPost("/api/v1/analysis/run_from_db", payload);
-        await pollActive();
-      }catch(e){
-        if(dbErr){ dbErr.style.display=""; dbErr.textContent="nie udalo sie uruchomic analizy z bazy"; }
-      }finally{
-        dbRunBtn.disabled = false;
-        dbRunBtn.textContent = "start analizy z bazy";
-      }
-    });
-
-    // cancel (best-effort: endpoint may exist in backend)
-    cancelBtn?.addEventListener("click", async ()=>{
-      cancelBtn.disabled = true;
-      cancelBtn.textContent = "cancel...";
-      try{
-        await apiPost("/api/v1/analysis/cancel", {});
+          </div>`;
+        }).join('');
+        setHtml(container,cards);
       }catch(e){}
-      finally{
-        cancelBtn.disabled = false;
-        cancelBtn.textContent = "cancel";
-        await pollActive();
-      }
-    });
-
-    // settings: proxies
-    async function loadProxyStatus(){
-      const box = $("proxy-status");
-      try{
-        const p = await apiGet("/api/v1/proxies");
-        const ts = new Date().toLocaleTimeString();
-        const when = p?.updated_at ? new Date(p.updated_at).toLocaleString() : ts;
-        const path = p?.path ? ` (${p.path})` : "";
-        setText(box, (p?.count != null) ? (`proxies: ${p.count}${path} • ${when}`) : `proxies ok (${ts})`);
-        box.style.color = "var(--text)";
-        return p;
-      }catch(e){
-        setText(box, "blad pobierania proxies");
-        box.style.color = "var(--danger)";
-        throw e;
-      }
     }
-    $("load-proxies-btn")?.addEventListener("click", loadProxyStatus);
-    $("upload-proxies-btn")?.addEventListener("click", async ()=>{
-      const err = $("proxy-error"); if(err){ err.style.display="none"; }
-      const inp = $("proxy-file");
-      if(!inp || !inp.files || !inp.files.length){
-        if(err){ err.style.display=""; err.textContent="wybierz plik .txt z proxy"; }
-        return;
-      }
-      const box = $("proxy-status"); if(box){ box.textContent = "wgrywanie..."; box.style.color="var(--text)"; }
-      const fd = new FormData();
-      fd.append("file", inp.files[0]);
-      try{
-        const r = await fetch("/api/v1/proxies", { method:"POST", credentials:"include", body: fd });
-        if(!r.ok) throw new Error("http " + r.status);
-        const meta = await loadProxyStatus();
-        if(box){ box.textContent = `wgrano (${meta?.count || "?"} proxy)`; box.style.color="var(--ok)"; }
-        if(err){ err.style.display="none"; }
-      }catch(e){
-        if(err){ err.style.display=""; err.textContent="upload nieudany"; }
-        if(box){ box.textContent = "upload nieudany"; box.style.color="var(--danger)"; }
-      }
-    });
-    $("reload-proxies-btn")?.addEventListener("click", async ()=>{
-      const err = $("proxy-error"); if(err){ err.style.display="none"; }
-      try{
-        await apiPost("/api/v1/proxies/reload", {});
-      }catch(e){
-        if(err){ err.style.display=""; err.textContent="reload nieudany (czy wgrany jest plik proxies.txt?)"; }
-      }
-      await loadProxyStatus();
-    });
 
-    // settings: cache
+    async function cancelRun(id){
+      try{await apiPost(`/api/v1/analysis/${id}/cancel`,{});}catch(e){}
+      pollActive();
+    }
+
+    // PREVIEW
+    async function openPreview(runId){
+      openModal(previewModal);
+      const body=$('preview-body'), mg=$('preview-metrics'), mgg=$('preview-metrics-grid');
+      const slBanner=$('preview-stoploss'), dlX=$('preview-dl-xlsx'), dlC=$('preview-dl-csv');
+      setHtml(body,'<div class="hint">ladowanie...</div>');
+      hide(mg);hide(slBanner);hide(dlX);hide(dlC);
+      $('preview-refresh')?.setAttribute('data-run-id',runId);
+      $('preview-refresh')?.addEventListener('click',()=>openPreview($('preview-refresh')?.getAttribute('data-run-id')));
+
+      const [data,metrics,info]=await Promise.all([
+        apiGet(`/api/v1/analysis/${runId}/results?limit=50`).catch(()=>null),
+        apiGet(`/api/v1/analysis/${runId}/metrics`).catch(()=>null),
+        apiGet(`/api/v1/analysis/${runId}`).catch(()=>null),
+      ]);
+
+      if(info&&['completed','stopped'].includes(info.status)){if(dlX){dlX.href=`/api/v1/analysis/${runId}/download`;show(dlX);}}
+      if(metrics){if(dlC){dlC.href=`/api/v1/analysis/${runId}/metrics/csv`;show(dlC);}}
+
+      if(metrics&&mgg){
+        mgg.innerHTML=[
+          mc('EAN/min',metrics.ean_per_min,'var(--accent)'),
+          mc('koszt/1000',metrics.cost_per_1000_ean!=null?`$${metrics.cost_per_1000_ean}`:null,'var(--warn)'),
+          mc('avg latency',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),
+          mc('p95 latency',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),
+          mc('retry rate',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),
+          mc('captcha rate',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'var(--danger)':null),
+          mc('ok/total',`${metrics.completed_items}/${metrics.total_items}`,'var(--ok)'),
+          mc('blocked',metrics.blocked_items,'var(--danger)'),
+          mc('czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null),
+        ].join('');
+        show(mg);
+      }
+
+      if(info&&info.status==='stopped'&&slBanner){
+        const m=info.run_metadata||{};
+        let msg=`stop-loss: ${m.stop_reason||'nieznany'}`;
+        if(m.stop_details?.rate)msg+=` (${(m.stop_details.rate*100).toFixed(1)}%)`;
+        if(m.stop_details?.consecutive)msg+=` (${m.stop_details.consecutive} z rzedu)`;
+        if(m.stopped_at_item)msg+=` - pozycja #${m.stopped_at_item}`;
+        setText(slBanner,msg);show(slBanner);
+      }
+
+      const rows=data?.items||[];
+      if(!rows.length){setHtml(body,'<div class="hint">brak wynikow</div>');return;}
+      setHtml(body,`<div style="overflow:auto;"><table class="tbl"><thead><tr>
+        <th>ean</th><th>nazwa</th><th>cena kupna</th><th>cena allegro</th><th>marza</th><th>status</th><th>blad</th>
+      </tr></thead><tbody>${rows.map(r=>`<tr>
+        <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,60)}</td>
+        <td>${r.purchase_price_pln??'-'}</td><td>${r.allegro_price_pln??'-'}</td>
+        <td>${r.margin_pln!=null?r.margin_pln.toFixed(2):'-'}</td>
+        <td>${r.scrape_status||'-'}</td><td style="color:var(--danger)">${r.scrape_error_message||''}</td>
+      </tr>`).join('')}</tbody></table></div>`);
+    }
+
+    // HISTORY
+    async function loadHistory(){
+      try{
+        const runs=await apiGet('/api/v1/analysis?limit=50');
+        if(!runs?.length){setHtml($('history-list'),'<div class="sbox">brak historii</div>');return;}
+        const html=runs.map(r=>{
+          const st=r.status;
+          const stColor=st==='completed'?'var(--ok)':st==='stopped'?'var(--danger)':st==='failed'?'var(--danger)':st==='canceled'?'var(--muted)':'var(--accent)';
+          const date=r.created_at?new Date(r.created_at).toLocaleString():'';
+          return `<div class="sbox">
+            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;">
+              <strong>${r.category_name||'run'} #${r.id}</strong>
+              <span style="color:${stColor};font-weight:600;font-size:12px;">${st}</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);">${date} - ${r.processed_products}/${r.total_products} EAN</div>
+            <div class="btn-row" style="margin-top:6px;">
+              <button class="btn ghost sm" onclick="openPreview(${r.id})">podglad + metryki</button>
+              ${['completed','stopped'].includes(st)?`<a class="btn ghost sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">xlsx</a>`:''}
+            </div>
+          </div>`;
+        }).join('');
+        setHtml($('history-list'),html);
+      }catch(e){setHtml($('history-list'),'<div class="err">blad ladowania historii</div>');}
+    }
+
+    // MARKET DATA
+    let marketOffset=0;
+    async function loadMarket(offset){
+      marketOffset=offset||0;
+      try{
+        const cat=$('market-category')?.value||'';
+        const ean=$('market-ean')?.value||'';
+        let url=`/api/v1/market-data?offset=${marketOffset}&limit=50`;
+        if(cat)url+=`&category_id=${cat}`;
+        if(ean)url+=`&ean=${encodeURIComponent(ean)}`;
+        const d=await apiGet(url);
+        const items=d?.items||d||[];
+        setText($('market-meta'),`${items.length} rekordow (offset ${marketOffset})`);
+        if(!items.length){setHtml($('market-table'),'<div class="sbox">brak danych</div>');return;}
+        setHtml($('market-table'),`<div style="overflow:auto;"><table class="tbl"><thead><tr>
+          <th>ean</th><th>nazwa</th><th>cena</th><th>sprzedanych</th><th>oplacalny</th><th>sprawdzono</th>
+        </tr></thead><tbody>${items.map(r=>`<tr>
+          <td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,50)}</td>
+          <td>${r.price??r.allegro_price??'-'}</td><td>${r.sold_count??'-'}</td>
+          <td>${r.is_profitable===true?'tak':r.is_profitable===false?'nie':'-'}</td>
+          <td style="font-size:11px;">${r.last_checked_at?new Date(r.last_checked_at).toLocaleString():'-'}</td>
+        </tr>`).join('')}</tbody></table></div>`);
+      }catch(e){setHtml($('market-table'),'<div class="err">blad ladowania</div>');}
+    }
+    $('market-load')?.addEventListener('click',()=>loadMarket(0));
+    $('market-prev')?.addEventListener('click',()=>loadMarket(Math.max(0,marketOffset-50)));
+    $('market-next')?.addEventListener('click',()=>loadMarket(marketOffset+50));
+
+    // PROXY POOL
+    async function loadProxyPool(){
+      try{
+        const h=await apiGet('/api/v1/proxy-pool/health');
+        $('proxy-health-grid').innerHTML=[
+          mc('total',h.total),mc('active',h.active,'var(--ok)'),
+          mc('quarantined',h.quarantined,'var(--danger)'),mc('available',h.available,'var(--accent)'),
+          mc('avg health',h.avg_health_score),mc('success rate',h.success_rate!=null?`${(h.success_rate*100).toFixed(1)}%`:'-'),
+        ].join('');
+      }catch(e){setHtml($('proxy-health-grid'),'<div class="hint">brak danych proxy pool</div>');}
+      try{
+        const list=await apiGet('/api/v1/proxy-pool?active_only=false');
+        if(!list?.length){setHtml($('proxy-list-table'),'<div class="sbox">brak proxy w pool</div>');return;}
+        setHtml($('proxy-list-table'),`<table class="tbl"><thead><tr>
+          <th>id</th><th>label</th><th>health</th><th>ok/fail</th><th>kwarantanna</th>
+        </tr></thead><tbody>${list.slice(0,100).map(p=>{
+          const q=p.quarantine_until&&new Date(p.quarantine_until)>new Date();
+          return `<tr><td>${p.id}</td><td>${p.label||'-'}</td>
+          <td style="color:${p.health_score>.7?'var(--ok)':p.health_score>.3?'var(--warn)':'var(--danger)'}">${p.health_score}</td>
+          <td>${p.success_count}/${p.fail_count}</td>
+          <td style="color:${q?'var(--danger)':'var(--muted)'}">${q?'tak':'-'}</td></tr>`;
+        }).join('')}</tbody></table>`);
+      }catch(e){}
+    }
+    $('proxy-refresh')?.addEventListener('click',loadProxyPool);
+
+    // SETTINGS
     async function loadSettings(){
       try{
-        const s = await apiGet("/api/v1/settings/");
-        const days = Number(s?.cache_ttl_days ?? 0);
-        const inp = $("cache-ttl-input");
-        if(inp){ inp.value = isNaN(days) ? "" : days; }
-        const hint = $("cache-ttl");
-        if(hint){
-          if(days === 0){ hint.textContent = "cache wylaczony (0 = zawsze odswiezaj)"; }
-          else if(!isNaN(days)){ hint.textContent = `cache ttl: ${days} dni`; }
-          else{ hint.textContent = "ustawienia cache wplywaja na odczyt z bazy vs odswiezanie"; }
-        }
-      }catch(e){
-        const hint = $("cache-ttl"); if(hint){ hint.textContent = "nie mozna pobrac ustawien (sprawdz login)"; }
-      }
+        const s=await apiGet('/api/v1/settings/');
+        if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;
+        if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);
+        if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);
+        if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;
+        if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;
+      }catch(e){}
+      loadCategories();
+      loadProxyStatus();
+      loadCurrencies();
     }
 
-    // settings: ttl
-    $("save-ttl-btn")?.addEventListener("click", async ()=>{
-      const days = Number($("cache-ttl-input")?.value ?? 0);
-      const v = Math.max(0, Math.min(365, Math.floor(days)));
-      try{
-        await apiPut("/api/v1/settings/", { cache_ttl_days: v });
-        await loadSettings();
-      }catch(e){
-        const ce = $("cache-ttl"); if(ce){ ce.textContent = "blad zapisu cache (sprawdz uprawnienia/login)"; }
-      }
+    $('save-ttl-btn')?.addEventListener('click',async()=>{
+      try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30)});setText($('cache-ttl-status'),'zapisano');}catch(e){setText($('cache-ttl-status'),'blad');}
     });
 
-    // settings: categories
-    $("add-cat-btn")?.addEventListener("click", async ()=>{
-      const err = $("cat-add-error"); if(err){ err.style.display="none"; }
-      const name = ($("cat-name")?.value || "").trim();
-      const mult = Number($("cat-mult")?.value || 0);
-      const comm = Number($("cat-comm")?.value || 0);
-      if(!name){
-        if(err){ err.style.display=""; err.textContent="podaj nazwe kategorii"; }
-        return;
-      }
+    $('save-stoploss-btn')?.addEventListener('click',async()=>{
       try{
-        await apiPost("/api/v1/categories/", {
-          name,
-          profitability_multiplier: mult || 1,
-          commission_rate: comm || 0,
-          is_active: true
+        await apiPut('/api/v1/settings/',{
+          cache_ttl_days:Number($('cache-ttl-input')?.value||30),
+          stoploss_max_error_rate:(Number($('sl-error-rate')?.value)||50)/100,
+          stoploss_max_captcha_rate:(Number($('sl-captcha-rate')?.value)||80)/100,
+          stoploss_window_size:Number($('sl-window')?.value)||20,
+          stoploss_max_consecutive_errors:Number($('sl-consec')?.value)||10,
         });
-        if(err){ err.style.display="none"; }
-        // clear inputs
-        if($("cat-name")) $("cat-name").value = "";
-        if($("cat-mult")) $("cat-mult").value = "";
-        if($("cat-comm")) $("cat-comm").value = "";
-        await loadCategories();
-      }catch(e){
-        if(err){ err.style.display=""; err.textContent="nie udalo sie dodac kategorii (czy nazwa juz istnieje?)"; }
-      }
+        alert('stop-loss zapisany');
+      }catch(e){alert('blad zapisu');}
     });
 
-    // settings: currencies
-    function renderCurrencies(items){
-      const host = $("currency-body");
-      if(!host) return;
-      const rows = (items || []).map((c, i) => `
-        <div style="display:grid;grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
-          <input class="control" data-cur-code value="${(c.currency||c.code||"").toUpperCase()}" placeholder="waluta (np EUR)" />
-          <input class="control" data-cur-rate value="${c.rate_to_pln ?? c.rate ?? ""}" placeholder="kurs do pln" />
-        </div>
-      `).join("");
-      host.innerHTML = rows || '<div class="status-box">brak walut</div>';
+    // PROXY UPLOAD
+    async function loadProxyStatus(){
+      try{
+        const m=await apiGet('/api/v1/proxies');
+        setText($('proxy-file-status'),`${m.count||0} proxy zaladowanych`);
+      }catch(e){}
     }
+    $('upload-proxies-btn')?.addEventListener('click',async()=>{
+      const f=$('proxy-file')?.files?.[0];
+      if(!f)return;
+      const fd=new FormData();fd.append('file',f);
+      try{
+        const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
+        if(!r.ok)throw new Error(r.status);
+        loadProxyStatus();
+        setText($('proxy-file-status'),'proxy wgrane');
+      }catch(e){show($('proxy-error'));setText($('proxy-error'),'blad wgrywania');}
+    });
+
+    // CATEGORIES
+    async function loadCategories(){
+      try{
+        const cats=await apiGet('/api/v1/categories/?include_inactive=1');
+        // populate selects
+        [$('category-select'),$('market-category')].forEach(sel=>{
+          if(!sel)return;
+          const val=sel.value;
+          sel.innerHTML='<option value="">-- wybierz --</option>'+cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+          if(val)sel.value=val;
+        });
+        // category list in settings
+        const list=$('cat-list');
+        if(list){
+          list.innerHTML=cats.map(c=>`<div class="cat-row">
+            <span>${c.name}</span><small>x${c.profitability_multiplier}</small><small>${c.commission_rate?c.commission_rate*100+'%':'-'}</small>
+            <span style="color:${c.is_active?'var(--ok)':'var(--muted)'}; font-size:12px;">${c.is_active?'aktywna':'nieaktywna'}</span>
+            <button class="btn ghost sm" onclick="toggleCat('${c.id}',${!c.is_active})">${c.is_active?'wylacz':'wlacz'}</button>
+          </div>`).join('');
+        }
+        // enable start button
+        validateStart();
+        // hide onboarding if categories exist
+        if(cats.length>0&&$('onboarding')){/* keep onboarding for now */}
+      }catch(e){}
+    }
+
+    async function toggleCat(id,active){
+      try{await apiPatch(`/api/v1/categories/${id}`,{is_active:active});loadCategories();}catch(e){}
+    }
+
+    $('add-cat-btn')?.addEventListener('click',async()=>{
+      const name=$('cat-name')?.value?.trim();
+      const mult=Number($('cat-mult')?.value);
+      const comm=Number($('cat-comm')?.value||0)/100;
+      if(!name||!mult){show($('cat-add-error'));setText($('cat-add-error'),'podaj nazwe i mnoznik');return;}
+      hide($('cat-add-error'));
+      try{
+        await apiPost('/api/v1/categories/',{name,profitability_multiplier:mult,commission_rate:comm});
+        $('cat-name').value='';$('cat-mult').value='';$('cat-comm').value='';
+        loadCategories();
+      }catch(e){show($('cat-add-error'));setText($('cat-add-error'),'blad dodawania');}
+    });
+
+    // CURRENCIES
     async function loadCurrencies(){
       try{
-        const d = await apiGet("/api/v1/settings/currencies");
-        renderCurrencies(d?.rates || []);
-      }catch(e){
-        const ce = $("currency-error"); if(ce){ ce.style.display=""; ce.textContent="blad pobierania kursow"; }
-      }
+        const d=await apiGet('/api/v1/settings/currencies');
+        const rates=d?.rates||[];
+        setHtml($('currency-list'),rates.map(r=>`<div class="row" style="margin-bottom:4px;">
+          <div><input class="control curr-code" value="${r.currency}" readonly style="background:rgba(255,255,255,.01);" /></div>
+          <div><input class="control curr-rate" type="number" step="0.01" value="${r.rate_to_pln}" data-code="${r.currency}" /></div>
+        </div>`).join(''));
+      }catch(e){}
     }
-    $("add-currency-btn")?.addEventListener("click", ()=>{
-      const host = $("currency-body");
-      if(!host) return;
-      host.insertAdjacentHTML("beforeend", `
-        <div style="display:grid;grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
-          <input class="control" data-cur-code value="" placeholder="waluta (np EUR)" />
-          <input class="control" data-cur-rate value="" placeholder="kurs do pln" />
-        </div>
-      `);
+    $('save-currencies-btn')?.addEventListener('click',async()=>{
+      const rates=[];
+      document.querySelectorAll('.curr-rate').forEach(inp=>{
+        rates.push({currency:inp.dataset.code,rate_to_pln:Number(inp.value),is_default:inp.dataset.code==='PLN'});
+      });
+      try{await apiPut('/api/v1/settings/currencies',{rates});alert('waluty zapisane');}catch(e){alert('blad zapisu walut');}
     });
-    $("save-currency-btn")?.addEventListener("click", async ()=>{
-      const host = $("currency-body"); if(!host) return;
-      const codes = [...host.querySelectorAll("[data-cur-code]")].map(x => x.value.trim()).filter(Boolean);
-      const rates = [...host.querySelectorAll("[data-cur-rate]")].map(x => x.value.trim()).filter(Boolean);
-      const items = [];
-      const n = Math.min(codes.length, rates.length);
-      for(let i=0;i<n;i++){
-        const code = codes[i].toUpperCase();
-        items.push({ currency: code, rate_to_pln: Number(rates[i]), is_default: code === "PLN" });
-      }
+
+    // FILE UPLOAD
+    const fileInput=$('file-input'), dropzone=$('dropzone');
+    dropzone?.addEventListener('click',()=>fileInput?.click());
+    dropzone?.addEventListener('dragover',e=>{e.preventDefault();dropzone.style.borderColor='rgba(96,165,250,.5)';});
+    dropzone?.addEventListener('dragleave',()=>{dropzone.style.borderColor='';});
+    dropzone?.addEventListener('drop',e=>{e.preventDefault();dropzone.style.borderColor='';if(e.dataTransfer.files[0]){fileInput.files=e.dataTransfer.files;onFileSelect();}});
+    fileInput?.addEventListener('change',onFileSelect);
+
+    function onFileSelect(){
+      const f=fileInput?.files?.[0];
+      setText($('file-name'),f?f.name:'nie wybrano pliku');
+      validateStart();
+    }
+
+    function validateStart(){
+      const f=fileInput?.files?.[0];
+      const cat=$('category-select')?.value;
+      const btn=$('start-btn');
+      if(btn)btn.disabled=!(f&&cat);
+    }
+    $('category-select')?.addEventListener('change',validateStart);
+
+    // START ANALYSIS
+    $('start-btn')?.addEventListener('click',async()=>{
+      const btn=$('start-btn');
+      btn.disabled=true;btn.textContent='start...';
+      hide($('upload-error'));
+      const fd=new FormData();
+      fd.append('file',fileInput.files[0]);
+      fd.append('category_id',$('category-select').value);
       try{
-        await apiPut("/api/v1/settings/currencies", { rates: items });
-      }catch(e){
-        const ce = $("currency-error"); if(ce){ ce.style.display=""; ce.textContent="blad zapisu kursow"; }
-      }
+        const r=await fetch('/api/v1/analysis/upload',{method:'POST',credentials:'include',body:fd});
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||r.status);}
+        // switch to dashboard
+        document.querySelector('#nav button[data-tab="dashboard"]')?.click();
+        await pollActive();
+      }catch(e){show($('upload-error'));setText($('upload-error'),e.message||'blad');}
+      finally{btn.textContent='start analizy';validateStart();}
     });
 
-
-    // market data
-    const marketState = { offset: 0, limit: 50, total: 0 };
-    async function loadMarket(offset = 0){
-      const err = $("market-error"); if(err){ err.style.display="none"; err.textContent=""; }
-      const host = $("market-table"); if(host){ host.innerHTML = '<div class="hint">ladowanie...</div>'; }
-      const params = new URLSearchParams();
-      const mc = $("market-category")?.value || "";
-      const me = ($("market-ean")?.value || "").trim();
-      const md = $("market-date-val")?.value || "";
-      const mddata = $("market-with-data-val")?.value === "1";
-      const mdprof = $("market-profitable-val")?.value === "1";
-      if(mc) params.append("category_id", mc);
-      if(me) params.append("ean", me);
-      if(md) params.append("updated_since", md);
-      if(mddata) params.append("with_data", "1");
-      if(mdprof) params.append("profitable_only", "1");
-      params.append("offset", String(offset));
-      params.append("limit", String(marketState.limit));
+    // DB RUN
+    $('db-run-btn')?.addEventListener('click',async()=>{
+      const btn=$('db-run-btn');btn.disabled=true;btn.textContent='start...';
+      hide($('db-error'));
       try{
-        const data = await apiGet("/api/v1/market-data?" + params.toString());
-        marketState.offset = offset;
-        marketState.total = Number(data?.total || 0) || 0;
-        const rows = data?.items || data?.rows || data?.results || [];
-        const meta = $("market-meta");
-        if(meta){ meta.textContent = `rekordy: ${rows.length} / total: ${marketState.total} (offset ${marketState.offset})`; }
-        if(!host) return;
-        if(!rows.length){ host.innerHTML = '<div class="hint">brak danych dla filtrow</div>'; return; }
-        host.innerHTML = `
-          <div style="overflow:auto; border:1px solid var(--border2); border-radius:12px;">
-            <table style="width:100%; border-collapse:collapse; min-width:820px;">
-              <thead>
-                <tr style="text-align:left; font-size:12px; color:var(--muted);">
-                  <th style="padding:10px 12px; border-bottom:1px solid var(--border2);">ean</th>
-                  <th style="padding:10px 12px; border-bottom:1px solid var(--border2);">nazwa</th>
-                  <th style="padding:10px 12px; border-bottom:1px solid var(--border2);">oplacalne</th>
-                  <th style="padding:10px 12px; border-bottom:1px solid var(--border2);">cena</th>
-                  <th style="padding:10px 12px; border-bottom:1px solid var(--border2);">sprzedanych</th>
-                  <th style="padding:10px 12px; border-bottom:1px solid var(--border2);">updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows.map(r => `
-                  <tr style="border-bottom:1px solid rgba(255,255,255,.06);">
-                    <td style="padding:10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace;">${r.ean || ""}</td>
-                    <td style="padding:10px 12px;">${(r.name || r.title || "").toString().slice(0,120)}</td>
-                    <td style="padding:10px 12px;">${r.is_profitable === true ? "✔" : (r.is_profitable === false ? "✖" : "-")}</td>
-                    <td style="padding:10px 12px;">${r.allegro_price_pln ?? r.price_pln ?? r.price ?? "-"}</td>
-                    <td style="padding:10px 12px;">${r.sold_count ?? "-"}</td>
-                    <td style="padding:10px 12px; color:var(--muted);">${r.last_checked_at ? new Date(r.last_checked_at).toLocaleString() : (r.updated_at ? new Date(r.updated_at).toLocaleString() : "-")}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }catch(e){
-        if(err){ err.style.display=""; err.textContent="blad pobierania market data"; }
-        if(host){ host.innerHTML = ""; }
-      }
-      updateMarketSummary();
-    }
-    $("market-next")?.addEventListener("click", ()=> loadMarket(marketState.offset + marketState.limit));
-    $("market-prev")?.addEventListener("click", ()=> loadMarket(Math.max(0, marketState.offset - marketState.limit)));
-    $("market-category")?.addEventListener("change", ()=> loadMarket(0));
-    $("market-ean")?.addEventListener("change", ()=> loadMarket(0));
-    $("market-ean")?.addEventListener("keydown", (e)=>{ if(e.key === "Enter"){ e.preventDefault(); loadMarket(0); }});
-
-    // market filters modal
-
-    function syncFiltersToModal(){
-      if($("mf-date") && $("market-date-val")) $("mf-date").value = $("market-date-val").value || "";
-      if($("mf-with-data") && $("market-with-data-val")) $("mf-with-data").checked = $("market-with-data-val").value === "1";
-      if($("mf-profitable") && $("market-profitable-val")) $("mf-profitable").checked = $("market-profitable-val").value === "1";
-    }
-    function applyModalFilters(){
-      if($("market-date-val") && $("mf-date")) $("market-date-val").value = $("mf-date").value;
-      if($("market-with-data-val") && $("mf-with-data")) $("market-with-data-val").value = $("mf-with-data").checked ? "1" : "";
-      if($("market-profitable-val") && $("mf-profitable")) $("market-profitable-val").value = $("mf-profitable").checked ? "1" : "";
-    }
-    mfOpen?.addEventListener("click", ()=>{ syncFiltersToModal(); openModal(mfModal); });
-    mfClose?.addEventListener("click", ()=> closeModal(mfModal));
-    mfReset?.addEventListener("click", ()=>{
-      if($("mf-date")) $("mf-date").value = "";
-      if($("mf-with-data")) $("mf-with-data").checked = false;
-      if($("mf-profitable")) $("mf-profitable").checked = false;
-    });
-    mfApply?.addEventListener("click", async ()=>{
-      applyModalFilters();
-      closeModal(mfModal);
-      await loadMarket(0);
+        const payload={};
+        const days=Number($('db-last-days')?.value);if(days)payload.last_days=days;
+        const ean=$('db-ean-contains')?.value;if(ean)payload.ean_contains=ean;
+        // need category
+        const cat=$('category-select')?.value;
+        if(cat)payload.category_id=cat;
+        await apiPost('/api/v1/analysis/run_from_db',payload);
+        document.querySelector('#nav button[data-tab="dashboard"]')?.click();
+        await pollActive();
+      }catch(e){show($('db-error'));setText($('db-error'),'blad startu');}
+      finally{btn.disabled=false;btn.textContent='start analizy z bazy';}
     });
 
-    function updateMarketSummary(){
-      const parts = [];
-      const catSel = $("market-category");
-      const catVal = catSel?.value;
-      const catLabel = catSel?.selectedOptions?.[0]?.textContent || "";
-      const ean = $("market-ean")?.value;
-      const dt = $("market-date-val")?.value;
-      const wd = $("market-with-data-val")?.value === "1";
-      const pr = $("market-profitable-val")?.value === "1";
-      if(catVal) parts.push(`kategoria: ${catLabel || catVal}`);
-      if(ean) parts.push(`ean: ${ean}`);
-      if(dt) parts.push(`od: ${dt}`);
-      if(wd) parts.push("tylko z danymi");
-      if(pr) parts.push("tylko oplacalne");
-      const summary = $("market-summary");
-      if(summary){
-        summary.textContent = parts.length ? `filtry: ${parts.join(", ")}` : "filtry: brak";
-      }
-    }
+    // HELP SEARCH
+    $('help-search')?.addEventListener('input',e=>{
+      const q=e.target.value.toLowerCase();
+      document.querySelectorAll('.help-section').forEach(s=>{
+        const text=(s.textContent+' '+s.dataset.help).toLowerCase();
+        s.style.display=(!q||text.includes(q))?'':'none';
+      });
+    });
 
-    // init
-    (async function init(){
-      await loadCategories();
-      await loadSettings();
+    // INIT
+    (async()=>{
       await pollStatus();
+      await loadCategories();
       await pollActive();
+      // check if we need onboarding
       try{
-        const meta = await loadProxyStatus();
-        if(!meta || !meta.count){
-          try{ await apiPost("/api/v1/proxies/reload", {}); }catch(_){}
-          await loadProxyStatus();
-        }
-      }catch(_){}
-      await loadCurrencies();
-      await loadMarket(0);
-      validateReady();
-      // polling
-      setInterval(pollStatus, 5000);
-      setInterval(pollActive, 3000);
+        const runs=await apiGet('/api/v1/analysis?limit=1');
+        if(runs?.length)hide($('onboarding'));
+      }catch(e){}
+      setInterval(pollStatus,5000);
+      setInterval(pollActive,3000);
     })();
   </script>
 </body>
