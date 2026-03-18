@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
 let proxies: URL[] = [];
 let proxiesPath = 'proxies.txt';
@@ -64,6 +65,11 @@ export function getRandomProxy(): URL {
 
 export function proxyCount(): number {
     return proxies.length;
+}
+
+export function proxyUrlHash(url: URL | string): string {
+    const str = typeof url === 'string' ? url : url.toString();
+    return createHash('sha256').update(str).digest('hex').slice(0, 16);
 }
 
 export function nextProxy(exclude?: Set<string> | URL): URL {
