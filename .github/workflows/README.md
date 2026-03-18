@@ -30,4 +30,4 @@ Skopiuj kod
 
 ## Uwagi
 - Wszystkie dane są przechowywane w lokalnej bazie PostgreSQL.
-- Możesz uruchomić wielu workerów Celery na różnych maszynach – wszystkie korzystają z tej samej bazy i kolejki Redis.
+- Możesz uruchomić wielu workerów Celery na różnych maszynach - wszystkie korzystają z tej samej bazy i kolejki Redis.

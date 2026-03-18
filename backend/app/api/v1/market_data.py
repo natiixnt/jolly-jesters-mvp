@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,11 +21,12 @@ def list_market_data(
     updated_since: Optional[datetime] = None,
     with_data: bool = False,
     profitable_only: bool = False,
+    debug: bool = False,
     offset: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
 ):
-    return market_data_service.list_market_data(
+    result = market_data_service.list_market_data(
         db,
         category_id=category_id,
         ean=ean,
@@ -31,6 +34,14 @@ def list_market_data(
         updated_since=updated_since,
         with_data=with_data,
         profitable_only=profitable_only,
+        include_debug=debug,
         offset=offset,
         limit=limit,
     )
+    if not debug:
+        payload = jsonable_encoder(
+            result,
+            exclude={"items": {"__all__": {"profitability_debug"}}},
+        )
+        return JSONResponse(content=payload)
+    return result
