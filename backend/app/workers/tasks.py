@@ -32,7 +32,7 @@ from app.services.settings_service import get_settings
 from app.services.stoploss_service import StopLossChecker, StopLossConfig
 from app.services import proxy_pool_service
 from app.providers import get_provider
-from app.services.alerting_service import alert_stoploss
+from app.services.alerting_service import alert_stoploss, notify_run_completed
 from app.services.billing_service import record_run_usage
 from app.services.circuit_breaker import CircuitBreaker
 from app.utils.allegro_scraper_client import fetch_via_allegro_scraper
@@ -474,12 +474,17 @@ def run_analysis_task(self, run_id: int):
             )
             db.commit()
 
-        # record usage for billing (best-effort)
-        if run.status in {AnalysisStatus.completed, AnalysisStatus.stopped}:
+        # record usage for billing + send notification (best-effort)
+        if run.status in {AnalysisStatus.completed, AnalysisStatus.stopped, AnalysisStatus.failed}:
             try:
                 record_run_usage(db, run.id)
             except Exception:
                 logger.exception("BILLING usage recording failed run_id=%s", run.id)
+            try:
+                cat_name = category.name if category else ""
+                notify_run_completed(run.id, run.status.value, run.processed_products, run.total_products, cat_name)
+            except Exception:
+                logger.debug("NOTIFICATION failed run_id=%s", run.id)
     finally:
         db.close()
         _release_run_lock(run_id)

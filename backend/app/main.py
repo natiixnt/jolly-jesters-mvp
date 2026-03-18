@@ -1,6 +1,9 @@
 import logging
 import os
 import time
+
+from app.core.logging_config import setup_logging
+setup_logging()
 from pathlib import Path
 import hmac
 import base64

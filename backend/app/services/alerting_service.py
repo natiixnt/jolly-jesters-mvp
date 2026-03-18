@@ -10,6 +10,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "")
+NOTIFICATION_WEBHOOK_URL = os.getenv("NOTIFICATION_WEBHOOK_URL", "")
 WEBHOOK_TIMEOUT = float(os.getenv("ALERT_WEBHOOK_TIMEOUT", "5"))
 
 
@@ -75,3 +76,28 @@ def alert_quota_exceeded(tenant_id: str, used: int, quota: int) -> bool:
         severity="warning",
         details={"tenant_id": tenant_id, "used": used, "quota": quota},
     )
+
+
+def notify_run_completed(run_id: int, status: str, processed: int, total: int, category: str = "") -> bool:
+    """Send notification when analysis run finishes (completed/stopped/failed)."""
+    url = NOTIFICATION_WEBHOOK_URL or WEBHOOK_URL
+    if not url:
+        return False
+
+    payload = {
+        "event": "run_finished",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source": "jolly-jesters",
+        "run_id": run_id,
+        "status": status,
+        "processed": processed,
+        "total": total,
+        "category": category,
+        "text": f"Analiza #{run_id} ({category}) zakonczona: {status} ({processed}/{total} EAN)",
+    }
+    try:
+        resp = httpx.post(url, json=payload, timeout=WEBHOOK_TIMEOUT, headers={"Content-Type": "application/json"})
+        return resp.status_code < 400
+    except Exception:
+        logger.debug("NOTIFICATION delivery failed run_id=%s", run_id)
+        return False

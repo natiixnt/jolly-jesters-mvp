@@ -5,6 +5,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.encoders import jsonable_encoder
@@ -109,6 +110,88 @@ def run_from_db(
     return _start_cached_analysis(payload, db, current_user=current_user)
 
 
+from pydantic import BaseModel as PydanticBaseModel
+
+
+class BulkEanRequest(PydanticBaseModel):
+    category_id: UUID
+    items: list[dict]
+
+
+@router.post("/bulk", response_model=AnalysisUploadResponse)
+def bulk_ean_analysis(
+    body: BulkEanRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    """Start analysis from JSON list of EANs (no file upload needed)."""
+    from app.models.analysis_run_item import AnalysisRunItem
+    from app.models.product import Product
+    from app.models.enums import AnalysisItemSource, ScrapeStatus as SS
+
+    if not body.items or len(body.items) > 10000:
+        raise HTTPException(status_code=400, detail="Items list must have 1-10000 entries")
+
+    cat = db.query(Category).filter(Category.id == body.category_id).first()
+    if not cat or not cat.is_active:
+        raise HTTPException(status_code=404, detail="Category not found or inactive")
+
+    _check_concurrent_limit(db)
+
+    run = AnalysisRun(
+        category_id=cat.id,
+        input_file_name="bulk_api",
+        input_source="api",
+        run_metadata={"source": "bulk_api", "item_count": len(body.items)},
+        status=AnalysisStatus.pending,
+        total_products=len(body.items),
+        processed_products=0,
+        mode="live",
+    )
+    if current_user:
+        run.tenant_id = current_user.tenant_id
+        run.user_id = current_user.user_id
+    db.add(run)
+    db.flush()
+
+    for idx, entry in enumerate(body.items, start=1):
+        ean = str(entry.get("ean", "")).strip()
+        if not ean:
+            continue
+        price = entry.get("purchase_price") or entry.get("price")
+        name = entry.get("name", "")
+
+        product = db.query(Product).filter(Product.ean == ean, Product.category_id == cat.id).first()
+        if not product:
+            product = Product(ean=ean, name=name or ean, category_id=cat.id, purchase_price=price)
+            db.add(product)
+            db.flush()
+
+        db.add(AnalysisRunItem(
+            analysis_run_id=run.id,
+            product_id=product.id,
+            row_number=idx,
+            ean=ean,
+            input_name=name,
+            original_purchase_price=price,
+            original_currency="PLN",
+            input_purchase_price=price,
+            purchase_price_pln=price,
+            source=AnalysisItemSource.baza,
+            scrape_status=SS.pending,
+        ))
+
+    db.commit()
+    db.refresh(run)
+
+    result = run_analysis_task.delay(run.id)
+    run.root_task_id = result.id
+    analysis_service.record_run_task(db, run, result.id, "run_analysis")
+    db.commit()
+
+    return AnalysisUploadResponse(analysis_run_id=run.id, status=run.status)
+
+
 @router.get("", response_model=list[AnalysisRunSummary])
 def list_runs(
     db: Session = Depends(get_db),
@@ -168,6 +251,59 @@ def export_metrics_csv(run_id: int, db: Session = Depends(get_db), current_user:
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="metrics_run_{run_id}.csv"'},
     )
+
+
+@router.get("/compare/{run_a}/{run_b}")
+def compare_runs(
+    run_a: int,
+    run_b: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    """Compare two analysis runs - show price/profitability changes per EAN."""
+    from app.models.analysis_run_item import AnalysisRunItem as ARI
+
+    ra = analysis_service.get_run_status(db, run_a)
+    rb = analysis_service.get_run_status(db, run_b)
+    if not ra or not rb:
+        raise HTTPException(status_code=404, detail="One or both runs not found")
+    _verify_run_access(ra, current_user)
+    _verify_run_access(rb, current_user)
+
+    items_a = {i.ean: i for i in db.query(ARI).filter(ARI.analysis_run_id == run_a).all()}
+    items_b = {i.ean: i for i in db.query(ARI).filter(ARI.analysis_run_id == run_b).all()}
+
+    all_eans = sorted(set(items_a.keys()) | set(items_b.keys()))
+    diffs = []
+    for ean in all_eans:
+        a = items_a.get(ean)
+        b = items_b.get(ean)
+        price_a = float(a.allegro_price) if a and a.allegro_price else None
+        price_b = float(b.allegro_price) if b and b.allegro_price else None
+        price_change = None
+        if price_a is not None and price_b is not None:
+            price_change = round(price_b - price_a, 2)
+        diffs.append({
+            "ean": ean,
+            "run_a_price": price_a,
+            "run_b_price": price_b,
+            "price_change": price_change,
+            "run_a_status": a.scrape_status.value if a and a.scrape_status else None,
+            "run_b_status": b.scrape_status.value if b and b.scrape_status else None,
+            "run_a_profitable": a.profitability_label.value if a and a.profitability_label else None,
+            "run_b_profitable": b.profitability_label.value if b and b.profitability_label else None,
+        })
+
+    changed = [d for d in diffs if d["price_change"] and d["price_change"] != 0]
+    return {
+        "run_a": run_a,
+        "run_b": run_b,
+        "total_eans": len(all_eans),
+        "changed": len(changed),
+        "only_in_a": len(set(items_a.keys()) - set(items_b.keys())),
+        "only_in_b": len(set(items_b.keys()) - set(items_a.keys())),
+        "diffs": diffs[:500],
+    }
 
 
 @router.get("/{run_id}", response_model=AnalysisStatusResponse)

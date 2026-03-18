@@ -1,0 +1,75 @@
+{
+  "dashboard": {
+    "title": "Jolly Jesters - System Overview",
+    "tags": ["jolly-jesters"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Active Runs",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+        "targets": [{"expr": "jj_active_runs", "legendFormat": "active"}]
+      },
+      {
+        "title": "Total EANs Processed",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+        "targets": [{"expr": "jj_eans_processed_total", "legendFormat": "total"}]
+      },
+      {
+        "title": "CAPTCHA Solves",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+        "targets": [{"expr": "jj_captcha_solves_total", "legendFormat": "captchas"}]
+      },
+      {
+        "title": "Avg Latency (ms)",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+        "targets": [{"expr": "jj_avg_latency_ms", "legendFormat": "latency"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5000, "color": "yellow"},
+                {"value": 15000, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "Proxy Pool",
+        "type": "bargauge",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+        "targets": [
+          {"expr": "jj_proxy_active", "legendFormat": "active"},
+          {"expr": "jj_proxy_total - jj_proxy_active", "legendFormat": "inactive"}
+        ]
+      },
+      {
+        "title": "Runs by Status",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 4},
+        "targets": [{"expr": "jj_analysis_runs_total", "legendFormat": "{{status}}"}]
+      },
+      {
+        "title": "Scrape Results by Status",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 4},
+        "targets": [{"expr": "jj_scrape_status_total", "legendFormat": "{{status}}"}]
+      },
+      {
+        "title": "EANs Processed (rate)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 4},
+        "targets": [{"expr": "rate(jj_eans_processed_total[5m])*60", "legendFormat": "EAN/min"}]
+      }
+    ],
+    "time": {"from": "now-24h", "to": "now"},
+    "refresh": "30s"
+  },
+  "overwrite": true,
+  "__comment": "Import this into Grafana via Dashboard > Import JSON. Data source: Prometheus scraping /api/v1/metrics/prometheus"
+}

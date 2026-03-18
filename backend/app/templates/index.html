@@ -16,6 +16,26 @@
       --danger:#FCA5A5; --ok:#34D399; --warn:#FBBF24;
       --btn:linear-gradient(135deg,#60A5FA,#34D399); --btnText:#06101F;
     }
+    /* light theme */
+    html.light{
+      --bg0:#f5f7fa; --bg1:#ebeef3;
+      --card:rgba(255,255,255,.95); --card2:rgba(248,249,252,.95);
+      --text:#1a1a2e; --muted:#5a6578;
+      --border:rgba(0,0,0,.10); --border2:rgba(0,0,0,.06);
+      --shadow:0 8px 24px rgba(0,0,0,.08);
+      --accent:#2563eb; --accent2:#059669;
+      --danger:#dc2626; --ok:#059669; --warn:#d97706;
+      --btn:linear-gradient(135deg,#2563eb,#059669); --btnText:#ffffff;
+    }
+    html.light body{background:#f0f2f5;}
+    html.light .sidebar{background:rgba(255,255,255,.97); border-right-color:rgba(0,0,0,.08);}
+    html.light .sidebar-nav button.active{background:rgba(37,99,235,.1); color:var(--accent);}
+    html.light .sbox{background:rgba(0,0,0,.02);}
+    html.light .mcard{background:rgba(0,0,0,.03);}
+    html.light .dz{border-color:rgba(0,0,0,.15); background:rgba(0,0,0,.02);}
+    html.light .control{background:rgba(0,0,0,.03); border-color:rgba(0,0,0,.1); color:var(--text);}
+    html.light .modal{background:rgba(255,255,255,.98);}
+    html.light .tbl td{border-bottom-color:rgba(0,0,0,.06);}
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;}
     body{
@@ -49,9 +69,15 @@
     .dot.ok{background:var(--ok);}
     /* main content */
     .main{flex:1; padding:28px 32px 56px; overflow-y:auto; max-width:1100px;}
+    /* mobile hamburger */
+    .hamburger{display:none; position:fixed; top:12px; left:12px; z-index:3000; width:40px; height:40px; border-radius:10px; border:1px solid var(--border2); background:var(--card); color:var(--text); font-size:20px; cursor:pointer; align-items:center; justify-content:center;}
     @media(max-width:860px){
-      .sidebar{display:none;}
-      .main{padding:16px;}
+      .sidebar{position:fixed; left:-260px; z-index:2500; transition:left .25s ease; height:100vh; width:240px;}
+      .sidebar.open{left:0;}
+      .sidebar-overlay{display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:2400;}
+      .sidebar-overlay.open{display:block;}
+      .hamburger{display:flex;}
+      .main{padding:16px; padding-top:56px;}
     }
     /* tab panels */
     .tab-panel{display:none;}
@@ -144,8 +170,10 @@
   </style>
 </head>
 <body>
+  <button class="hamburger" id="hamburger-btn">&#9776;</button>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
   <!-- SIDEBAR -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <h1>Jolly Jesters</h1>
       <p>analiza oplacalnosci</p>
@@ -161,7 +189,10 @@
     </div>
     <div class="sidebar-footer">
       <div class="status-row"><span class="dot" id="status-dot"></span><span id="status-text">laczenie...</span></div>
-      <a href="/logout" style="font-size:12px; color:var(--muted); text-decoration:none;">wyloguj</a>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn sm" id="theme-toggle" style="font-size:11px; height:28px; padding:0 10px;">motyw</button>
+        <a href="/logout" style="font-size:12px; color:var(--muted); text-decoration:none;">wyloguj</a>
+      </div>
     </div>
   </nav>
 
@@ -884,6 +915,53 @@
       });
     });
 
+    // THEME TOGGLE
+    function applyTheme(theme){
+      document.documentElement.classList.toggle('light', theme==='light');
+      localStorage.setItem('jj_theme', theme);
+    }
+    $('theme-toggle')?.addEventListener('click',()=>{
+      const current = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+      applyTheme(current==='light' ? 'dark' : 'light');
+    });
+    // restore saved theme
+    const savedTheme = localStorage.getItem('jj_theme');
+    if(savedTheme) applyTheme(savedTheme);
+
+    // MOBILE HAMBURGER
+    const hamburger=$('hamburger-btn'), sidebarEl=$('sidebar'), sidebarOverlay=$('sidebar-overlay');
+    hamburger?.addEventListener('click',()=>{sidebarEl?.classList.toggle('open');sidebarOverlay?.classList.toggle('open');});
+    sidebarOverlay?.addEventListener('click',()=>{sidebarEl?.classList.remove('open');sidebarOverlay?.classList.remove('open');});
+    // close sidebar on nav click (mobile)
+    document.querySelectorAll('#nav button').forEach(btn=>{
+      btn.addEventListener('click',()=>{sidebarEl?.classList.remove('open');sidebarOverlay?.classList.remove('open');});
+    });
+
+    // GOOGLE SHEETS EXPORT (generates CSV data URI - user can paste into Sheets)
+    function exportToGoogleSheets(runId){
+      window.open(`/api/v1/analysis/${runId}/metrics/csv`,'_blank');
+    }
+
+    // SSE - realtime updates for active runs (replaces polling when available)
+    let activeSSE = null;
+    function connectSSE(runId){
+      if(activeSSE){activeSSE.close();activeSSE=null;}
+      try{
+        const es = new EventSource(`/api/v1/analysis/${runId}/stream`);
+        es.addEventListener('progress', (e)=>{
+          try{const d=JSON.parse(e.data);pollActive();}catch(err){}
+        });
+        es.addEventListener('done', (e)=>{
+          es.close(); activeSSE=null; pollActive();
+        });
+        es.addEventListener('stopped', (e)=>{
+          es.close(); activeSSE=null; pollActive();
+        });
+        es.onerror = ()=>{es.close(); activeSSE=null;};
+        activeSSE = es;
+      }catch(e){}
+    }
+
     // INIT
     (async()=>{
       await pollStatus();
@@ -896,6 +974,15 @@
       }catch(e){}
       setInterval(pollStatus,5000);
       setInterval(pollActive,3000);
+
+      // auto-connect SSE for active runs
+      try{
+        const resp=await apiGet('/api/v1/analysis/active');
+        const runs=resp?.runs||resp||[];
+        if(runs.length>0 && !activeSSE){
+          connectSSE(runs[0].id);
+        }
+      }catch(e){}
     })();
   </script>
 </body>
