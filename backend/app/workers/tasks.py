@@ -10,12 +10,15 @@ from sqlalchemy.orm import Session
 
 from app.core.celery_constants import ANALYSIS_QUEUE
 from app.core.config import settings
+from sqlalchemy.orm import selectinload
+
 from app.db.session import SessionLocal, engine
 from app.models.analysis_run import AnalysisRun
 from app.models.analysis_run_item import AnalysisRunItem
 from app.models.category import Category
 from app.models.enums import AnalysisItemSource, AnalysisStatus, ScrapeStatus
 from app.models.product import Product
+from app.models.product_effective_state import ProductEffectiveState
 from app.models.product_market_data import ProductMarketData
 from app.services import settings_service
 from app.services.analysis_service import (
@@ -314,6 +317,11 @@ def run_analysis_task(self, run_id: int):
 
         items = (
             db.query(AnalysisRunItem)
+            .options(
+                selectinload(AnalysisRunItem.product)
+                .selectinload(Product.effective_state)
+                .selectinload(ProductEffectiveState.last_market_data)
+            )
             .filter(AnalysisRunItem.analysis_run_id == run.id)
             .order_by(AnalysisRunItem.row_number)
             .all()
@@ -357,7 +365,7 @@ def run_analysis_task(self, run_id: int):
                 logger.info("RUN_TASK canceled mid-run run_id=%s", run.id)
                 break
 
-            product = db.query(Product).filter(Product.id == item.product_id).first()
+            product = item.product  # eager-loaded via selectinload
             if not product:
                 item.source = AnalysisItemSource.error
                 item.scrape_status = ScrapeStatus.error
@@ -414,7 +422,7 @@ def run_analysis_task(self, run_id: int):
                     else:
                         proxy_pool_service.record_failure(db, result.proxy_url_hash, result.error or "")
                 except Exception:
-                    pass
+                    logger.debug("PROXY_SCORING failed for hash=%s", getattr(result, 'proxy_url_hash', '?'))
 
             # -- stop-loss check --
             verdict = stoploss.record(
@@ -438,18 +446,20 @@ def run_analysis_task(self, run_id: int):
                 try:
                     alert_stoploss(run.id, verdict.reason, verdict.details or {})
                 except Exception:
-                    pass
+                    logger.debug("ALERT_WEBHOOK failed for run_id=%s", run.id)
                 break
 
-            _update_run_metadata(
-                run,
-                db_only_mode=db_only_mode,
-                cache_days=cache_days,
-                scraper_request_count=scraper_request_count,
-                db_cache_hit_count=db_cache_hit_count,
-                db_only_item_count=db_only_item_count,
-            )
             db.commit()
+
+        # update metadata once at end (not per-item)
+        _update_run_metadata(
+            run,
+            db_only_mode=db_only_mode,
+            cache_days=cache_days,
+            scraper_request_count=scraper_request_count,
+            db_cache_hit_count=db_cache_hit_count,
+            db_only_item_count=db_only_item_count,
+        )
 
         if run.status not in {AnalysisStatus.canceled, AnalysisStatus.stopped}:
             run.status = AnalysisStatus.completed

@@ -17,7 +17,7 @@ class AnalysisRun(Base):
     input_source = Column(String, nullable=False, server_default="upload")
     run_metadata = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=True)  # set when run actually starts
     finished_at = Column(DateTime(timezone=True), nullable=True)
     canceled_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(Enum(AnalysisStatus), nullable=False, default=AnalysisStatus.pending)
