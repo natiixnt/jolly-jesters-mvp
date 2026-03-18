@@ -7,6 +7,7 @@ export interface Task {
     ean: string;
     status: TaskStatus;
     retries: number;
+    softRetries: number;
     result: AllegroFetchResult | null;
     error: string | null;
     createdAt: number;

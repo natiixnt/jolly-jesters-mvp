@@ -15,13 +15,28 @@ from app.services import proxy_pool_service
 router = APIRouter(tags=["proxy-pool"])
 
 
+def _mask_url(url: str) -> str:
+    try:
+        from urllib.parse import urlparse, urlunparse
+        p = urlparse(url)
+        if p.username or p.password:
+            h = f"***:***@{p.hostname}:{p.port}" if p.port else f"***:***@{p.hostname}"
+            return urlunparse(p._replace(netloc=h))
+    except Exception:
+        pass
+    return "***"
+
+
 @router.get("", response_model=list[NetworkProxyOut])
 def list_proxies(
     active_only: bool = False,
     include_quarantined: bool = True,
     db: Session = Depends(get_db),
 ):
-    return proxy_pool_service.list_proxies(db, active_only=active_only, include_quarantined=include_quarantined)
+    proxies = proxy_pool_service.list_proxies(db, active_only=active_only, include_quarantined=include_quarantined)
+    for p in proxies:
+        p.url = _mask_url(p.url)
+    return proxies
 
 
 @router.get("/health", response_model=NetworkProxyHealthSummary)

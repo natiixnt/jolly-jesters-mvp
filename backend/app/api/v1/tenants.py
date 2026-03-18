@@ -12,13 +12,29 @@ from app.services import auth_service
 router = APIRouter(tags=["tenants"])
 
 
+import os
+import re
+
+REGISTRATION_KEY = os.getenv("REGISTRATION_KEY", "")
+
+
+def _validate_password_strength(password: str) -> None:
+    if len(password) < 10:
+        raise HTTPException(status_code=400, detail="Haslo musi miec min 10 znakow")
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(status_code=400, detail="Haslo musi zawierac wielka litere")
+    if not re.search(r"[0-9]", password):
+        raise HTTPException(status_code=400, detail="Haslo musi zawierac cyfre")
+
+
 class TenantCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     slug: str = Field(..., min_length=1, max_length=128, pattern=r"^[a-z0-9_-]+$")
     plan: str = "free"
     admin_email: str = Field(..., max_length=320)
-    admin_password: str = Field(..., min_length=8)
+    admin_password: str = Field(..., min_length=10)
     admin_name: Optional[str] = None
+    registration_key: Optional[str] = None
 
 
 class TenantCreateResponse(BaseModel):
@@ -44,6 +60,11 @@ class LoginResponse(BaseModel):
 @router.post("/register", response_model=TenantCreateResponse)
 def register_tenant(body: TenantCreateRequest, db: Session = Depends(get_db)):
     """Register a new tenant with an admin user."""
+    # require registration key if configured
+    if REGISTRATION_KEY and body.registration_key != REGISTRATION_KEY:
+        raise HTTPException(status_code=403, detail="Invalid registration key")
+    _validate_password_strength(body.admin_password)
+
     from app.models.tenant import Tenant
     existing = db.query(Tenant).filter(Tenant.slug == body.slug).first()
     if existing:

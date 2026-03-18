@@ -8,6 +8,19 @@ from app.core.config import settings
 from app.utils.allegro_scraper_client import reload_scraper_proxies
 
 
+def _mask_proxy_url(url: str) -> str:
+    """Mask credentials in proxy URL: http://user:pass@host -> http://***:***@host"""
+    try:
+        from urllib.parse import urlparse, urlunparse
+        p = urlparse(url.strip())
+        if p.username or p.password:
+            masked = p._replace(netloc=f"***:***@{p.hostname}:{p.port}" if p.port else f"***:***@{p.hostname}")
+            return urlunparse(masked)
+    except Exception:
+        pass
+    return "***masked***"
+
+
 def _target_path() -> Path:
     path = settings.proxies_file
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -39,7 +52,7 @@ def get_metadata() -> Dict:
         "count": len(lines),
         "size_bytes": stat.st_size,
         "updated_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
-        "sample": lines[:5],
+        "sample": [_mask_proxy_url(ln) for ln in lines[:5]],
     }
 
 

@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     ui_basic_auth_user: str = Field(default="admin", env="UI_BASIC_AUTH_USER")
     ui_basic_auth_password: str = Field(default="1234", env="UI_BASIC_AUTH_PASSWORD")
-    ui_password: str = Field(default="1234", env="UI_PASSWORD")
+    ui_password: str = Field(default="", env="UI_PASSWORD")
     ui_session_ttl_hours: int = Field(default=24, env="UI_SESSION_TTL_HOURS")
 
     class Config:

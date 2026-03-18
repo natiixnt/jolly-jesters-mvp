@@ -54,7 +54,16 @@ const MAX_DATADOME_RETRIES = 1;
 const HTML_DUMP_DIR = path.join(process.cwd(), 'html_dumps');
 fs.mkdirSync(HTML_DUMP_DIR, { recursive: true });
 
+const HTML_DUMP_ENABLED = config.DEBUG;
+const HTML_DUMP_MAX_FILES = 500;
+
 function dumpHtml(ean: string, suffix: string, html: string): void {
+    if (!HTML_DUMP_ENABLED) return;
+    // prevent disk exhaustion: check file count
+    try {
+        const files = fs.readdirSync(HTML_DUMP_DIR);
+        if (files.length >= HTML_DUMP_MAX_FILES) return;
+    } catch { return; }
     const file = path.join(HTML_DUMP_DIR, `${ean}_${suffix}_${Date.now()}.html`);
     fs.writeFile(file, html, { encoding: 'utf-8' }, () => {});
 }

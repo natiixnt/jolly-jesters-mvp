@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -94,7 +95,7 @@ def run_from_db(payload: AnalysisStartFromDbRequest, db: Session = Depends(get_d
 
 @router.get("", response_model=list[AnalysisRunSummary])
 def list_runs(db: Session = Depends(get_db), limit: int = 20):
-    return analysis_service.list_recent_runs(db, limit=limit)
+    return analysis_service.list_recent_runs(db, limit=max(1, min(limit, 200)))
 
 
 @router.get("/active", response_model=AnalysisRunListResponse)

@@ -42,6 +42,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+if not settings.ui_password or settings.ui_password == "1234":
+    logger.warning("UI_PASSWORD not set or still default '1234' - set a strong password via UI_PASSWORD env var")
+
 app.include_router(api_router)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -101,7 +104,12 @@ async def enforce_basic_auth(request: Request, call_next):
     if os.getenv("PYTEST_CURRENT_TEST"):
         return await call_next(request)
 
-    client_ip = request.client.host if request.client else "unknown"
+    # prefer real IP from trusted reverse proxy
+    client_ip = (
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or request.headers.get("x-real-ip", "")
+        or (request.client.host if request.client else "unknown")
+    )
     now = time.time()
     window_seconds = 600  # 10 minutes
     fail_limit = 8
@@ -165,14 +173,20 @@ def login_page(request: Request):
 
 @app.post("/login", response_class=HTMLResponse)
 def login_submit(request: Request, password: str = Form(...)):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = (
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or request.headers.get("x-real-ip", "")
+        or (request.client.host if request.client else "unknown")
+    )
     window_seconds = 600
     fail_limit = 8
     if client_ip in FAILED_AUTH:
         FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if time.time() - ts <= window_seconds]
         if len(FAILED_AUTH[client_ip]) >= fail_limit:
             return templates.TemplateResponse("login.html", {"request": request, "error": "Too many attempts, try later."}, status_code=429)
-    expected = settings.ui_password or "1234"
+    expected = settings.ui_password
+    if not expected:
+        return templates.TemplateResponse("login.html", {"request": request, "error": "UI_PASSWORD not configured on server"}, status_code=503)
     if not hmac.compare_digest(password, expected):
         FAILED_AUTH.setdefault(client_ip, []).append(time.time())
         return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid password"}, status_code=401)

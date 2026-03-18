@@ -155,8 +155,13 @@ export class Worker {
                 }
 
                 if (isRetryableError(msg)) {
-                    this.taskQueue.requeueNoRetry(taskId);
-                    this.logger.activity(`EAN ${task.ean} requeued (${msg})`, 'info');
+                    if (!this.taskQueue.requeueNoRetry(taskId)) {
+                        this.taskQueue.markFailed(taskId, `max_soft_retries: ${msg}`);
+                        this.stats.recordTaskFailed();
+                        this.logger.activity(`EAN ${task.ean} failed (max soft retries)`, 'error');
+                    } else {
+                        this.logger.activity(`EAN ${task.ean} requeued (${msg})`, 'info');
+                    }
                     await this.resetSession();
                 } else if (this.taskQueue.requeue(taskId)) {
                     this.logger.activity(`EAN ${task.ean} requeued (${msg})`, 'info');

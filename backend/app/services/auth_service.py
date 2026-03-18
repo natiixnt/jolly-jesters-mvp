@@ -56,7 +56,7 @@ def create_user(
 ) -> User:
     existing = db.query(User).filter(User.email == email).first()
     if existing:
-        raise ValueError(f"User with email {email} already exists")
+        raise ValueError("Registration failed")
     user = User(
         tenant_id=tenant_id,
         email=email,
@@ -81,18 +81,35 @@ def authenticate(db: Session, email: str, password: str) -> Optional[User]:
 
 
 def issue_token(user: User) -> str:
-    """Simple HMAC-based token: user_id:tenant_id:timestamp:signature"""
+    """HMAC-based token with base64-encoded payload to avoid leaking UUIDs."""
+    import base64 as b64
     ts = str(int(time.time()))
     payload = f"{user.id}:{user.tenant_id}:{ts}"
-    sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:32]
-    return f"{payload}:{sig}"
+    encoded = b64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+    sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{encoded}.{sig}"
 
 
 def validate_token(db: Session, token: str) -> Optional[User]:
-    parts = token.split(":")
-    if len(parts) != 4:
+    import base64 as b64
+    if "." not in token:
         return None
-    user_id_str, tenant_id_str, ts_str, sig = parts
+    encoded, sig = token.rsplit(".", 1)
+
+    # decode payload
+    padding = 4 - len(encoded) % 4
+    if padding != 4:
+        encoded += "=" * padding
+    try:
+        payload = b64.urlsafe_b64decode(encoded).decode()
+    except Exception:
+        return None
+
+    parts = payload.split(":")
+    if len(parts) != 3:
+        return None
+    user_id_str, tenant_id_str, ts_str = parts
+
     try:
         ts = int(ts_str)
     except ValueError:
@@ -101,8 +118,7 @@ def validate_token(db: Session, token: str) -> Optional[User]:
     if time.time() - ts > TOKEN_TTL_HOURS * 3600:
         return None
 
-    payload = f"{user_id_str}:{tenant_id_str}:{ts_str}"
-    expected = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:32]
+    expected = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig, expected):
         return None
 

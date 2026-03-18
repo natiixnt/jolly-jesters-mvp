@@ -28,6 +28,7 @@ export class TaskQueue {
             ean,
             status: 'pending',
             retries: 0,
+            softRetries: 0,
             result: null,
             error: null,
             createdAt: Date.now(),
@@ -89,13 +90,18 @@ export class TaskQueue {
         return true;
     }
 
-    /** Requeue without incrementing retry counter (for session/proxy errors) */
-    requeueNoRetry(id: string): void {
+    /** Requeue without incrementing retry counter (for session/proxy errors). Max 20 soft retries. */
+    requeueNoRetry(id: string): boolean {
         const task = this.store.get(id);
-        if (!task) return;
+        if (!task) return false;
+        task.softRetries = (task.softRetries || 0) + 1;
+        if (task.softRetries > 20) {
+            return false; // prevent infinite loop
+        }
         task.status = 'pending';
         this.queue.unshift(id);
         this.notifyOne();
+        return true;
     }
 
     deleteTask(id: string): void {
