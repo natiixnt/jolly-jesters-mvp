@@ -10,6 +10,8 @@ class AnalysisRun(Base):
     __tablename__ = "analysis_runs"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False, index=True)
     input_file_name = Column(String, nullable=False)
     input_source = Column(String, nullable=False, server_default="upload")

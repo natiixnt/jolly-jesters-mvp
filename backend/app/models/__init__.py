@@ -10,3 +10,7 @@ from app.models.analysis_run_item import AnalysisRunItem  # noqa: F401
 from app.models.analysis_run_task import AnalysisRunTask  # noqa: F401
 from app.models.setting import Setting  # noqa: F401
 from app.models.currency_rate import CurrencyRate  # noqa: F401
+from app.models.network_proxy import NetworkProxy  # noqa: F401
+from app.models.tenant import Tenant  # noqa: F401
+from app.models.user import User  # noqa: F401
+from app.models.usage_record import UsageRecord  # noqa: F401

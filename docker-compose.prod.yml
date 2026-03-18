@@ -1,0 +1,52 @@
+# Production overrides - use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+services:
+  backend:
+    environment:
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required in production}
+      - UI_PASSWORD=${UI_PASSWORD:?UI_PASSWORD is required in production}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  worker:
+    environment:
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required in production}
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  allegro_scraper:
+    restart: always
+    environment:
+      - WORKER_COUNT=${SCRAPER_WORKER_COUNT:-3}
+      - CONCURRENCY_PER_WORKER=${SCRAPER_CONCURRENCY_PER_WORKER:-3}
+      - MAX_PENDING_TASKS=${SCRAPER_MAX_PENDING_TASKS:-100}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  postgres:
+    restart: always
+    volumes:
+      - mvp_pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  nginx:
+    restart: always
+    ports:
+      - "${NGINX_PORT:-80}:80"

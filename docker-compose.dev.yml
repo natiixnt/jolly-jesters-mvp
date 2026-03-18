@@ -1,0 +1,31 @@
+# Development overrides - use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  backend:
+    environment:
+      - JWT_SECRET=dev-secret-not-for-production
+      - UI_AUTH_BYPASS=1
+    volumes:
+      - ./backend:/app
+    command: >
+      bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    environment:
+      - JWT_SECRET=dev-secret-not-for-production
+    volumes:
+      - ./backend:/app
+
+  allegro_scraper:
+    environment:
+      - WORKER_COUNT=1
+      - CONCURRENCY_PER_WORKER=1
+      - MAX_PENDING_TASKS=0
+      - DEBUG=true
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
