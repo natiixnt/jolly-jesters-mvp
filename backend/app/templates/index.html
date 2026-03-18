@@ -160,25 +160,50 @@
     /* STATUS BOX */
     .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px; background:var(--bg);}
 
-    /* STAT CARDS (dashboard) */
-    .stats{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:20px;}
+    /* BENTO DASHBOARD */
+    .bento{display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:auto; gap:12px; margin-bottom:20px;}
+    @media(max-width:700px){.bento{grid-template-columns:1fr 1fr;}}
+    @media(max-width:420px){.bento{grid-template-columns:1fr;}}
+    .bento-wide{grid-column:span 2;}
+    .bento-full{grid-column:1/-1;}
+
     .stat{
       border:1px solid var(--border); border-radius:var(--r2); padding:20px;
-      background:linear-gradient(135deg,var(--bg2),var(--bg));
-      position:relative; overflow:hidden;
+      background:var(--bg); position:relative; overflow:hidden;
     }
-    .stat::before{content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:2px 2px 0 0;}
-    .stat.purple::before{background:linear-gradient(90deg,rgb(var(--accent)),rgb(var(--blue)));}
-    .stat.green::before{background:linear-gradient(90deg,rgb(var(--green)),rgb(var(--accent2)));}
-    .stat.amber::before{background:linear-gradient(90deg,rgb(var(--amber)),rgb(var(--red)));}
-    .stat.blue::before{background:linear-gradient(90deg,rgb(var(--blue)),rgb(var(--accent)));}
-    .stat-label{font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.08em;}
-    .stat-val{font-size:28px; font-weight:700; letter-spacing:-.03em; margin-top:6px;}
-    .stat-sub{font-size:12px; color:var(--dim); margin-top:2px;}
+    .stat::before{content:''; position:absolute; top:0; left:0; right:0; height:1px;}
+    .stat.purple::before{background:linear-gradient(90deg,transparent,rgba(var(--accent),.4),transparent);}
+    .stat.green::before{background:linear-gradient(90deg,transparent,rgba(var(--green),.4),transparent);}
+    .stat.amber::before{background:linear-gradient(90deg,transparent,rgba(var(--amber),.4),transparent);}
+    .stat.blue::before{background:linear-gradient(90deg,transparent,rgba(var(--blue),.4),transparent);}
+    .stat-icon{width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px;}
+    .stat-icon.purple{background:rgba(var(--accent),.1);}
+    .stat-icon.green{background:rgba(var(--green),.1);}
+    .stat-icon.amber{background:rgba(var(--amber),.1);}
+    .stat-icon.blue{background:rgba(var(--blue),.1);}
+    .stat-icon svg{width:18px; height:18px;}
+    .stat-label{font-size:12px; font-weight:500; color:var(--muted);}
+    .stat-val{font-size:32px; font-weight:700; letter-spacing:-.04em; margin-top:4px; line-height:1;}
+    .stat-sub{font-size:12px; color:var(--dim); margin-top:6px;}
+    .stat-change{display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:600; padding:2px 6px; border-radius:6px; margin-top:6px;}
+    .stat-change.up{background:rgba(var(--green),.1); color:rgb(var(--green));}
+    .stat-change.down{background:rgba(var(--red),.1); color:rgb(var(--red));}
 
-    /* MINI BAR CHART */
-    .chart{display:flex; align-items:flex-end; gap:3px; height:48px; margin-top:12px;}
-    .chart-bar{flex:1; border-radius:3px 3px 0 0; min-width:4px; transition:height .3s ease;}
+    /* CHART */
+    .chart-wrap{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:var(--bg); position:relative; overflow:hidden;}
+    .chart-wrap::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.2),transparent);}
+    .chart-title{font-size:12px; font-weight:500; color:var(--muted); margin-bottom:16px;}
+    .chart{display:flex; align-items:flex-end; gap:4px; height:80px;}
+    .chart-bar{flex:1; border-radius:4px 4px 0 0; min-width:6px; transition:height .4s cubic-bezier(.4,0,.2,1); position:relative;}
+    .chart-bar:hover{filter:brightness(1.3);}
+
+    /* ACTIVITY FEED */
+    .activity{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:var(--bg); position:relative; overflow:hidden;}
+    .activity::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--green),.2),transparent);}
+    .activity-title{font-size:12px; font-weight:500; color:var(--muted); margin-bottom:12px;}
+    .activity-item{display:flex; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border2); font-size:13px;}
+    .activity-item:last-child{border-bottom:none;}
+    .activity-dot{width:8px; height:8px; border-radius:99px; flex-shrink:0;}
 
     /* METRIC GRID */
     .mg{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin-bottom:16px;}
@@ -263,21 +288,48 @@
     <div class="tab active" id="tab-dashboard">
       <div class="page-title">Dashboard</div>
 
-      <!-- stats row -->
-      <div class="stats" id="dash-stats">
-        <div class="stat purple"><div class="stat-label">Wszystkie analizy</div><div class="stat-val" id="ds-total">-</div><div class="stat-sub">łącznie runów</div></div>
-        <div class="stat green"><div class="stat-label">Przetworzone EAN-y</div><div class="stat-val" id="ds-eans">-</div><div class="stat-sub">produktów sprawdzonych</div></div>
-        <div class="stat amber"><div class="stat-label">CAPTCHA rozwiązane</div><div class="stat-val" id="ds-captcha">-</div><div class="stat-sub">łącznie solves</div></div>
-        <div class="stat blue"><div class="stat-label">Proxy aktywne</div><div class="stat-val" id="ds-proxy">-</div><div class="stat-sub">w puli</div></div>
+      <!-- bento grid -->
+      <div class="bento">
+        <!-- 4 stat cards -->
+        <div class="stat purple">
+          <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent))" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg></div>
+          <div class="stat-label">Analizy</div>
+          <div class="stat-val" id="ds-total">-</div>
+          <div class="stat-sub">łącznie runów</div>
+        </div>
+        <div class="stat green">
+          <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--green))" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>
+          <div class="stat-label">EAN-y</div>
+          <div class="stat-val" id="ds-eans">-</div>
+          <div class="stat-sub">produktów sprawdzonych</div>
+        </div>
+        <div class="stat amber">
+          <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--amber))" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+          <div class="stat-label">CAPTCHA</div>
+          <div class="stat-val" id="ds-captcha">-</div>
+          <div class="stat-sub">rozwiązane</div>
+        </div>
+        <div class="stat blue">
+          <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--blue))" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></div>
+          <div class="stat-label">Proxy</div>
+          <div class="stat-val" id="ds-proxy">-</div>
+          <div class="stat-sub">aktywnych w puli</div>
+        </div>
+
+        <!-- chart - spans 2 cols -->
+        <div class="chart-wrap bento-wide">
+          <div class="chart-title">Rozmiar ostatnich analiz (EAN-y na run)</div>
+          <div class="chart" id="dash-chart"></div>
+        </div>
+
+        <!-- activity feed - spans 2 cols -->
+        <div class="activity bento-wide">
+          <div class="activity-title">Ostatnia aktywność</div>
+          <div id="dash-activity"><div style="color:var(--dim);font-size:13px;">ładowanie...</div></div>
+        </div>
       </div>
 
-      <!-- mini chart -->
-      <div class="card" id="dash-chart-card">
-        <div class="card-label">Ostatnie analizy</div>
-        <div class="chart" id="dash-chart"></div>
-        <div class="hint" id="dash-chart-hint"></div>
-      </div>
-
+      <!-- onboarding -->
       <div class="card" id="onboarding">
         <div class="card-label">Pierwsze kroki</div>
         <div class="card-title">Witaj w Jolly Jesters</div>
@@ -288,6 +340,7 @@
         <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdź wyniki</h4><p>Pobierz Excel lub przeglądaj metryki w podglądzie</p></div></div>
       </div>
 
+      <!-- active runs -->
       <div class="card">
         <div class="card-label">Aktywne analizy</div>
         <div id="dash-empty" class="sbox">Brak aktywnych analiz - uruchom nową z zakładki "Nowa analiza"</div>
@@ -478,36 +531,56 @@
 
     // DASHBOARD STATS
     async function loadDashStats(){
+      let runs=[];
       try{
-        const runs=await apiGet('/api/v1/analysis?limit=100');
-        const totalRuns=runs?.length||0;
-        let totalEans=0,totalCaptcha=0;
-        const recent=[];
-        for(const r of (runs||[])){
-          totalEans+=r.processed_products||0;
-          recent.push(r.processed_products||0);
-        }
+        runs=await apiGet('/api/v1/analysis?limit=100')||[];
+        const totalRuns=runs.length;
+        let totalEans=0;
+        for(const r of runs)totalEans+=r.processed_products||0;
         setText($('ds-total'),totalRuns);
         setText($('ds-eans'),totalEans.toLocaleString());
 
-        // mini chart - last 20 runs as bars
+        // bar chart - last 24 runs
         const chart=$('dash-chart');
-        if(chart&&recent.length){
-          const last=recent.slice(0,20).reverse();
-          const max=Math.max(...last,1);
-          chart.innerHTML=last.map((v,i)=>{
-            const h=Math.max(4,Math.round(v/max*48));
-            const colors=['rgba(136,58,234,.6)','rgba(99,102,241,.5)','rgba(52,211,153,.5)'];
-            return `<div class="chart-bar" style="height:${h}px;background:${colors[i%3]};"></div>`;
-          }).join('');
-          setText($('dash-chart-hint'),`ostatnie ${last.length} analiz`);
+        if(chart){
+          const sizes=runs.slice(0,24).map(r=>r.processed_products||0).reverse();
+          if(sizes.length){
+            const max=Math.max(...sizes,1);
+            chart.innerHTML=sizes.map((v,i)=>{
+              const h=Math.max(6,Math.round(v/max*80));
+              const hue=260+i*4; // purple -> blue gradient
+              return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${v} EAN"></div>`;
+            }).join('');
+          }else{
+            chart.innerHTML='<div style="color:var(--dim);font-size:12px;">brak danych</div>';
+          }
+        }
+
+        // activity feed - last 6 runs
+        const feed=$('dash-activity');
+        if(feed){
+          const recent=runs.slice(0,6);
+          if(recent.length){
+            feed.innerHTML=recent.map(r=>{
+              const dotColor=r.status==='completed'?'rgb(var(--green))':r.status==='stopped'||r.status==='failed'?'rgb(var(--red))':r.status==='running'?'rgb(var(--blue))':'var(--dim)';
+              const time=r.created_at?new Date(r.created_at).toLocaleString('pl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+              return `<div class="activity-item">
+                <div class="activity-dot" style="background:${dotColor};"></div>
+                <div style="flex:1;"><strong>${r.category_name||'Analiza'}</strong> #${r.id} <span class="badge ${r.status==='completed'?'ok':r.status==='running'?'info':'err'}" style="margin-left:6px;">${r.status}</span></div>
+                <div style="font-size:11px;color:var(--dim);white-space:nowrap;">${time}</div>
+              </div>`;
+            }).join('');
+          }else{
+            feed.innerHTML='<div style="color:var(--dim);font-size:13px;">brak aktywności</div>';
+          }
         }
 
         if(totalRuns>0)hide($('onboarding'));
       }catch(e){}
+
       // proxy count
       try{const h=await apiGet('/api/v1/proxy-pool/health');setText($('ds-proxy'),h.active??h.total??'-');}catch(e){setText($('ds-proxy'),'-');}
-      // captcha
+      // captcha from prometheus
       try{
         const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
         const m=txt.match(/jj_captcha_solves_total (\d+)/);
