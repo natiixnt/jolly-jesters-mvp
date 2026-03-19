@@ -277,6 +277,10 @@
       <button data-tab="proxies"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-2.8-7.2l-2.8 2.8M7.6 16.4l-2.8 2.8m0-14.4l2.8 2.8m8.8 8.8l2.8 2.8"/></svg>Proxy pool</button>
       <button data-tab="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Ustawienia</button>
       <button data-tab="help"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>Pomoc</button>
+      <!-- global admin (single-tenant = admin) -->
+      <div id="nav-global-admin" style="height:8px;border-bottom:1px solid var(--border);margin:4px 8px;"></div>
+      <button data-tab="global-admin"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Panel admina</button>
+      <!-- multi-tenant account section -->
       <div id="nav-account-section" style="display:none;">
         <div style="height:8px;border-bottom:1px solid var(--border);margin:4px 8px;"></div>
         <button data-tab="account"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Konto</button>
@@ -610,6 +614,60 @@
       </div>
     </div>
 
+    <!-- GLOBAL ADMIN -->
+    <div class="tab" id="tab-global-admin">
+      <div class="page-title">Panel administracyjny</div>
+
+      <!-- global stats -->
+      <div class="bento" id="ga-stats">
+        <div class="stat purple">
+          <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent))" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div class="stat-label">Tenanci</div>
+          <div class="stat-val" id="ga-tenants">-</div>
+        </div>
+        <div class="stat green">
+          <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--green))" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="stat-label">Użytkownicy</div>
+          <div class="stat-val" id="ga-users">-</div>
+        </div>
+        <div class="stat amber">
+          <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--amber))" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg></div>
+          <div class="stat-label">Wszystkie runy</div>
+          <div class="stat-val" id="ga-runs">-</div>
+        </div>
+        <div class="stat blue">
+          <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--blue))" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>
+          <div class="stat-label">Łącznie EAN-ów</div>
+          <div class="stat-val" id="ga-eans">-</div>
+        </div>
+      </div>
+
+      <!-- all runs -->
+      <div class="card">
+        <div class="card-label">Wszystkie analizy (globalne)</div>
+        <div id="ga-all-runs" style="max-height:400px;overflow:auto;"><div class="sbox">ładowanie...</div></div>
+      </div>
+
+      <!-- all tenants -->
+      <div class="card">
+        <div class="card-label">Zarejestrowani tenanci</div>
+        <div id="ga-tenant-list" style="max-height:300px;overflow:auto;"><div class="sbox">ładowanie...</div></div>
+      </div>
+
+      <!-- all users -->
+      <div class="card">
+        <div class="card-label">Wszyscy użytkownicy</div>
+        <div id="ga-user-list" style="max-height:300px;overflow:auto;"><div class="sbox">ładowanie...</div></div>
+      </div>
+
+      <!-- global usage -->
+      <div class="card">
+        <div class="card-label">Globalne zużycie (Prometheus)</div>
+        <div class="mg" id="ga-prometheus"></div>
+        <div class="btn-row"><button class="btn sm" onclick="loadGlobalAdmin()">Odśwież</button></div>
+      </div>
+    </div>
+
   </div>
 
   <!-- PREVIEW MODAL -->
@@ -643,7 +701,7 @@
         document.querySelectorAll('.tab').forEach(p=>p.classList.remove('active'));
         $('tab-'+btn.dataset.tab)?.classList.add('active');
         const t=btn.dataset.tab;
-        if(t==='history')loadHistory();if(t==='market')loadMarket(0);if(t==='proxies')loadProxyPool();if(t==='settings')loadSettings();if(t==='account')showProfile();if(t==='usage')loadUsage();if(t==='admin')loadAdmin();
+        if(t==='history')loadHistory();if(t==='market')loadMarket(0);if(t==='proxies')loadProxyPool();if(t==='settings')loadSettings();if(t==='account')showProfile();if(t==='usage')loadUsage();if(t==='admin')loadAdmin();if(t==='global-admin')loadGlobalAdmin();
         $('sidebar')?.classList.remove('open');$('overlay')?.classList.remove('open');
       });
     });
@@ -907,10 +965,64 @@
       show($('admin-add-error'));
     });
 
+    // GLOBAL ADMIN (single-tenant = full access)
+    async function loadGlobalAdmin(){
+      // stats from prometheus
+      try{
+        const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
+        const get=(name)=>{const m=txt.match(new RegExp(name+'\\s+(\\d+)'));return m?Number(m[1]):0;};
+        const runs=get('jj_analysis_runs_total\\{status="completed"\\}')+get('jj_analysis_runs_total\\{status="running"\\}')+get('jj_analysis_runs_total\\{status="pending"\\}')+get('jj_analysis_runs_total\\{status="stopped"\\}')+get('jj_analysis_runs_total\\{status="failed"\\}')+get('jj_analysis_runs_total\\{status="canceled"\\}');
+        setText($('ga-runs'),runs||'-');
+        setText($('ga-eans'),get('jj_eans_processed_total').toLocaleString()||'-');
+        // prometheus metrics cards
+        const pg=$('ga-prometheus');
+        if(pg){
+          pg.innerHTML=[
+            mc('Aktywne runy',get('jj_active_runs'),'rgb(var(--blue))'),
+            mc('EAN-y total',get('jj_eans_processed_total').toLocaleString()),
+            mc('CAPTCHA',get('jj_captcha_solves_total').toLocaleString(),'rgb(var(--amber))'),
+            mc('Avg latency',get('jj_avg_latency_ms')+'ms'),
+            mc('Proxy total',get('jj_proxy_total')),
+            mc('Proxy active',get('jj_proxy_active'),'rgb(var(--green))'),
+          ].join('');
+        }
+      }catch(e){}
+
+      // all runs
+      try{
+        const runs=await apiGet('/api/v1/analysis?limit=50');
+        setText($('ga-runs'),runs?.length||0);
+        let totalEans=0;
+        for(const r of (runs||[]))totalEans+=r.processed_products||0;
+        setText($('ga-eans'),totalEans.toLocaleString());
+        const el=$('ga-all-runs');
+        if(el&&runs?.length){
+          el.innerHTML=`<table class="tbl"><thead><tr><th>ID</th><th>Kategoria</th><th>Status</th><th>EAN-y</th><th>Data</th></tr></thead><tbody>${runs.map(r=>{
+            const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';
+            return `<tr><td>#${r.id}</td><td>${r.category_name||'-'}</td><td><span class="badge ${bc}">${r.status}</span></td><td>${r.processed_products}/${r.total_products}</td><td style="font-size:11px;">${r.created_at?new Date(r.created_at).toLocaleString():'-'}</td></tr>`;
+          }).join('')}</tbody></table>`;
+        }else if(el){el.innerHTML='<div class="sbox">Brak analiz</div>';}
+      }catch(e){}
+
+      // tenants + users (try - may not have tables in sqlite)
+      try{
+        setText($('ga-tenants'),'-');
+        setText($('ga-users'),'-');
+        setHtml($('ga-tenant-list'),'<div class="sbox" style="text-align:center;color:var(--dim);">Tenanci pojawiają się po rejestracji kont firmowych</div>');
+        setHtml($('ga-user-list'),'<div class="sbox" style="text-align:center;color:var(--dim);">Użytkownicy pojawiają się po rejestracji kont firmowych</div>');
+      }catch(e){}
+    }
+
     // restore session from localStorage (token set by login page)
-    // only show account section if token exists (multi-tenant mode)
-    if(apiToken){showProfile();}
-    else{hide($('nav-account-section'));}
+    // single-tenant: show global admin, hide account section
+    // multi-tenant (API token): show account section, hide global admin
+    if(apiToken){
+      showProfile();
+      hide($('nav-global-admin'));
+      hide(document.querySelector('[data-tab="global-admin"]'));
+    }else{
+      hide($('nav-account-section'));
+    }
 
     let sseConn=null;
     function connectSSE(id){if(sseConn){sseConn.close();sseConn=null;}try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);es.addEventListener('progress',()=>pollActive());es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();loadDashStats();});es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});es.onerror=()=>{es.close();sseConn=null;};sseConn=es;}catch(e){}}
