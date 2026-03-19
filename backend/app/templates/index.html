@@ -255,6 +255,20 @@
     .cat-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;font-size:13px;background:var(--bg);}
     @media(max-width:500px){.cat-row{grid-template-columns:1fr;}}
 
+    /* ACCORDION */
+    .acc{border:1px solid var(--border);border-radius:var(--r2);margin-bottom:10px;overflow:hidden;background:var(--bg);}
+    .acc-head{
+      padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;
+      font-size:14px;font-weight:500;user-select:none;transition:background .15s;
+    }
+    .acc-head:hover{background:var(--bg2);}
+    .acc-head span:first-child{flex:1;}
+    .acc-count{font-size:12px;color:var(--dim);background:var(--bg3);padding:2px 8px;border-radius:99px;}
+    .acc-arrow{color:var(--dim);transition:transform .2s;flex-shrink:0;}
+    .acc.open .acc-arrow{transform:rotate(180deg);}
+    .acc-body{display:none;padding:0 18px 16px;max-height:400px;overflow:auto;}
+    .acc.open .acc-body{display:block;}
+
     /* BADGE */
     .badge{display:inline-flex; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600;}
     .badge.ok{background:rgba(var(--green),.1); color:rgb(var(--green));}
@@ -616,55 +630,44 @@
 
     <!-- GLOBAL ADMIN -->
     <div class="tab" id="tab-global-admin">
-      <div class="page-title">Panel administracyjny</div>
+      <div class="page-title">Panel admina</div>
 
-      <!-- global stats -->
-      <div class="bento" id="ga-stats">
-        <div class="stat purple">
-          <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent))" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-          <div class="stat-label">Tenanci</div>
-          <div class="stat-val" id="ga-tenants">-</div>
-        </div>
-        <div class="stat green">
-          <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--green))" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-          <div class="stat-label">Użytkownicy</div>
-          <div class="stat-val" id="ga-users">-</div>
-        </div>
-        <div class="stat amber">
-          <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--amber))" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg></div>
-          <div class="stat-label">Wszystkie runy</div>
-          <div class="stat-val" id="ga-runs">-</div>
-        </div>
-        <div class="stat blue">
-          <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--blue))" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>
-          <div class="stat-label">Łącznie EAN-ów</div>
-          <div class="stat-val" id="ga-eans">-</div>
-        </div>
+      <!-- compact stat row -->
+      <div class="bento" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stat purple"><div class="stat-label">Runy</div><div class="stat-val" id="ga-runs" style="font-size:24px;">-</div></div>
+        <div class="stat green"><div class="stat-label">EAN-y</div><div class="stat-val" id="ga-eans" style="font-size:24px;">-</div></div>
+        <div class="stat amber"><div class="stat-label">CAPTCHA</div><div class="stat-val" id="ga-captcha" style="font-size:24px;">-</div></div>
+        <div class="stat blue"><div class="stat-label">Proxy</div><div class="stat-val" id="ga-proxy" style="font-size:24px;">-</div></div>
       </div>
 
-      <!-- all runs -->
-      <div class="card">
-        <div class="card-label">Wszystkie analizy (globalne)</div>
-        <div id="ga-all-runs" style="max-height:400px;overflow:auto;"><div class="sbox">ładowanie...</div></div>
+      <!-- accordion sections -->
+      <div class="acc" id="acc-runs">
+        <div class="acc-head" onclick="toggleAcc('acc-runs')">
+          <span>Wszystkie analizy</span>
+          <span class="acc-count" id="ga-runs-count">0</span>
+          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="acc-body" id="ga-all-runs"><div class="hint">kliknij aby rozwinąć</div></div>
       </div>
 
-      <!-- all tenants -->
-      <div class="card">
-        <div class="card-label">Zarejestrowani tenanci</div>
-        <div id="ga-tenant-list" style="max-height:300px;overflow:auto;"><div class="sbox">ładowanie...</div></div>
+      <div class="acc" id="acc-tenants">
+        <div class="acc-head" onclick="toggleAcc('acc-tenants')">
+          <span>Tenanci i użytkownicy</span>
+          <span class="acc-count" id="ga-tenants-count">0</span>
+          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="acc-body" id="ga-tenant-list"><div class="hint">kliknij aby rozwinąć</div></div>
       </div>
 
-      <!-- all users -->
-      <div class="card">
-        <div class="card-label">Wszyscy użytkownicy</div>
-        <div id="ga-user-list" style="max-height:300px;overflow:auto;"><div class="sbox">ładowanie...</div></div>
-      </div>
-
-      <!-- global usage -->
-      <div class="card">
-        <div class="card-label">Globalne zużycie (Prometheus)</div>
-        <div class="mg" id="ga-prometheus"></div>
-        <div class="btn-row"><button class="btn sm" onclick="loadGlobalAdmin()">Odśwież</button></div>
+      <div class="acc" id="acc-metrics">
+        <div class="acc-head" onclick="toggleAcc('acc-metrics')">
+          <span>Metryki systemowe</span>
+          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="acc-body">
+          <div class="mg" id="ga-prometheus"></div>
+          <div class="btn-row"><button class="btn sm" onclick="loadGlobalAdmin()">Odśwież</button></div>
+        </div>
       </div>
     </div>
 
@@ -965,51 +968,73 @@
       show($('admin-add-error'));
     });
 
-    // GLOBAL ADMIN (single-tenant = full access)
+    // ACCORDION
+    function toggleAcc(id){
+      const el=$(id);
+      if(!el)return;
+      const wasOpen=el.classList.contains('open');
+      el.classList.toggle('open');
+      // lazy-load content on first open
+      if(!wasOpen&&!el.dataset.loaded){
+        el.dataset.loaded='1';
+        if(id==='acc-runs')loadAdminRuns();
+        if(id==='acc-tenants')loadAdminTenants();
+        if(id==='acc-metrics')loadAdminMetrics();
+      }
+    }
+
+    // GLOBAL ADMIN
     async function loadGlobalAdmin(){
-      // stats from prometheus
+      // top stats
+      try{
+        const runs=await apiGet('/api/v1/analysis?limit=200');
+        const cnt=runs?.length||0;
+        let eans=0;for(const r of (runs||[]))eans+=r.processed_products||0;
+        setText($('ga-runs'),cnt);
+        setText($('ga-runs-count'),cnt);
+        setText($('ga-eans'),eans.toLocaleString());
+      }catch(e){}
       try{
         const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
-        const get=(name)=>{const m=txt.match(new RegExp(name+'\\s+(\\d+)'));return m?Number(m[1]):0;};
-        const runs=get('jj_analysis_runs_total\\{status="completed"\\}')+get('jj_analysis_runs_total\\{status="running"\\}')+get('jj_analysis_runs_total\\{status="pending"\\}')+get('jj_analysis_runs_total\\{status="stopped"\\}')+get('jj_analysis_runs_total\\{status="failed"\\}')+get('jj_analysis_runs_total\\{status="canceled"\\}');
-        setText($('ga-runs'),runs||'-');
-        setText($('ga-eans'),get('jj_eans_processed_total').toLocaleString()||'-');
-        // prometheus metrics cards
+        const get=(n)=>{const m=txt.match(new RegExp(n+'\\s+([\\d.]+)'));return m?Number(m[1]):0;};
+        setText($('ga-captcha'),get('jj_captcha_solves_total').toLocaleString());
+        setText($('ga-proxy'),get('jj_proxy_active'));
+      }catch(e){}
+    }
+
+    async function loadAdminRuns(){
+      const el=$('ga-all-runs');if(!el)return;
+      try{
+        const runs=await apiGet('/api/v1/analysis?limit=100');
+        if(!runs?.length){el.innerHTML='<div class="sbox" style="text-align:center;">Brak analiz</div>';return;}
+        el.innerHTML=`<div style="overflow:auto;"><table class="tbl"><thead><tr><th>ID</th><th>Kategoria</th><th>Status</th><th>EAN-y</th><th>Data</th><th></th></tr></thead><tbody>${runs.map(r=>{
+          const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';
+          return `<tr><td>#${r.id}</td><td>${r.category_name||'-'}</td><td><span class="badge ${bc}">${r.status}</span></td><td>${r.processed_products}/${r.total_products}</td><td style="font-size:11px;">${r.created_at?new Date(r.created_at).toLocaleString('pl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-'}</td><td><button class="btn sm" onclick="openPreview(${r.id})">Podgląd</button></td></tr>`;
+        }).join('')}</tbody></table></div>`;
+      }catch(e){el.innerHTML='<div class="sbox">Błąd ładowania</div>';}
+    }
+
+    async function loadAdminTenants(){
+      const el=$('ga-tenant-list');if(!el)return;
+      el.innerHTML='<div class="sbox" style="text-align:center;padding:24px;color:var(--dim);"><div style="margin-bottom:8px;">Tenanci pojawiają się po rejestracji kont firmowych przez stronę logowania.</div><div style="font-size:12px;">Każdy tenant ma własny limit EAN-ów, użytkowników i billing.</div></div>';
+      setText($('ga-tenants-count'),'0');
+    }
+
+    async function loadAdminMetrics(){
+      try{
+        const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
+        const get=(n)=>{const m=txt.match(new RegExp(n+'\\s+([\\d.]+)'));return m?Number(m[1]):0;};
         const pg=$('ga-prometheus');
-        if(pg){
-          pg.innerHTML=[
-            mc('Aktywne runy',get('jj_active_runs'),'rgb(var(--blue))'),
-            mc('EAN-y total',get('jj_eans_processed_total').toLocaleString()),
-            mc('CAPTCHA',get('jj_captcha_solves_total').toLocaleString(),'rgb(var(--amber))'),
-            mc('Avg latency',get('jj_avg_latency_ms')+'ms'),
-            mc('Proxy total',get('jj_proxy_total')),
-            mc('Proxy active',get('jj_proxy_active'),'rgb(var(--green))'),
-          ].join('');
-        }
-      }catch(e){}
-
-      // all runs
-      try{
-        const runs=await apiGet('/api/v1/analysis?limit=50');
-        setText($('ga-runs'),runs?.length||0);
-        let totalEans=0;
-        for(const r of (runs||[]))totalEans+=r.processed_products||0;
-        setText($('ga-eans'),totalEans.toLocaleString());
-        const el=$('ga-all-runs');
-        if(el&&runs?.length){
-          el.innerHTML=`<table class="tbl"><thead><tr><th>ID</th><th>Kategoria</th><th>Status</th><th>EAN-y</th><th>Data</th></tr></thead><tbody>${runs.map(r=>{
-            const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';
-            return `<tr><td>#${r.id}</td><td>${r.category_name||'-'}</td><td><span class="badge ${bc}">${r.status}</span></td><td>${r.processed_products}/${r.total_products}</td><td style="font-size:11px;">${r.created_at?new Date(r.created_at).toLocaleString():'-'}</td></tr>`;
-          }).join('')}</tbody></table>`;
-        }else if(el){el.innerHTML='<div class="sbox">Brak analiz</div>';}
-      }catch(e){}
-
-      // tenants + users (try - may not have tables in sqlite)
-      try{
-        setText($('ga-tenants'),'-');
-        setText($('ga-users'),'-');
-        setHtml($('ga-tenant-list'),'<div class="sbox" style="text-align:center;color:var(--dim);">Tenanci pojawiają się po rejestracji kont firmowych</div>');
-        setHtml($('ga-user-list'),'<div class="sbox" style="text-align:center;color:var(--dim);">Użytkownicy pojawiają się po rejestracji kont firmowych</div>');
+        if(pg)pg.innerHTML=[
+          mc('Aktywne runy',get('jj_active_runs'),'rgb(var(--blue))'),
+          mc('EAN-y łącznie',get('jj_eans_processed_total').toLocaleString()),
+          mc('CAPTCHA solves',get('jj_captcha_solves_total').toLocaleString(),'rgb(var(--amber))'),
+          mc('Avg latency',get('jj_avg_latency_ms')+'ms'),
+          mc('Proxy łącznie',get('jj_proxy_total')),
+          mc('Proxy aktywne',get('jj_proxy_active'),'rgb(var(--green))'),
+          mc('OK scrapes',get('jj_scrape_status_total{status="ok"}'),'rgb(var(--green))'),
+          mc('Błędy',get('jj_scrape_status_total{status="error"}')+get('jj_scrape_status_total{status="network_error"}'),'rgb(var(--red))'),
+        ].join('');
       }catch(e){}
     }
 
