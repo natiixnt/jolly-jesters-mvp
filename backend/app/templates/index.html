@@ -89,7 +89,8 @@
       background:linear-gradient(180deg,var(--bg2),var(--bg));
       position:relative; overflow:hidden;
     }
-    .card::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.15),transparent);}
+    .card::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.25),transparent);}
+    .card::after{content:''; position:absolute; top:0; left:0; right:0; height:40%; background:linear-gradient(180deg,rgba(var(--accent),.03),transparent); pointer-events:none; border-radius:var(--r2) var(--r2) 0 0;}
     .card-label{font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(var(--accent),.7); margin-bottom:12px;}
     .card-title{font-size:17px; font-weight:600; letter-spacing:-.02em; margin-bottom:4px;}
     .card-desc{font-size:13px; color:var(--muted); margin-bottom:16px;}
@@ -105,6 +106,7 @@
     select.inp{appearance:none; padding-right:32px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2371717a'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center;}
     .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
     @media(max-width:500px){.row2{grid-template-columns:1fr;}}
+    @media(max-width:700px){.bento-side{grid-template-columns:1fr !important;}}
 
     /* BUTTONS - glassmorphism outline style */
     .btn{
@@ -158,7 +160,8 @@
     .dz-sub{font-size:12px; color:var(--dim);}
 
     /* STATUS BOX */
-    .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px; background:var(--bg);}
+    .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .sbox::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.1),transparent);}
 
     /* BENTO DASHBOARD */
     .bento{display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:auto; gap:12px; margin-bottom:20px;}
@@ -190,16 +193,16 @@
     .stat-change.down{background:rgba(var(--red),.1); color:rgb(var(--red));}
 
     /* CHART */
-    .chart-wrap{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:var(--bg); position:relative; overflow:hidden;}
-    .chart-wrap::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.2),transparent);}
+    .chart-wrap{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .chart-wrap::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.25),transparent);}
     .chart-title{font-size:12px; font-weight:500; color:var(--muted); margin-bottom:16px;}
     .chart{display:flex; align-items:flex-end; gap:4px; height:80px;}
     .chart-bar{flex:1; border-radius:4px 4px 0 0; min-width:6px; transition:height .4s cubic-bezier(.4,0,.2,1); position:relative;}
     .chart-bar:hover{filter:brightness(1.3);}
 
     /* ACTIVITY FEED */
-    .activity{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:var(--bg); position:relative; overflow:hidden;}
-    .activity::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--green),.2),transparent);}
+    .activity{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .activity::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--green),.25),transparent);}
     .activity-title{font-size:12px; font-weight:500; color:var(--muted); margin-bottom:12px;}
     .activity-item{display:flex; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border2); font-size:13px;}
     .activity-item:last-child{border-bottom:none;}
@@ -207,7 +210,8 @@
 
     /* METRIC GRID */
     .mg{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin-bottom:16px;}
-    .mc{border:1px solid var(--border); border-radius:var(--r); padding:12px; background:var(--bg);}
+    .mc{border:1px solid var(--border); border-radius:var(--r); padding:12px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .mc::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.1),transparent);}
     .mc-label{font-size:10px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.06em;}
     .mc-val{font-size:18px; font-weight:600; margin-top:4px;}
 
@@ -256,7 +260,8 @@
     @media(max-width:500px){.cat-row{grid-template-columns:1fr;}}
 
     /* ACCORDION */
-    .acc{border:1px solid var(--border);border-radius:var(--r2);margin-bottom:10px;overflow:hidden;background:var(--bg);}
+    .acc{border:1px solid var(--border);border-radius:var(--r2);margin-bottom:10px;overflow:hidden;background:linear-gradient(180deg,var(--bg2),var(--bg));position:relative;}
+    .acc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(var(--accent),.15),transparent);z-index:1;}
     .acc-head{
       padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;
       font-size:14px;font-weight:500;user-select:none;transition:background .15s;
@@ -287,7 +292,6 @@
       <!-- ADMIN / SYSTEM (top) -->
       <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:6px 14px 4px;">System</div>
       <button data-tab="dashboard" class="active"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
-      <button data-tab="global-admin"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Zarządzanie</button>
       <button data-tab="proxies"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-2.8-7.2l-2.8 2.8M7.6 16.4l-2.8 2.8m0-14.4l2.8 2.8m8.8 8.8l2.8 2.8"/></svg>Proxy pool</button>
       <button data-tab="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Ustawienia</button>
       <!-- TOOLS (bottom) -->
@@ -319,41 +323,72 @@
 
   <div class="main">
 
-    <!-- DASHBOARD (admin overview) -->
+    <!-- DASHBOARD (unified admin + system overview) -->
     <div class="tab active" id="tab-dashboard">
-      <div class="page-title">Dashboard</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="page-title" style="margin:0;">Dashboard</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="status" style="font-size:12px;gap:6px;"><span class="dot" id="dash-health-dot"></span><span id="dash-health-text" style="color:var(--dim);">sprawdzanie...</span></div>
+          <button class="btn sm ghost" onclick="loadDashStats();loadGlobalAdmin();">Odswiez</button>
+        </div>
+      </div>
 
-      <!-- stat row -->
-      <div class="bento">
+      <!-- 2x2 stat bento -->
+      <div class="bento" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
         <div class="stat purple">
-          <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent))" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg></div>
-          <div class="stat-label">Analizy</div>
-          <div class="stat-val" id="ds-total">-</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="stat-label">Analizy</div>
+              <div class="stat-val" id="ds-total">-</div>
+              <div class="stat-sub" id="ds-active-sub">0 aktywnych</div>
+            </div>
+            <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent))" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg></div>
+          </div>
         </div>
         <div class="stat green">
-          <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--green))" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>
-          <div class="stat-label">EAN-y</div>
-          <div class="stat-val" id="ds-eans">-</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="stat-label">EAN-y przetworzone</div>
+              <div class="stat-val" id="ds-eans">-</div>
+              <div class="stat-sub" id="ds-ean-rate">- EAN/run</div>
+            </div>
+            <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--green))" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>
+          </div>
         </div>
         <div class="stat amber">
-          <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--amber))" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-          <div class="stat-label">CAPTCHA</div>
-          <div class="stat-val" id="ds-captcha">-</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="stat-label">CAPTCHA rozwiazane</div>
+              <div class="stat-val" id="ds-captcha">-</div>
+              <div class="stat-sub" id="ds-captcha-cost">koszt: -</div>
+            </div>
+            <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--amber))" stroke-width="1.5"><path d="M12 9v4m0 4h.01M5.07 19h13.86c1.5 0 2.47-1.6 1.74-2.88L13.74 3.88a2 2 0 0 0-3.48 0L3.33 16.12c-.73 1.28.24 2.88 1.74 2.88z"/></svg></div>
+          </div>
         </div>
         <div class="stat blue">
-          <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--blue))" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></div>
-          <div class="stat-label">Proxy</div>
-          <div class="stat-val" id="ds-proxy">-</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div class="stat-label">Proxy aktywne</div>
+              <div class="stat-val" id="ds-proxy">-</div>
+              <div class="stat-sub" id="ds-proxy-health">health: -</div>
+            </div>
+            <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--blue))" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></div>
+          </div>
         </div>
+      </div>
 
-        <!-- chart + activity -->
-        <div class="chart-wrap bento-wide">
-          <div class="chart-title">Ostatnie analizy (EAN-ów na run)</div>
+      <!-- chart + activity side by side -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="chart-wrap">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div class="chart-title" style="margin:0;">EAN-ow na run (ostatnie 24)</div>
+            <div style="font-size:11px;color:var(--dim);" id="ds-chart-avg">avg: -</div>
+          </div>
           <div class="chart" id="dash-chart"></div>
         </div>
-        <div class="activity bento-wide">
-          <div class="activity-title">Ostatnia aktywność</div>
-          <div id="dash-activity"><div style="color:var(--dim);font-size:13px;">ładowanie...</div></div>
+        <div class="activity">
+          <div class="activity-title">Ostatnia aktywnosc</div>
+          <div id="dash-activity"><div style="color:var(--dim);font-size:13px;">ladowanie...</div></div>
         </div>
       </div>
 
@@ -367,13 +402,43 @@
         <div id="dash-active"></div>
       </div>
 
-      <!-- system health -->
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div class="card-label" style="margin:0;">System</div>
-          <div class="status" style="font-size:12px;"><span class="dot" id="dash-health-dot"></span><span id="dash-health-text" style="color:var(--dim);">sprawdzanie...</span></div>
+      <!-- admin accordions (all runs, tenants, prometheus) -->
+      <div class="acc" id="acc-runs">
+        <div class="acc-head" onclick="toggleAcc('acc-runs')">
+          <span>Wszystkie analizy</span>
+          <span class="acc-count" id="ga-runs-count">0</span>
+          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </div>
-        <div class="mg" id="dash-system-metrics"></div>
+        <div class="acc-body" id="ga-all-runs"><div class="hint">kliknij aby rozwinac</div></div>
+      </div>
+
+      <div class="acc" id="acc-tenants">
+        <div class="acc-head" onclick="toggleAcc('acc-tenants')">
+          <span>Tenanci i uzytkownicy</span>
+          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="acc-body" id="ga-tenant-list"><div class="hint">kliknij aby rozwinac</div></div>
+      </div>
+
+      <div class="acc" id="acc-metrics">
+        <div class="acc-head" onclick="toggleAcc('acc-metrics')">
+          <span>Metryki Prometheus</span>
+          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="acc-body">
+          <div class="mg" id="dash-system-metrics"></div>
+        </div>
+      </div>
+
+      <!-- quick actions -->
+      <div class="card" style="margin-top:4px;">
+        <div class="card-label">Szybkie akcje</div>
+        <div class="btn-row">
+          <button class="btn sm" onclick="document.querySelector('[data-tab=new-run]')?.click()">Nowa analiza</button>
+          <button class="btn sm" onclick="document.querySelector('[data-tab=proxies]')?.click()">Proxy pool</button>
+          <button class="btn sm" onclick="document.querySelector('[data-tab=settings]')?.click()">Ustawienia</button>
+          <a class="btn sm ghost" href="/api/v1/metrics/prometheus" target="_blank" style="text-decoration:none;">Prometheus raw</a>
+        </div>
       </div>
 
       <!-- onboarding (only first time) -->
@@ -381,10 +446,10 @@
         <div class="card-label">Pierwsze kroki</div>
         <div class="card-title">Witaj w Jolly Jesters</div>
         <div class="card-desc">Konfiguracja w 4 krokach</div>
-        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorię</h4><p>Ustawienia - stwórz kategorię z mnożnikiem i prowizją</p></div></div>
+        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorie</h4><p>Ustawienia - stworz kategorie z mnoznikiem i prowizja</p></div></div>
         <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Wgraj proxy</h4><p>Ustawienia - wgraj plik .txt</p></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analizę</h4><p>Nowa analiza - wrzuć Excel z EAN-ami</p></div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdź wyniki</h4><p>Pobierz Excel lub przeglądaj metryki</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analize</h4><p>Nowa analiza - wrzuc Excel z EAN-ami</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdz wyniki</h4><p>Pobierz Excel lub przegladaj metryki</p></div></div>
       </div>
     </div>
 
@@ -636,48 +701,7 @@
       </div>
     </div>
 
-    <!-- GLOBAL ADMIN -->
-    <div class="tab" id="tab-global-admin">
-      <div class="page-title">Panel admina</div>
-
-      <!-- compact stat row -->
-      <div class="bento" style="grid-template-columns:repeat(4,1fr);">
-        <div class="stat purple"><div class="stat-label">Runy</div><div class="stat-val" id="ga-runs" style="font-size:24px;">-</div></div>
-        <div class="stat green"><div class="stat-label">EAN-y</div><div class="stat-val" id="ga-eans" style="font-size:24px;">-</div></div>
-        <div class="stat amber"><div class="stat-label">CAPTCHA</div><div class="stat-val" id="ga-captcha" style="font-size:24px;">-</div></div>
-        <div class="stat blue"><div class="stat-label">Proxy</div><div class="stat-val" id="ga-proxy" style="font-size:24px;">-</div></div>
-      </div>
-
-      <!-- accordion sections -->
-      <div class="acc" id="acc-runs">
-        <div class="acc-head" onclick="toggleAcc('acc-runs')">
-          <span>Wszystkie analizy</span>
-          <span class="acc-count" id="ga-runs-count">0</span>
-          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-        <div class="acc-body" id="ga-all-runs"><div class="hint">kliknij aby rozwinąć</div></div>
-      </div>
-
-      <div class="acc" id="acc-tenants">
-        <div class="acc-head" onclick="toggleAcc('acc-tenants')">
-          <span>Tenanci i użytkownicy</span>
-          <span class="acc-count" id="ga-tenants-count">0</span>
-          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-        <div class="acc-body" id="ga-tenant-list"><div class="hint">kliknij aby rozwinąć</div></div>
-      </div>
-
-      <div class="acc" id="acc-metrics">
-        <div class="acc-head" onclick="toggleAcc('acc-metrics')">
-          <span>Metryki systemowe</span>
-          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-        <div class="acc-body">
-          <div class="mg" id="ga-prometheus"></div>
-          <div class="btn-row"><button class="btn sm" onclick="loadGlobalAdmin()">Odśwież</button></div>
-        </div>
-      </div>
-    </div>
+    <!-- global-admin tab removed - merged into dashboard -->
 
   </div>
 
@@ -712,7 +736,7 @@
         document.querySelectorAll('.tab').forEach(p=>p.classList.remove('active'));
         $('tab-'+btn.dataset.tab)?.classList.add('active');
         const t=btn.dataset.tab;
-        if(t==='history')loadHistory();if(t==='market')loadMarket(0);if(t==='proxies')loadProxyPool();if(t==='settings')loadSettings();if(t==='account')showProfile();if(t==='usage')loadUsage();if(t==='admin')loadAdmin();if(t==='global-admin')loadGlobalAdmin();
+        if(t==='dashboard'){loadDashStats();loadGlobalAdmin();}if(t==='history')loadHistory();if(t==='market')loadMarket(0);if(t==='proxies')loadProxyPool();if(t==='settings')loadSettings();if(t==='account')showProfile();if(t==='usage')loadUsage();if(t==='admin')loadAdmin();
         $('sidebar')?.classList.remove('open');$('overlay')?.classList.remove('open');
       });
     });
@@ -744,9 +768,11 @@
       try{
         runs=await apiGet('/api/v1/analysis?limit=100')||[];
         const totalRuns=runs.length;
+        const activeRuns=runs.filter(r=>r.status==='running'||r.status==='pending').length;
         let totalEans=0;
         for(const r of runs)totalEans+=r.processed_products||0;
         setText($('ds-total'),totalRuns);
+        setText($('ds-active-sub'),`${activeRuns} aktywnych`);
         setText($('ds-eans'),totalEans.toLocaleString());
 
         // bar chart - last 24 runs
@@ -755,9 +781,12 @@
           const sizes=runs.slice(0,24).map(r=>r.processed_products||0).reverse();
           if(sizes.length){
             const max=Math.max(...sizes,1);
+            const avg=Math.round(sizes.reduce((a,b)=>a+b,0)/sizes.length);
+            setText($('ds-chart-avg'),`avg: ${avg} EAN`);
+            setText($('ds-ean-rate'),`~${avg} EAN/run`);
             chart.innerHTML=sizes.map((v,i)=>{
               const h=Math.max(6,Math.round(v/max*80));
-              const hue=260+i*4; // purple -> blue gradient
+              const hue=260+i*4;
               return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${v} EAN"></div>`;
             }).join('');
           }else{
@@ -780,7 +809,7 @@
               </div>`;
             }).join('');
           }else{
-            feed.innerHTML='<div style="color:var(--dim);font-size:13px;">brak aktywności</div>';
+            feed.innerHTML='<div style="color:var(--dim);font-size:13px;">brak aktywnosci</div>';
           }
         }
 
@@ -788,30 +817,25 @@
         else show($('onboarding'));
       }catch(e){show($('onboarding'));}
 
-      // proxy count
-      try{const h=await apiGet('/api/v1/proxy-pool/health');setText($('ds-proxy'),h.active??h.total??'-');}catch(e){setText($('ds-proxy'),'-');}
+      // proxy count + health
+      try{
+        const h=await apiGet('/api/v1/proxy-pool/health');
+        setText($('ds-proxy'),h.active??h.total??'-');
+        setText($('ds-proxy-health'),`health: ${h.avg_health_score??'-'}`);
+      }catch(e){setText($('ds-proxy'),'-');}
 
-      // system metrics from prometheus
+      // prometheus stats for top cards
       try{
         const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
         const get=(n)=>{const m=txt.match(new RegExp(n+'\\s+([\\d.]+)'));return m?Number(m[1]):0;};
-        setText($('ds-captcha'),get('jj_captcha_solves_total').toLocaleString());
-        // health dot
+        const captcha=get('jj_captcha_solves_total');
+        setText($('ds-captcha'),captcha.toLocaleString());
+        setText($('ds-captcha-cost'),`koszt: ~$${(captcha*0.002).toFixed(2)}`);
         const hd=$('dash-health-dot'),ht=$('dash-health-text');
         if(hd)hd.classList.add('ok');
-        if(ht)ht.textContent='wszystko działa';
-        // system metrics cards
-        const sm=$('dash-system-metrics');
-        if(sm)sm.innerHTML=[
-          mc('Aktywne runy',get('jj_active_runs'),'rgb(var(--blue))'),
-          mc('Avg latency',get('jj_avg_latency_ms')+'ms'),
-          mc('OK scrapes',get('jj_scrape_status_total{status="ok"}').toLocaleString(),'rgb(var(--green))'),
-          mc('Błędy',get('jj_scrape_status_total{status="error"}')+get('jj_scrape_status_total{status="network_error"}'),'rgb(var(--red))'),
-          mc('Proxy aktywne',get('jj_proxy_active'),'rgb(var(--green))'),
-          mc('CAPTCHA',get('jj_captcha_solves_total').toLocaleString(),'rgb(var(--amber))'),
-        ].join('');
+        if(ht)ht.textContent='system online';
       }catch(e){
-        const ht=$('dash-health-text');if(ht)ht.textContent='brak danych Prometheus';
+        const ht=$('dash-health-text');if(ht)ht.textContent='brak danych metrycznych';
       }
     }
 
@@ -1009,22 +1033,12 @@
       }
     }
 
-    // GLOBAL ADMIN
+    // GLOBAL ADMIN (now merged into dashboard)
     async function loadGlobalAdmin(){
-      // top stats
       try{
         const runs=await apiGet('/api/v1/analysis?limit=200');
         const cnt=runs?.length||0;
-        let eans=0;for(const r of (runs||[]))eans+=r.processed_products||0;
-        setText($('ga-runs'),cnt);
         setText($('ga-runs-count'),cnt);
-        setText($('ga-eans'),eans.toLocaleString());
-      }catch(e){}
-      try{
-        const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
-        const get=(n)=>{const m=txt.match(new RegExp(n+'\\s+([\\d.]+)'));return m?Number(m[1]):0;};
-        setText($('ga-captcha'),get('jj_captcha_solves_total').toLocaleString());
-        setText($('ga-proxy'),get('jj_proxy_active'));
       }catch(e){}
     }
 
@@ -1047,19 +1061,24 @@
     }
 
     async function loadAdminMetrics(){
+      // now loads into dash-system-metrics (merged into dashboard)
       try{
         const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
         const get=(n)=>{const m=txt.match(new RegExp(n+'\\s+([\\d.]+)'));return m?Number(m[1]):0;};
-        const pg=$('ga-prometheus');
+        const okScrapes=get('jj_scrape_status_total{status="ok"}');
+        const errScrapes=get('jj_scrape_status_total{status="error"}')+get('jj_scrape_status_total{status="network_error"}');
+        const totalScrapes=okScrapes+errScrapes;
+        const successPct=totalScrapes>0?((okScrapes/totalScrapes)*100).toFixed(1)+'%':'-';
+        const pg=$('dash-system-metrics');
         if(pg)pg.innerHTML=[
           mc('Aktywne runy',get('jj_active_runs'),'rgb(var(--blue))'),
-          mc('EAN-y łącznie',get('jj_eans_processed_total').toLocaleString()),
-          mc('CAPTCHA solves',get('jj_captcha_solves_total').toLocaleString(),'rgb(var(--amber))'),
+          mc('Success rate',successPct,'rgb(var(--green))'),
           mc('Avg latency',get('jj_avg_latency_ms')+'ms'),
-          mc('Proxy łącznie',get('jj_proxy_total')),
+          mc('OK scrapes',okScrapes.toLocaleString(),'rgb(var(--green))'),
+          mc('Bledy',errScrapes,'rgb(var(--red))'),
           mc('Proxy aktywne',get('jj_proxy_active'),'rgb(var(--green))'),
-          mc('OK scrapes',get('jj_scrape_status_total{status="ok"}'),'rgb(var(--green))'),
-          mc('Błędy',get('jj_scrape_status_total{status="error"}')+get('jj_scrape_status_total{status="network_error"}'),'rgb(var(--red))'),
+          mc('Proxy total',get('jj_proxy_total')),
+          mc('CAPTCHA',get('jj_captcha_solves_total').toLocaleString(),'rgb(var(--amber))'),
         ].join('');
       }catch(e){}
     }
