@@ -284,17 +284,20 @@
   <nav class="side" id="sidebar">
     <div class="side-head"><h1>Jolly Jesters</h1></div>
     <div class="side-nav" id="nav">
+      <!-- ADMIN / SYSTEM (top) -->
+      <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:6px 14px 4px;">System</div>
       <button data-tab="dashboard" class="active"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
+      <button data-tab="global-admin"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Zarządzanie</button>
+      <button data-tab="proxies"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-2.8-7.2l-2.8 2.8M7.6 16.4l-2.8 2.8m0-14.4l2.8 2.8m8.8 8.8l2.8 2.8"/></svg>Proxy pool</button>
+      <button data-tab="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Ustawienia</button>
+      <!-- TOOLS (bottom) -->
+      <div style="height:8px;border-bottom:1px solid var(--border);margin:6px 8px;"></div>
+      <div style="font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:6px 14px 4px;">Narzędzia</div>
       <button data-tab="new-run"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8m-4-4h8"/></svg>Nowa analiza</button>
       <button data-tab="history"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Historia</button>
       <button data-tab="market"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg>Market data</button>
-      <button data-tab="proxies"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-2.8-7.2l-2.8 2.8M7.6 16.4l-2.8 2.8m0-14.4l2.8 2.8m8.8 8.8l2.8 2.8"/></svg>Proxy pool</button>
-      <button data-tab="settings"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Ustawienia</button>
       <button data-tab="help"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>Pomoc</button>
-      <!-- global admin (single-tenant = admin) -->
-      <div id="nav-global-admin" style="height:8px;border-bottom:1px solid var(--border);margin:4px 8px;"></div>
-      <button data-tab="global-admin"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Panel admina</button>
-      <!-- multi-tenant account section -->
+      <!-- multi-tenant account section (hidden in single-tenant) -->
       <div id="nav-account-section" style="display:none;">
         <div style="height:8px;border-bottom:1px solid var(--border);margin:4px 8px;"></div>
         <button data-tab="account"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Konto</button>
@@ -316,67 +319,72 @@
 
   <div class="main">
 
-    <!-- DASHBOARD -->
+    <!-- DASHBOARD (admin overview) -->
     <div class="tab active" id="tab-dashboard">
       <div class="page-title">Dashboard</div>
 
-      <!-- bento grid -->
+      <!-- stat row -->
       <div class="bento">
-        <!-- 4 stat cards -->
         <div class="stat purple">
           <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent))" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg></div>
           <div class="stat-label">Analizy</div>
           <div class="stat-val" id="ds-total">-</div>
-          <div class="stat-sub">łącznie runów</div>
         </div>
         <div class="stat green">
           <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--green))" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>
           <div class="stat-label">EAN-y</div>
           <div class="stat-val" id="ds-eans">-</div>
-          <div class="stat-sub">produktów sprawdzonych</div>
         </div>
         <div class="stat amber">
           <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--amber))" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
           <div class="stat-label">CAPTCHA</div>
           <div class="stat-val" id="ds-captcha">-</div>
-          <div class="stat-sub">rozwiązane</div>
         </div>
         <div class="stat blue">
           <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="rgb(var(--blue))" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></div>
           <div class="stat-label">Proxy</div>
           <div class="stat-val" id="ds-proxy">-</div>
-          <div class="stat-sub">aktywnych w puli</div>
         </div>
 
-        <!-- chart - spans 2 cols -->
+        <!-- chart + activity -->
         <div class="chart-wrap bento-wide">
-          <div class="chart-title">Rozmiar ostatnich analiz (EAN-y na run)</div>
+          <div class="chart-title">Ostatnie analizy (EAN-ów na run)</div>
           <div class="chart" id="dash-chart"></div>
         </div>
-
-        <!-- activity feed - spans 2 cols -->
         <div class="activity bento-wide">
           <div class="activity-title">Ostatnia aktywność</div>
           <div id="dash-activity"><div style="color:var(--dim);font-size:13px;">ładowanie...</div></div>
         </div>
       </div>
 
-      <!-- onboarding -->
-      <div class="card" id="onboarding">
-        <div class="card-label">Pierwsze kroki</div>
-        <div class="card-title">Witaj w Jolly Jesters</div>
-        <div class="card-desc">Konfiguracja w 4 krokach - potem możesz analizować opłacalność produktów</div>
-        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorię</h4><p>Ustawienia - stwórz kategorię z mnożnikiem i prowizją Allegro</p></div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Wgraj proxy</h4><p>Ustawienia - wgraj plik .txt z listą proxy</p></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analizę</h4><p>Nowa analiza - wrzuć Excel z EAN-ami i cenami zakupu</p></div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdź wyniki</h4><p>Pobierz Excel lub przeglądaj metryki w podglądzie</p></div></div>
-      </div>
-
       <!-- active runs -->
       <div class="card">
-        <div class="card-label">Aktywne analizy</div>
-        <div id="dash-empty" class="sbox">Brak aktywnych analiz - uruchom nową z zakładki "Nowa analiza"</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-label" style="margin:0;">Aktywne analizy</div>
+          <button class="btn sm" onclick="document.querySelector('[data-tab=new-run]')?.click()">+ Nowa analiza</button>
+        </div>
+        <div id="dash-empty" class="sbox" style="text-align:center;">Brak aktywnych analiz</div>
         <div id="dash-active"></div>
+      </div>
+
+      <!-- system health -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-label" style="margin:0;">System</div>
+          <div class="status" style="font-size:12px;"><span class="dot" id="dash-health-dot"></span><span id="dash-health-text" style="color:var(--dim);">sprawdzanie...</span></div>
+        </div>
+        <div class="mg" id="dash-system-metrics"></div>
+      </div>
+
+      <!-- onboarding (only first time) -->
+      <div class="card" id="onboarding" style="display:none;">
+        <div class="card-label">Pierwsze kroki</div>
+        <div class="card-title">Witaj w Jolly Jesters</div>
+        <div class="card-desc">Konfiguracja w 4 krokach</div>
+        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorię</h4><p>Ustawienia - stwórz kategorię z mnożnikiem i prowizją</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Wgraj proxy</h4><p>Ustawienia - wgraj plik .txt</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analizę</h4><p>Nowa analiza - wrzuć Excel z EAN-ami</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdź wyniki</h4><p>Pobierz Excel lub przeglądaj metryki</p></div></div>
       </div>
     </div>
 
@@ -777,16 +785,34 @@
         }
 
         if(totalRuns>0)hide($('onboarding'));
-      }catch(e){}
+        else show($('onboarding'));
+      }catch(e){show($('onboarding'));}
 
       // proxy count
       try{const h=await apiGet('/api/v1/proxy-pool/health');setText($('ds-proxy'),h.active??h.total??'-');}catch(e){setText($('ds-proxy'),'-');}
-      // captcha from prometheus
+
+      // system metrics from prometheus
       try{
         const txt=await fetch('/api/v1/metrics/prometheus',{credentials:'include'}).then(r=>r.text());
-        const m=txt.match(/jj_captcha_solves_total (\d+)/);
-        if(m)setText($('ds-captcha'),Number(m[1]).toLocaleString());
-      }catch(e){}
+        const get=(n)=>{const m=txt.match(new RegExp(n+'\\s+([\\d.]+)'));return m?Number(m[1]):0;};
+        setText($('ds-captcha'),get('jj_captcha_solves_total').toLocaleString());
+        // health dot
+        const hd=$('dash-health-dot'),ht=$('dash-health-text');
+        if(hd)hd.classList.add('ok');
+        if(ht)ht.textContent='wszystko działa';
+        // system metrics cards
+        const sm=$('dash-system-metrics');
+        if(sm)sm.innerHTML=[
+          mc('Aktywne runy',get('jj_active_runs'),'rgb(var(--blue))'),
+          mc('Avg latency',get('jj_avg_latency_ms')+'ms'),
+          mc('OK scrapes',get('jj_scrape_status_total{status="ok"}').toLocaleString(),'rgb(var(--green))'),
+          mc('Błędy',get('jj_scrape_status_total{status="error"}')+get('jj_scrape_status_total{status="network_error"}'),'rgb(var(--red))'),
+          mc('Proxy aktywne',get('jj_proxy_active'),'rgb(var(--green))'),
+          mc('CAPTCHA',get('jj_captcha_solves_total').toLocaleString(),'rgb(var(--amber))'),
+        ].join('');
+      }catch(e){
+        const ht=$('dash-health-text');if(ht)ht.textContent='brak danych Prometheus';
+      }
     }
 
     async function pollStatus(){
@@ -1039,15 +1065,10 @@
     }
 
     // restore session from localStorage (token set by login page)
-    // single-tenant: show global admin, hide account section
-    // multi-tenant (API token): show account section, hide global admin
-    if(apiToken){
-      showProfile();
-      hide($('nav-global-admin'));
-      hide(document.querySelector('[data-tab="global-admin"]'));
-    }else{
-      hide($('nav-account-section'));
-    }
+    // single-tenant: full admin access, hide multi-tenant sections
+    // multi-tenant (API token): show account sections
+    if(apiToken){showProfile();}
+    else{hide($('nav-account-section'));}
 
     let sseConn=null;
     function connectSSE(id){if(sseConn){sseConn.close();sseConn=null;}try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);es.addEventListener('progress',()=>pollActive());es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();loadDashStats();});es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});es.onerror=()=>{es.close();sseConn=null;};sseConn=es;}catch(e){}}
