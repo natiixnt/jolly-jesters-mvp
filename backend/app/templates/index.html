@@ -902,8 +902,23 @@
     $('db-run-btn')?.addEventListener('click',async()=>{const btn=$('db-run-btn');btn.disabled=true;btn.textContent='...';hide($('db-error'));try{const p={};const d=Number($('db-last-days')?.value);if(d)p.last_days=d;const e=$('db-ean-contains')?.value;if(e)p.ean_contains=e;const c=$('category-select')?.value;if(c)p.category_id=c;await apiPost('/api/v1/analysis/run_from_db',p);document.querySelector('#nav button[data-tab="dashboard"]')?.click();await pollActive();}catch(e){show($('db-error'));setText($('db-error'),'błąd');}finally{btn.disabled=false;btn.textContent='Start z bazy';}});
 
     // FUZZY SEARCH
+    // normalize: strip diacritics + punctuation, lowercase
+    function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,'');}
     function levenshtein(a,b){if(!a.length)return b.length;if(!b.length)return a.length;const m=[];for(let i=0;i<=b.length;i++)m[i]=[i];for(let j=0;j<=a.length;j++)m[0][j]=j;for(let i=1;i<=b.length;i++)for(let j=1;j<=a.length;j++)m[i][j]=b[i-1]===a[j-1]?m[i-1][j-1]:Math.min(m[i-1][j-1]+1,m[i][j-1]+1,m[i-1][j]+1);return m[b.length][a.length];}
-    function fuzzyMatch(q,text){q=q.toLowerCase().replace(/[^a-ząćęłńóśźż0-9\s]/g,'');text=text.toLowerCase();const words=q.split(/\s+/).filter(Boolean);return words.every(w=>{if(text.includes(w))return true;return text.split(/\s+/).some(t=>levenshtein(w,t)<=Math.max(1,Math.floor(w.length/3)));});}
+    function fuzzyMatch(q,text){
+      const nq=norm(q),nt=norm(text);
+      // direct substring
+      if(nt.includes(nq))return true;
+      const words=nq.split(/\s+/).filter(Boolean);
+      const twords=nt.split(/\s+/).filter(Boolean);
+      return words.every(w=>{
+        // substring in any text word
+        if(twords.some(t=>t.includes(w)||w.includes(t)))return true;
+        // levenshtein with generous tolerance (ceil(len/2.5), min 2)
+        const tol=Math.max(2,Math.ceil(w.length/2.5));
+        return twords.some(t=>levenshtein(w,t)<=tol);
+      });
+    }
     $('help-search')?.addEventListener('input',e=>{const q=e.target.value.trim();document.querySelectorAll('.help-item').forEach(s=>{s.style.display=(!q||fuzzyMatch(q,(s.textContent+' '+(s.dataset.help||''))))?'':'none';});});
 
     // ACCOUNT / AUTH - reads token set by login page
