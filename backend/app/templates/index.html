@@ -86,11 +86,10 @@
     /* CARD */
     .card{
       border:1px solid var(--border); border-radius:var(--r2); padding:24px; margin-bottom:16px;
-      background:linear-gradient(180deg,var(--bg2),var(--bg));
+      background:var(--bg);
       position:relative; overflow:hidden;
     }
-    .card::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.25),transparent);}
-    .card::after{content:''; position:absolute; top:0; left:0; right:0; height:40%; background:linear-gradient(180deg,rgba(var(--accent),.03),transparent); pointer-events:none; border-radius:var(--r2) var(--r2) 0 0;}
+    .card::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.2),transparent);}
     .card-label{font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(var(--accent),.7); margin-bottom:12px;}
     .card-title{font-size:17px; font-weight:600; letter-spacing:-.02em; margin-bottom:4px;}
     .card-desc{font-size:13px; color:var(--muted); margin-bottom:16px;}
@@ -160,7 +159,7 @@
     .dz-sub{font-size:12px; color:var(--dim);}
 
     /* STATUS BOX */
-    .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .sbox{border:1px solid var(--border); border-radius:var(--r); padding:14px; font-size:13px; color:var(--muted); margin-bottom:8px; background:var(--bg); position:relative; overflow:hidden;}
     .sbox::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.1),transparent);}
 
     /* BENTO DASHBOARD */
@@ -193,7 +192,7 @@
     .stat-change.down{background:rgba(var(--red),.1); color:rgb(var(--red));}
 
     /* CHART */
-    .chart-wrap{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .chart-wrap{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:var(--bg); position:relative; overflow:hidden;}
     .chart-wrap::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.25),transparent);}
     .chart-title{font-size:12px; font-weight:500; color:var(--muted); margin-bottom:16px;}
     .chart{display:flex; align-items:flex-end; gap:4px; height:80px;}
@@ -201,7 +200,7 @@
     .chart-bar:hover{filter:brightness(1.3);}
 
     /* ACTIVITY FEED */
-    .activity{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .activity{border:1px solid var(--border); border-radius:var(--r2); padding:20px; background:var(--bg); position:relative; overflow:hidden;}
     .activity::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--green),.25),transparent);}
     .activity-title{font-size:12px; font-weight:500; color:var(--muted); margin-bottom:12px;}
     .activity-item{display:flex; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border2); font-size:13px;}
@@ -210,7 +209,7 @@
 
     /* METRIC GRID */
     .mg{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin-bottom:16px;}
-    .mc{border:1px solid var(--border); border-radius:var(--r); padding:12px; background:linear-gradient(180deg,var(--bg2),var(--bg)); position:relative; overflow:hidden;}
+    .mc{border:1px solid var(--border); border-radius:var(--r); padding:12px; background:var(--bg); position:relative; overflow:hidden;}
     .mc::before{content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(var(--accent),.1),transparent);}
     .mc-label{font-size:10px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.06em;}
     .mc-val{font-size:18px; font-weight:600; margin-top:4px;}
@@ -260,7 +259,7 @@
     @media(max-width:500px){.cat-row{grid-template-columns:1fr;}}
 
     /* ACCORDION */
-    .acc{border:1px solid var(--border);border-radius:var(--r2);margin-bottom:10px;overflow:hidden;background:linear-gradient(180deg,var(--bg2),var(--bg));position:relative;}
+    .acc{border:1px solid var(--border);border-radius:var(--r2);margin-bottom:10px;overflow:hidden;background:var(--bg);position:relative;}
     .acc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(var(--accent),.15),transparent);z-index:1;}
     .acc-head{
       padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;
