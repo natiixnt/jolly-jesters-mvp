@@ -16,3 +16,4 @@ allegro/allegro.pl-scraper-main/output/
 .cloudflared/
 **/cloudflared*.log
 tools/cloudflared*
+*.db
