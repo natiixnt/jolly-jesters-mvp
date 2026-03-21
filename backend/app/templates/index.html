@@ -337,7 +337,7 @@
     <!-- DASHBOARD -->
     <div class="tab active" id="tab-dashboard">
 
-      <!-- header row: title + status + actions -->
+      <!-- header row -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
         <div>
           <div class="page-title" style="margin:0;">Dashboard</div>
@@ -345,8 +345,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <div class="status" style="font-size:12px;gap:6px;"><span class="dot" id="dash-health-dot"></span><span id="dash-health-text" style="color:var(--dim);">sprawdzanie...</span></div>
-          <button class="btn sm ghost" onclick="loadDashStats();loadGlobalAdmin();">Odswiez</button>
-          <button class="btn sm" onclick="document.querySelector('[data-tab=new-run]')?.click()">+ Nowa analiza</button>
+          <button class="btn sm" onclick="switchTab('new-run')">+ Nowa analiza</button>
         </div>
       </div>
 
@@ -495,10 +494,7 @@
 
     <!-- PROXY POOL -->
     <div class="tab" id="tab-proxies">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
-        <div class="page-title" style="margin:0;">Proxy pool</div>
-        <button class="btn sm ghost" id="proxy-refresh">Odswiez</button>
-      </div>
+      <div class="page-title">Proxy pool</div>
       <!-- upload -->
       <div class="card">
         <div class="card-label">Dodaj proxy</div>
@@ -936,7 +932,7 @@
 
     async function loadProxyPool(){try{const h=await apiGet('/api/v1/proxy-pool/health');$('proxy-health').innerHTML=[mc('Total',h.total),mc('Aktywne',h.active,'rgb(var(--green))'),mc('Kwarantanna',h.quarantined,'rgb(var(--red))'),mc('Dostępne',h.available,'rgb(var(--blue))'),mc('Health',h.avg_health_score),mc('Success',h.success_rate!=null?`${(h.success_rate*100).toFixed(0)}%`:'-')].join('');}catch(e){setHtml($('proxy-health'),'<div class="hint">brak danych</div>');}
     try{const list=await apiGet('/api/v1/proxy-pool?active_only=false');if(!list?.length){setHtml($('proxy-list'),'<div class="sbox">brak</div>');return;}setHtml($('proxy-list'),`<table class="tbl"><thead><tr><th>ID</th><th>Label</th><th>Health</th><th>OK/Fail</th><th>Q</th></tr></thead><tbody>${list.slice(0,100).map(p=>`<tr><td>${p.id}</td><td>${p.label||'-'}</td><td style="color:${p.health_score>.7?'rgb(var(--green))':p.health_score>.3?'rgb(var(--amber))':'rgb(var(--red))'}">${p.health_score}</td><td>${p.success_count}/${p.fail_count}</td><td>${p.quarantine_until&&new Date(p.quarantine_until)>new Date()?'tak':'-'}</td></tr>`).join('')}</tbody></table>`);}catch(e){}}
-    $('proxy-refresh')?.addEventListener('click',loadProxyPool);
+    // proxy-refresh button removed - auto-refresh handles it
     // proxy pool dropzone
     const ppDz=$('pp-dropzone'),ppInp=$('pp-file');
     ppDz?.addEventListener('click',()=>ppInp?.click());
@@ -1199,9 +1195,18 @@
     let sseConn=null;
     function connectSSE(id){if(sseConn){sseConn.close();sseConn=null;}try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);es.addEventListener('progress',()=>pollActive());es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();loadDashStats();});es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});es.onerror=()=>{es.close();sseConn=null;};sseConn=es;}catch(e){}}
 
+    // auto-refresh active tab every 5s
+    function refreshActiveTab(){
+      const t=localStorage.getItem('jj_tab')||'dashboard';
+      if(t==='dashboard'){loadDashStats();loadGlobalAdmin();pollActive();}
+      else if(t==='proxies')loadProxyPool();
+      else if(t==='history')loadHistory();
+    }
+
     (async()=>{
-      await pollStatus();await loadCategories();await pollActive();await loadDashStats();
-      setInterval(pollStatus,5000);setInterval(pollActive,3000);
+      await pollStatus();await loadCategories();await pollActive();await loadDashStats();loadGlobalAdmin();
+      setInterval(pollStatus,10000);
+      setInterval(refreshActiveTab,5000);
       try{const resp=await apiGet('/api/v1/analysis/active');const runs=resp?.runs||resp||[];if(runs.length>0)connectSSE(runs[0].id);}catch(e){}
     })();
   </script>
