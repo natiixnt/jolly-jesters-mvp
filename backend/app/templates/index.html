@@ -524,9 +524,9 @@
         <span class="hint" id="pp-upload-status" style="margin-top:8px;display:block;"></span>
       </div>
       <!-- health -->
-      <div class="card"><div class="card-label">Health</div><div class="mg" id="proxy-health"></div></div>
+      <div class="card"><div class="card-label">Health</div><div class="mg" id="proxy-health"><div class="hint">brak danych - wgraj proxy</div></div></div>
       <!-- list -->
-      <div class="card"><div class="card-label">Lista</div><div id="proxy-list" style="overflow:auto;"></div></div>
+      <div class="card"><div class="card-label">Lista</div><div id="proxy-list" style="overflow:auto;"><div class="sbox" style="text-align:center;padding:24px;"><div style="font-weight:500;">Brak proxy</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Wgraj plik lub wklej proxy powyzej</div></div></div></div>
     </div>
 
     <!-- USTAWIENIA -->
@@ -939,29 +939,48 @@
     ppInp?.addEventListener('change',()=>{setText($('pp-file-name'),ppInp?.files?.[0]?.name||'1 proxy na linie');});
     $('pp-upload-btn')?.addEventListener('click',async()=>{
       const f=ppInp?.files?.[0];if(!f){setText($('pp-upload-status'),'wybierz plik');return;}
+      // read and validate file contents before upload
+      const txt=await f.text();
+      const v=validateProxyLines(txt);
+      if(!v.ok){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),v.msg);return;}
+      $('pp-upload-status').style.color='';
       const fd=new FormData();fd.append('file',f);
       try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
         if(!r.ok)throw new Error(r.status);
         const d=await r.json();
-        setText($('pp-upload-status'),`wgrano ${d.count||d.imported||''} proxy`);
+        setText($('pp-upload-status'),`wgrano ${d.count||d.imported||v.lines.length} proxy`);
         setText($('pp-file-name'),'1 proxy na linie');
         ppInp.value='';
         loadProxyPool();
       }catch(e){setText($('pp-upload-status'),'blad uploadu');}
     });
+    // proxy format validation: host:port, host:port:user:pass, http://..., socks5://...
+    function validateProxyLines(txt){
+      const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);
+      if(!lines.length)return{ok:false,msg:'wklej przynajmniej 1 proxy'};
+      const bad=[];
+      const proxyRe=/^(https?:\/\/|socks[45]:\/\/)?([^:\s]+):(\d+)(:[^:\s]+:[^:\s]+)?$/;
+      for(let i=0;i<lines.length;i++){
+        if(!proxyRe.test(lines[i]))bad.push(i+1);
+      }
+      if(bad.length)return{ok:false,msg:`bledny format w liniach: ${bad.slice(0,5).join(', ')}${bad.length>5?' (+'+(bad.length-5)+')':''}. Poprawny: host:port lub host:port:user:pass`,lines};
+      return{ok:true,lines};
+    }
     $('pp-paste-btn')?.addEventListener('click',async()=>{
       const txt=$('pp-paste')?.value?.trim();
       if(!txt){setText($('pp-upload-status'),'wklej proxy');return;}
+      const v=validateProxyLines(txt);
+      if(!v.ok){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),v.msg);return;}
+      $('pp-upload-status').style.color='';
       const blob=new Blob([txt],{type:'text/plain'});
       const fd=new FormData();fd.append('file',new File([blob],'pasted.txt',{type:'text/plain'}));
       try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
         if(!r.ok)throw new Error(r.status);
         const d=await r.json();
-        const lines=txt.split('\n').filter(l=>l.trim()).length;
-        setText($('pp-upload-status'),`dodano ${d.count||d.imported||lines} proxy`);
+        setText($('pp-upload-status'),`dodano ${d.count||d.imported||v.lines.length} proxy`);
         $('pp-paste').value='';
         loadProxyPool();
-      }catch(e){setText($('pp-upload-status'),'blad');}
+      }catch(e){setText($('pp-upload-status'),'blad uploadu');}
     });
 
     async function loadSettings(){try{const s=await apiGet('/api/v1/settings/');if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;}catch(e){}loadCategories();loadProxyStatus();loadCurrencies();}
