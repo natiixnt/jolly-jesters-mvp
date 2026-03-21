@@ -743,17 +743,24 @@
     async function apiPatch(u,b){const r=await fetch(u,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
 
     // NAV
+    function switchTab(tabName){
+      document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(p=>p.classList.remove('active'));
+      const btn=document.querySelector(`#nav button[data-tab="${tabName}"]`);
+      if(btn)btn.classList.add('active');
+      $('tab-'+tabName)?.classList.add('active');
+      localStorage.setItem('jj_tab',tabName);
+      if(tabName==='dashboard'){loadDashStats();loadGlobalAdmin();}if(tabName==='history')loadHistory();if(tabName==='market')loadMarket(0);if(tabName==='proxies')loadProxyPool();if(tabName==='settings')loadSettings();if(tabName==='account')showProfile();if(tabName==='usage')loadUsage();if(tabName==='admin')loadAdmin();
+    }
     document.querySelectorAll('#nav button').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.tab').forEach(p=>p.classList.remove('active'));
-        $('tab-'+btn.dataset.tab)?.classList.add('active');
-        const t=btn.dataset.tab;
-        if(t==='dashboard'){loadDashStats();loadGlobalAdmin();}if(t==='history')loadHistory();if(t==='market')loadMarket(0);if(t==='proxies')loadProxyPool();if(t==='settings')loadSettings();if(t==='account')showProfile();if(t==='usage')loadUsage();if(t==='admin')loadAdmin();
+        switchTab(btn.dataset.tab);
         $('sidebar')?.classList.remove('open');$('overlay')?.classList.remove('open');
       });
     });
+    // restore last tab on page load
+    const savedTab=localStorage.getItem('jj_tab');
+    if(savedTab&&document.querySelector(`#nav button[data-tab="${savedTab}"]`)){switchTab(savedTab);}
     $('hamburger')?.addEventListener('click',()=>{$('sidebar')?.classList.toggle('open');$('overlay')?.classList.toggle('open');});
     $('overlay')?.addEventListener('click',()=>{$('sidebar')?.classList.remove('open');$('overlay')?.classList.remove('open');});
 
