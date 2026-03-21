@@ -501,17 +501,27 @@
       </div>
       <!-- upload -->
       <div class="card">
-        <div class="card-label">Wgraj proxy</div>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <div class="dz" id="pp-dropzone" style="flex:1;min-width:200px;padding:16px;cursor:pointer;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" style="margin-bottom:2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div class="dz-title" style="font-size:12px;">Kliknij lub przeciagnij .txt</div>
-            <div class="dz-sub" id="pp-file-name" style="font-size:11px;">1 proxy na linie</div>
-            <input id="pp-file" type="file" accept=".txt" hidden />
+        <div class="card-label">Dodaj proxy</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <!-- file upload -->
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;">Z pliku</div>
+            <div class="dz" id="pp-dropzone" style="padding:16px;cursor:pointer;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" style="margin-bottom:2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <div class="dz-title" style="font-size:12px;">Kliknij lub przeciagnij .txt</div>
+              <div class="dz-sub" id="pp-file-name" style="font-size:11px;">1 proxy na linie</div>
+              <input id="pp-file" type="file" accept=".txt" hidden />
+            </div>
+            <div class="btn-row"><button class="btn primary" id="pp-upload-btn">Wgraj plik</button></div>
           </div>
-          <button class="btn primary" id="pp-upload-btn">Wgraj</button>
-          <span class="hint" id="pp-upload-status" style="margin:0;"></span>
+          <!-- paste -->
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;">Wklej recznie</div>
+            <textarea class="inp" id="pp-paste" rows="5" placeholder="host:port:user:pass&#10;host:port:user:pass&#10;..." style="height:auto;resize:vertical;padding:10px;font-family:ui-monospace,monospace;font-size:11px;"></textarea>
+            <div class="btn-row"><button class="btn primary" id="pp-paste-btn">Dodaj wklejone</button></div>
+          </div>
         </div>
+        <span class="hint" id="pp-upload-status" style="margin-top:8px;display:block;"></span>
       </div>
       <!-- health -->
       <div class="card"><div class="card-label">Health</div><div class="mg" id="proxy-health"></div></div>
@@ -933,11 +943,25 @@
       try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
         if(!r.ok)throw new Error(r.status);
         const d=await r.json();
-        setText($('pp-upload-status'),`wgrano ${d.count||d.imported||''}proxy`);
+        setText($('pp-upload-status'),`wgrano ${d.count||d.imported||''} proxy`);
         setText($('pp-file-name'),'1 proxy na linie');
         ppInp.value='';
         loadProxyPool();
       }catch(e){setText($('pp-upload-status'),'blad uploadu');}
+    });
+    $('pp-paste-btn')?.addEventListener('click',async()=>{
+      const txt=$('pp-paste')?.value?.trim();
+      if(!txt){setText($('pp-upload-status'),'wklej proxy');return;}
+      const blob=new Blob([txt],{type:'text/plain'});
+      const fd=new FormData();fd.append('file',new File([blob],'pasted.txt',{type:'text/plain'}));
+      try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
+        if(!r.ok)throw new Error(r.status);
+        const d=await r.json();
+        const lines=txt.split('\n').filter(l=>l.trim()).length;
+        setText($('pp-upload-status'),`dodano ${d.count||d.imported||lines} proxy`);
+        $('pp-paste').value='';
+        loadProxyPool();
+      }catch(e){setText($('pp-upload-status'),'blad');}
     });
 
     async function loadSettings(){try{const s=await apiGet('/api/v1/settings/');if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;}catch(e){}loadCategories();loadProxyStatus();loadCurrencies();}
