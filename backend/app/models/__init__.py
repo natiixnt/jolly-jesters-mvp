@@ -14,3 +14,8 @@ from app.models.network_proxy import NetworkProxy  # noqa: F401
 from app.models.tenant import Tenant  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.usage_record import UsageRecord  # noqa: F401
+from app.models.monitored_ean import MonitoredEAN  # noqa: F401
+from app.models.alert_rule import AlertRule  # noqa: F401
+from app.models.alert_event import AlertEvent  # noqa: F401
+from app.models.notification import Notification  # noqa: F401
+from app.models.api_key import APIKey  # noqa: F401

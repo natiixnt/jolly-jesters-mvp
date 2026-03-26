@@ -20,6 +20,12 @@ class Tenant(Base):
     monthly_ean_quota = Column(Integer, nullable=False, server_default="1000", default=1000)
     max_concurrent_runs = Column(Integer, nullable=False, server_default="3", default=3)
 
+    # SLA / feature gates
+    refresh_interval_minutes = Column(Integer, nullable=False, server_default="60", default=60)
+    max_monitored_eans = Column(Integer, nullable=False, server_default="100", default=100)
+    max_alert_rules = Column(Integer, nullable=False, server_default="10", default=10)
+    api_access = Column(Boolean, nullable=False, server_default="false", default=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

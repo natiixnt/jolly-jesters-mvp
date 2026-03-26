@@ -311,6 +311,9 @@
       <button data-tab="new-run"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8m-4-4h8"/></svg>Nowa analiza</button>
       <button data-tab="history"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Historia</button>
       <button data-tab="market"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 4 5-8"/></svg>Market data</button>
+      <button data-tab="monitoring"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Monitoring</button>
+      <button data-tab="alerts"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alerty <span class="badge info" id="alert-badge" style="display:none;margin-left:auto;">0</span></button>
+      <button data-tab="api-keys"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Klucze API</button>
       <button data-tab="help"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>Pomoc</button>
       <!-- multi-tenant account section (hidden in single-tenant) -->
       <div id="nav-account-section" style="display:none;">
@@ -598,6 +601,135 @@
         <div class="help-item" data-help="kategoria prowizja mnoznik"><h4>Kategorie</h4><ul><li><strong>Mnożnik</strong> - min marża (np. 1.25 = min 25% ROI)</li><li><strong>Prowizja</strong> - % prowizji Allegro</li><li>Każda kategoria może mieć inne parametry</li></ul></div>
         <div class="help-item" data-help="api eksport excel csv prometheus"><h4>API i eksport</h4><ul><li><strong>Excel</strong> - pełne wyniki z metrykami</li><li><strong>CSV</strong> - podsumowanie runu</li><li><strong>REST API</strong> - /api/v1/</li><li><strong>Prometheus</strong> - /api/v1/metrics/prometheus</li></ul></div>
         <div class="help-item" data-help="blad problem nie dziala troubleshooting"><h4>Rozwiązywanie problemów</h4><ul><li><strong>"brak proxy"</strong> - wgraj plik w ustawieniach</li><li><strong>"brak kategorii"</strong> - dodaj w ustawieniach</li><li><strong>Dużo blocked</strong> - sprawdź proxy pool</li><li><strong>Run stopped</strong> - stop-loss wykrył problem</li><li><strong>Limit analiz</strong> - max 3 jednocześnie</li></ul></div>
+      </div>
+    </div>
+
+    <!-- MONITORING -->
+    <div class="tab" id="tab-monitoring">
+      <div class="page-title">Monitoring EAN</div>
+
+      <!-- add EAN form -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Dodaj EAN do monitorowania</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <input class="inp" id="mon-ean" type="text" placeholder="Wpisz kod EAN..." style="flex:1;min-width:200px;" />
+          <input class="inp" id="mon-label" type="text" placeholder="Etykieta (opcjonalna)" style="flex:1;min-width:150px;" />
+          <select class="inp" id="mon-interval" style="width:auto;">
+            <option value="15">Co 15 min</option>
+            <option value="30">Co 30 min</option>
+            <option value="60" selected>Co 1h</option>
+            <option value="360">Co 6h</option>
+            <option value="1440">Co 24h</option>
+          </select>
+          <button class="btn primary" id="mon-add-btn">Dodaj</button>
+        </div>
+        <div class="form-error" id="mon-error" style="display:none;margin-top:8px;"></div>
+      </div>
+
+      <!-- bulk paste -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Bulk - wklej listę EAN (1 na linię)</div>
+        <textarea class="inp" id="mon-bulk" rows="3" placeholder="5901234567890&#10;5909876543210&#10;..." style="resize:vertical;"></textarea>
+        <div class="btn-row" style="margin-top:8px;"><button class="btn outline" id="mon-bulk-btn">Dodaj wszystkie</button></div>
+      </div>
+
+      <!-- watched list -->
+      <div class="card">
+        <div class="card-label">Monitorowane EAN-y <span class="badge info" id="mon-count">0</span></div>
+        <div id="mon-list" style="max-height:500px;overflow:auto;">
+          <div class="empty-state"><div class="empty-icon">👁</div><div class="empty-text">Brak monitorowanych EAN-ow</div><div class="empty-hint">Dodaj EAN powyzej, a system bedzie automatycznie sprawdzal ceny</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTY -->
+    <div class="tab" id="tab-alerts">
+      <div class="page-title">Alerty cenowe</div>
+
+      <!-- create rule -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Nowa reguła alertu</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+          <div>
+            <div class="stat-label" style="margin-bottom:4px;">Nazwa</div>
+            <input class="inp" id="alert-name" type="text" placeholder="np. Tani iPhone" />
+          </div>
+          <div>
+            <div class="stat-label" style="margin-bottom:4px;">Warunek</div>
+            <select class="inp" id="alert-condition">
+              <option value="price_below">Cena spadla ponizej</option>
+              <option value="price_above">Cena wzrosla powyzej</option>
+              <option value="price_drop_pct">Spadek ceny o %</option>
+              <option value="out_of_stock">Produkt niedostepny</option>
+            </select>
+          </div>
+          <div>
+            <div class="stat-label" style="margin-bottom:4px;">Prog (PLN lub %)</div>
+            <input class="inp" id="alert-threshold" type="number" step="0.01" placeholder="np. 100.00" />
+          </div>
+          <button class="btn primary" id="alert-add-btn" style="height:40px;">Dodaj</button>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="stat-label" style="margin-bottom:4px;">EAN (opcjonalnie - puste = wszystkie)</div>
+          <input class="inp" id="alert-ean" type="text" placeholder="Zostaw puste dla wszystkich EAN-ow" />
+        </div>
+        <div class="form-error" id="alert-error" style="display:none;margin-top:8px;"></div>
+      </div>
+
+      <!-- active rules -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Aktywne reguły <span class="badge info" id="rules-count">0</span></div>
+        <div id="rules-list">
+          <div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-text">Brak regul alertow</div><div class="empty-hint">Dodaj regule powyzej, a system powiadomi Cie o zmianach cen</div></div>
+        </div>
+      </div>
+
+      <!-- recent events -->
+      <div class="card">
+        <div class="card-label">Ostatnie zdarzenia <span class="badge info" id="events-count">0</span></div>
+        <div id="events-list" style="max-height:400px;overflow:auto;">
+          <div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">Brak zdarzen</div><div class="empty-hint">Zdarzenia pojawia sie gdy warunek alertu zostanie spelniony</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KLUCZE API -->
+    <div class="tab" id="tab-api-keys">
+      <div class="page-title">Klucze API (B2B)</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Nowy klucz</div>
+        <div style="display:flex;gap:10px;">
+          <input class="inp" id="apikey-name" type="text" placeholder="Nazwa klucza (np. ERP Integration)" style="flex:1;" />
+          <button class="btn primary" id="apikey-create-btn">Wygeneruj</button>
+        </div>
+        <div id="apikey-new-key" style="display:none;margin-top:12px;padding:12px;background:rgba(var(--green),.08);border:1px solid rgba(var(--green),.2);border-radius:var(--r);">
+          <div style="font-size:12px;font-weight:600;color:rgb(var(--green));margin-bottom:4px;">Klucz wygenerowany - skopiuj go teraz, nie bedzie widoczny ponownie!</div>
+          <code style="font-size:13px;word-break:break-all;user-select:all;" id="apikey-raw"></code>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Twoje klucze</div>
+        <div id="apikeys-list">
+          <div class="empty-state"><div class="empty-icon">🔑</div><div class="empty-text">Brak kluczy API</div><div class="empty-hint">Wygeneruj klucz powyzej do integracji z API</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="card-label">Dokumentacja API</div>
+        <div style="font-size:13px;color:var(--muted);">
+          <p>Uzyj klucza w naglowku: <code>Authorization: Bearer jj_xxx...</code></p>
+          <p style="margin-top:8px;">Dostepne endpointy:</p>
+          <ul style="margin:8px 0 0 16px;">
+            <li><code>GET /api/v1/price-history/{ean}</code> - historia cen</li>
+            <li><code>GET /api/v1/market-data?ean=...</code> - aktualne dane</li>
+            <li><code>POST /api/v1/monitoring/watch</code> - dodaj EAN do monitoringu</li>
+            <li><code>GET /api/v1/monitoring/</code> - lista monitorowanych</li>
+            <li><code>POST /api/v1/analysis/bulk</code> - analiza listy EAN</li>
+            <li><code>GET /api/v1/alerts/events</code> - zdarzenia alertow</li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -1245,11 +1377,109 @@
     function connectSSE(id){if(sseConn){sseConn.close();sseConn=null;}try{const es=new EventSource(`/api/v1/analysis/${id}/stream`);es.addEventListener('progress',()=>pollActive());es.addEventListener('done',()=>{es.close();sseConn=null;pollActive();loadDashStats();});es.addEventListener('stopped',()=>{es.close();sseConn=null;pollActive();});es.onerror=()=>{es.close();sseConn=null;};sseConn=es;}catch(e){}}
 
     // auto-refresh active tab every 5s
+    // ============ MONITORING ============
+    async function loadMonitoring(){
+      try{
+        const items=await apiGet('/api/v1/monitoring/?active_only=true');
+        const list=$('mon-list');
+        setText($('mon-count'),items.length);
+        if(!items.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">👁</div><div class="empty-text">Brak monitorowanych EAN-ow</div><div class="empty-hint">Dodaj EAN powyzej</div></div>';return;}
+        list.innerHTML=items.map(i=>`<div class="cat-row" style="grid-template-columns:1fr 1fr 1fr auto;">
+          <div><strong>${i.ean}</strong><br><span style="font-size:11px;color:var(--muted);">${i.label||''}</span></div>
+          <div style="font-size:12px;color:var(--muted);">co ${i.refresh_interval_minutes} min</div>
+          <div style="font-size:12px;color:var(--muted);">${i.last_scraped_at?new Date(i.last_scraped_at).toLocaleString('pl'):'jeszcze nie sprawdzony'}</div>
+          <button class="btn ghost" onclick="unwatchEan('${i.ean}')" style="font-size:11px;color:rgb(var(--red));">Usuń</button>
+        </div>`).join('');
+      }catch(e){console.warn('loadMonitoring',e);}
+    }
+    $('mon-add-btn')?.addEventListener('click',async()=>{
+      const ean=$('mon-ean')?.value?.trim();if(!ean){show($('mon-error'));setText($('mon-error'),'Wpisz EAN');return;}
+      hide($('mon-error'));
+      try{await apiPost('/api/v1/monitoring/watch',{ean,label:$('mon-label')?.value||null,refresh_interval_minutes:parseInt($('mon-interval')?.value||60)});$('mon-ean').value='';$('mon-label').value='';loadMonitoring();}
+      catch(e){show($('mon-error'));setText($('mon-error'),e.message||'blad');}
+    });
+    $('mon-bulk-btn')?.addEventListener('click',async()=>{
+      const raw=$('mon-bulk')?.value||'';const eans=raw.split(/[\n,;]+/).map(s=>s.trim()).filter(s=>s.length>=8);
+      if(!eans.length)return;
+      try{const r=await apiPost('/api/v1/monitoring/watch/bulk',{eans});$('mon-bulk').value='';loadMonitoring();alert(`Dodano ${r.added} z ${r.total} EAN-ow`);}catch(e){alert(e.message);}
+    });
+    async function unwatchEan(ean){
+      if(!confirm(`Usunac ${ean} z monitoringu?`))return;
+      try{await apiPost(`/api/v1/monitoring/unwatch/${ean}`,{});loadMonitoring();}catch(e){alert(e.message);}
+    }
+
+    // ============ ALERTS ============
+    async function loadAlerts(){
+      try{
+        const[rules,events]=await Promise.all([apiGet('/api/v1/alerts/rules'),apiGet('/api/v1/alerts/events?limit=30')]);
+        setText($('rules-count'),rules.length);
+        setText($('events-count'),events.length);
+        const rl=$('rules-list');
+        if(!rules.length){rl.innerHTML='<div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-text">Brak regul</div></div>';}
+        else{rl.innerHTML=rules.map(r=>`<div class="cat-row" style="grid-template-columns:2fr 1fr 1fr auto;">
+          <div><strong>${r.name}</strong><br><span style="font-size:11px;color:var(--muted);">${r.ean||'wszystkie EAN-y'}</span></div>
+          <div><span class="badge info">${r.condition_type.replace(/_/g,' ')}</span></div>
+          <div style="font-size:12px;">${r.threshold_value||'-'}</div>
+          <button class="btn ghost" onclick="deleteRule(${r.id})" style="font-size:11px;color:rgb(var(--red));">Usuń</button>
+        </div>`).join('');}
+        const el=$('events-list');
+        if(!events.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">Brak zdarzen</div></div>';}
+        else{el.innerHTML=events.map(e=>`<div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;font-size:13px;">
+          <div style="display:flex;justify-content:space-between;"><span class="badge warn">${e.condition_type.replace(/_/g,' ')}</span><span style="font-size:11px;color:var(--dim);">${new Date(e.created_at).toLocaleString('pl')}</span></div>
+          <div style="margin-top:6px;">${e.message}</div>
+        </div>`).join('');}
+        // badge in sidebar
+        const badge=$('alert-badge');if(events.length){badge.style.display='';badge.textContent=events.length;}else{badge.style.display='none';}
+      }catch(e){console.warn('loadAlerts',e);}
+    }
+    $('alert-add-btn')?.addEventListener('click',async()=>{
+      const name=$('alert-name')?.value?.trim();const cond=$('alert-condition')?.value;
+      const thresh=parseFloat($('alert-threshold')?.value)||null;const ean=$('alert-ean')?.value?.trim()||null;
+      if(!name){show($('alert-error'));setText($('alert-error'),'Wpisz nazwe');return;}
+      hide($('alert-error'));
+      try{await apiPost('/api/v1/alerts/rules',{name,condition_type:cond,threshold_value:thresh,ean});$('alert-name').value='';$('alert-threshold').value='';$('alert-ean').value='';loadAlerts();}
+      catch(e){show($('alert-error'));setText($('alert-error'),e.message);}
+    });
+    async function deleteRule(id){
+      if(!confirm('Usunac regule?'))return;
+      try{await fetch(`/api/v1/alerts/rules/${id}`,{method:'DELETE',credentials:'include'});loadAlerts();}catch(e){}
+    }
+
+    // ============ API KEYS ============
+    async function loadAPIKeys(){
+      try{
+        const keys=await apiGet('/api/v1/api-keys/');
+        const list=$('apikeys-list');
+        if(!keys.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">🔑</div><div class="empty-text">Brak kluczy</div></div>';return;}
+        list.innerHTML=keys.map(k=>`<div class="cat-row" style="grid-template-columns:2fr 1fr 1fr auto;">
+          <div><strong>${k.name}</strong><br><code style="font-size:11px;color:var(--dim);">${k.key_prefix}...</code></div>
+          <div>${k.is_active?'<span class="badge ok">aktywny</span>':'<span class="badge err">cofniety</span>'}</div>
+          <div style="font-size:12px;color:var(--muted);">${k.last_used_at?new Date(k.last_used_at).toLocaleString('pl'):'nigdy'}</div>
+          ${k.is_active?`<button class="btn ghost" onclick="revokeKey(${k.id})" style="font-size:11px;color:rgb(var(--red));">Cofnij</button>`:''}
+        </div>`).join('');
+      }catch(e){console.warn('loadAPIKeys',e);}
+    }
+    $('apikey-create-btn')?.addEventListener('click',async()=>{
+      const name=$('apikey-name')?.value?.trim();if(!name){alert('Wpisz nazwe klucza');return;}
+      try{
+        const r=await apiPost('/api/v1/api-keys/',{name});
+        $('apikey-name').value='';$('apikey-new-key').style.display='block';$('apikey-raw').textContent=r.key;
+        loadAPIKeys();
+      }catch(e){alert(e.message);}
+    });
+    async function revokeKey(id){
+      if(!confirm('Cofnac klucz? Nie bedzie mozna go przywrocic.'))return;
+      try{await fetch(`/api/v1/api-keys/${id}`,{method:'DELETE',credentials:'include'});loadAPIKeys();}catch(e){}
+    }
+
     function refreshActiveTab(){
       const t=localStorage.getItem('jj_tab')||'dashboard';
       if(t==='dashboard'){loadDashStats();loadGlobalAdmin();pollActive();}
       else if(t==='proxies')loadProxyPool();
       else if(t==='history')loadHistory();
+      else if(t==='monitoring')loadMonitoring();
+      else if(t==='alerts')loadAlerts();
+      else if(t==='api-keys')loadAPIKeys();
     }
 
     (async()=>{

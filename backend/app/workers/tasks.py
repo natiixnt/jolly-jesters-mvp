@@ -45,6 +45,12 @@ celery_app = Celery(
     backend=settings.celery_backend,
 )
 celery_app.conf.task_default_queue = ANALYSIS_QUEUE
+celery_app.conf.beat_schedule = {
+    "refresh-monitored-eans": {
+        "task": "app.workers.tasks.refresh_monitored_eans",
+        "schedule": 60.0,  # every minute, checks which EANs are due
+    },
+}
 celery = celery_app
 
 _scraper_breaker = CircuitBreaker(name="scraper", failure_threshold=10, recovery_timeout=60)
@@ -488,3 +494,46 @@ def run_analysis_task(self, run_id: int):
     finally:
         db.close()
         _release_run_lock(run_id)
+
+
+@celery_app.task(acks_late=True)
+def refresh_monitored_eans():
+    """Periodic task: scrape EANs that are due for refresh."""
+    from app.services.monitoring_service import get_due_eans, mark_scraped
+    from app.services.alert_engine import evaluate_rules_for_ean, get_previous_price
+
+    db = SessionLocal()
+    try:
+        due = get_due_eans(db, limit=50)
+        if not due:
+            return
+
+        logger.info("MONITOR_REFRESH found %d EANs due", len(due))
+        provider = get_provider()
+        loop = _get_loop()
+
+        for m in due:
+            try:
+                prev_price = get_previous_price(db, m.ean)
+                result = loop.run_until_complete(provider.fetch(m.ean))
+
+                # evaluate alert rules
+                evaluate_rules_for_ean(
+                    db=db,
+                    tenant_id=str(m.tenant_id),
+                    ean=m.ean,
+                    current_price=result.price,
+                    previous_price=prev_price,
+                    sold_count=result.sold_count,
+                    is_not_found=result.is_not_found,
+                )
+
+                mark_scraped(db, m)
+                logger.info("MONITOR_REFRESH ean=%s price=%s", m.ean, result.price)
+
+            except Exception:
+                logger.exception("MONITOR_REFRESH failed ean=%s", m.ean)
+                # still mark as scraped to avoid infinite retry loop
+                mark_scraped(db, m)
+    finally:
+        db.close()
