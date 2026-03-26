@@ -532,7 +532,7 @@
         <span class="hint" id="pp-upload-status" style="margin-top:8px;display:block;"></span>
       </div>
       <!-- health -->
-      <div class="card"><div class="card-label">Health</div><div class="mg" id="proxy-health"><div class="hint">brak danych - wgraj proxy</div></div></div>
+      <div class="card"><div class="card-label">Health</div><div class="mg" id="proxy-health"><div style="color:var(--dim);font-size:14px;padding:16px;">Brak danych - wgraj proxy w ustawieniach lub ponizej</div></div></div>
       <!-- list -->
       <div class="card"><div class="card-label">Lista</div><div id="proxy-list" style="overflow:auto;"><div class="sbox" style="text-align:center;padding:24px;"><div style="font-weight:500;">Brak proxy</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Wgraj plik lub wklej proxy powyzej</div></div></div></div>
     </div>
@@ -924,7 +924,7 @@
     function renderDonut(segments,svgId,legendId){
       const svg=$(svgId),leg=$(legendId);if(!svg)return;
       const total=segments.reduce((a,s)=>a+s.value,0);
-      if(!total){svg.innerHTML='<text x="18" y="19" text-anchor="middle" fill="var(--dim)" font-size="3">brak danych</text>';if(leg)leg.innerHTML='';return;}
+      if(!total){svg.innerHTML='<text x="18" y="19" text-anchor="middle" fill="var(--dim)" font-size="4.5">brak danych</text>';if(leg)leg.innerHTML='<div style="color:var(--dim);font-size:13px;padding:12px;">Brak danych do wyswietlenia</div>';return;}
       const r=15.915;let offset=25;// start at top
       let paths='';let legend='';
       for(const s of segments){
@@ -971,7 +971,7 @@
               return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${v} EAN"></div>`;
             }).join('');
           }else{
-            chart.innerHTML='<div style="color:var(--dim);font-size:12px;">brak danych</div>';
+            chart.innerHTML='<div style="color:var(--dim);font-size:14px;padding:20px;text-align:center;">Brak danych do wyswietlenia</div>';
           }
         }
 
@@ -1099,7 +1099,7 @@
     async function loadMarket(off){mOff=off||0;try{let u=`/api/v1/market-data?offset=${mOff}&limit=${mPerPage}`;const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;const d=await apiGet(u);const items=d?.items||d||[];mTotal=d?.total||items.length||(items.length<mPerPage?mOff+items.length:mOff+mPerPage+1);setText($('market-meta'),`${mTotal} rekordow`);const pager=$('market-pager');if(!items.length){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');if(pager)pager.innerHTML='';return;}setHtml($('market-table'),`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzed.</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr><td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,40)}</td><td>${r.price??r.allegro_price??'-'}</td><td>${r.sold_count??'-'}</td><td style="font-size:11px;">${r.last_checked_at?new Date(r.last_checked_at).toLocaleString():'-'}</td></tr>`).join('')}</tbody></table></div>`);if(pager)renderPager(mTotal,mOff,mPerPage,pager,'loadMarket');}catch(e){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');}}
     $('market-load')?.addEventListener('click',()=>loadMarket(0));
 
-    async function loadProxyPool(){try{const h=await apiGet('/api/v1/proxy-pool/health');$('proxy-health').innerHTML=[mc('Total',h.total),mc('Aktywne',h.active,'rgb(var(--green))'),mc('Kwarantanna',h.quarantined,'rgb(var(--red))'),mc('Dostępne',h.available,'rgb(var(--blue))'),mc('Health',h.avg_health_score),mc('Success',h.success_rate!=null?`${(h.success_rate*100).toFixed(0)}%`:'-')].join('');}catch(e){setHtml($('proxy-health'),'<div class="hint">brak danych</div>');}
+    async function loadProxyPool(){try{const h=await apiGet('/api/v1/proxy-pool/health');$('proxy-health').innerHTML=[mc('Total',h.total),mc('Aktywne',h.active,'rgb(var(--green))'),mc('Kwarantanna',h.quarantined,'rgb(var(--red))'),mc('Dostępne',h.available,'rgb(var(--blue))'),mc('Health',h.avg_health_score),mc('Success',h.success_rate!=null?`${(h.success_rate*100).toFixed(0)}%`:'-')].join('');}catch(e){setHtml($('proxy-health'),'<div style="color:var(--dim);font-size:14px;padding:16px;">Brak danych - wgraj proxy</div>');}
     try{const list=await apiGet('/api/v1/proxy-pool?active_only=false');if(!list?.length){setHtml($('proxy-list'),'<div class="sbox">brak</div>');return;}setHtml($('proxy-list'),`<table class="tbl"><thead><tr><th>ID</th><th>Label</th><th>Health</th><th>OK/Fail</th><th>Q</th></tr></thead><tbody>${list.slice(0,100).map(p=>`<tr><td>${p.id}</td><td>${p.label||'-'}</td><td style="color:${p.health_score>.7?'rgb(var(--green))':p.health_score>.3?'rgb(var(--amber))':'rgb(var(--red))'}">${p.health_score}</td><td>${p.success_count}/${p.fail_count}</td><td>${p.quarantine_until&&new Date(p.quarantine_until)>new Date()?'tak':'-'}</td></tr>`).join('')}</tbody></table>`);}catch(e){}}
     // proxy-refresh button removed - auto-refresh handles it
     // proxy pool dropzone
