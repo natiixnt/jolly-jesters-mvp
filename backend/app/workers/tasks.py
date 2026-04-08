@@ -56,6 +56,16 @@ celery = celery_app
 _scraper_breaker = CircuitBreaker(name="scraper", failure_threshold=10, recovery_timeout=60)
 
 
+def _get_or_fetch(provider, ean: str, run_id: str, cache: dict) -> AllegroResult:
+    """Per-run EAN cache - reuse result if same EAN appears twice."""
+    if ean in cache:
+        logger.debug("EAN_CACHE_HIT: %s", ean)
+        return cache[ean]
+    result = _get_loop().run_until_complete(provider.fetch(ean, run_id=run_id))
+    cache[ean] = result
+    return result
+
+
 _worker_loop: asyncio.AbstractEventLoop | None = None
 
 
@@ -368,6 +378,8 @@ def run_analysis_task(self, run_id: int):
             max_cost_per_1000=float(setting.stoploss_max_cost_per_1000),
         ))
 
+        _ean_cache: dict[str, AllegroResult] = {}  # per-run EAN result cache
+
         for item in items:
             db.refresh(run)
             if run.status == AnalysisStatus.canceled:
@@ -393,8 +405,24 @@ def run_analysis_task(self, run_id: int):
             result = None
 
             now = datetime.now(timezone.utc)
-            if _should_fetch_from_scraper(
-                db_only_mode=db_only_mode,
+
+            # Cached mode - NEVER call the scraper, use DB data only
+            if db_only_mode:
+                logger.info("CACHE_MODE: skipping scraper for EAN %s (mode=%s)", item.ean, run.mode)
+                if not market_data:
+                    # No cached data available - mark as not_found instead of scraping
+                    item.source = AnalysisItemSource.not_found
+                    item.scrape_status = ScrapeStatus.not_found
+                    item.error_message = "no_cached_data"
+                    item.allegro_price = None
+                    item.allegro_sold_count = None
+                    item.profitability_score = None
+                    item.profitability_label = None
+                else:
+                    _apply_cached_market_data(item, category, market_data)
+                db_only_item_count += 1
+            elif _should_fetch_from_scraper(
+                db_only_mode=False,
                 market_data=market_data,
                 cache_days=cache_days,
                 now=now,
@@ -405,7 +433,7 @@ def run_analysis_task(self, run_id: int):
                 else:
                     try:
                         provider = get_provider()
-                        result = _get_loop().run_until_complete(provider.fetch(item.ean, run_id=str(run.id)))
+                        result = _get_or_fetch(provider, item.ean, str(run.id), _ean_cache)
                         _scraper_breaker.record_success()
                     except Exception as exc:  # pragma: no cover - defensive
                         logger.exception("RUN_TASK unexpected error ean=%s", item.ean)
@@ -415,11 +443,8 @@ def run_analysis_task(self, run_id: int):
                 _apply_scraped_result(db, item, product, category, result)
             else:
                 _apply_cached_market_data(item, category, market_data)
-                if db_only_mode:
-                    db_only_item_count += 1
-                else:
-                    db_cache_hit_count += 1
-                    logger.info("RUN_TASK db_cache hit run_id=%s ean=%s", run.id, item.ean)
+                db_cache_hit_count += 1
+                logger.info("RUN_TASK db_cache hit run_id=%s ean=%s", run.id, item.ean)
 
             run.processed_products += 1
 

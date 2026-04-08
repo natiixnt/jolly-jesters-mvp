@@ -148,11 +148,13 @@ def prepare_cached_analysis_run(
     products: List[Product],
     run_metadata: dict | None = None,
 ) -> AnalysisRun:
+    metadata = dict(run_metadata or {})
+    metadata["mode"] = "cached"
     run = AnalysisRun(
         category_id=category.id,
         input_file_name="cached_db",
         input_source="cache",
-        run_metadata=run_metadata or {},
+        run_metadata=metadata,
         status=AnalysisStatus.pending,
         total_products=len(products),
         processed_products=0,
