@@ -675,6 +675,519 @@
 
         <div class="help-item" data-help="bezpieczenstwo haslo sesja klucz api token"><h4>Bezpieczeństwo konta</h4><ul><li><strong>Hasło</strong> - minimum 12 znaków, wielka i mała litera, cyfra, znak specjalny</li><li><strong>Sesja</strong> - wygasa po 24 godzinach (konfigurowalnie)</li><li><strong>Klucze API</strong> - twórz klucze z ograniczonymi zakresami (read/write/admin)</li><li><strong>Blokada konta</strong> - po 5 nieudanych próbach logowania konto jest blokowane (5 min - 1h)</li><li><strong>Audit log</strong> - wszystkie operacje bezpieczeństwa są logowane</li></ul></div>
 
+        <!-- JAK DZIALA SYSTEM KROK PO KROKU -->
+        <div class="help-item" data-help="flow proces krok po kroku jak dziala system pipeline upload parsowanie deduplikacja kolejkowanie pobieranie ocena zapis eksport">
+          <h4>Jak działa system krok po kroku</h4>
+          <p>Pełny proces analizy od momentu wgrania pliku do gotowych wyników przebiega w 8 etapach:</p>
+          <ol>
+            <li><strong>Upload pliku</strong> - wgrywasz plik Excel/CSV z kodami EAN i cenami zakupu. System waliduje format, rozmiar (max 50 MB) i wymagane kolumny.</li>
+            <li><strong>Parsowanie</strong> - system odczytuje wiersze, rozpoznaje nagłówki (obsługuje polskie, angielskie i inne nazwy kolumn), konwertuje typy danych. Wiersze bez EAN lub z ceną &le; 0 są pomijane.</li>
+            <li><strong>Deduplikacja</strong> - duplikaty EAN w ramach jednego pliku są automatycznie usuwane. Zachowywany jest pierwszy napotkany wiersz dla danego kodu.</li>
+            <li><strong>Kolejkowanie</strong> - pozycje trafiają do kolejki zadań. System przydziela je do przetwarzania z uwzględnieniem limitów współbieżności (domyślnie 3x3 - 3 równoległe zadania po 3 URL).</li>
+            <li><strong>Pobieranie danych rynkowych</strong> - moduł pozyskiwania danych odpytuje Allegro przez proxy, pobiera cenę, liczbę ofert, liczbę sprzedanych sztuk. System obsługuje CAPTCHA, retries i rotację proxy.</li>
+            <li><strong>Ocena opłacalności</strong> - algorytm sprawdza 5 kryteriów: mnożnik marży, zysk absolutny, wolumen sprzedaży, konkurencję i poprawność danych. Wynik: opłacalny/nieopłacalny/nieokreślony.</li>
+            <li><strong>Zapis wyników</strong> - dane rynkowe i ocena opłacalności zapisywane są w bazie danych. Cache TTL pozwala na ponowne użycie danych bez pobierania.</li>
+            <li><strong>Eksport</strong> - po zakończeniu analizy pobierasz wyniki jako Excel (.xlsx) z pełnymi danymi, metrykami i oceną opłacalności.</li>
+          </ol>
+          <p><strong>Czas trwania</strong> zależy od liczby EAN, jakości proxy i współbieżności. Typowe wartości: 100 EAN - ok. 5-15 min, 1000 EAN - ok. 30-90 min, 10000 EAN - ok. 3-8 godzin.</p>
+        </div>
+
+        <!-- STATUSY POZYCJI ANALIZY -->
+        <div class="help-item" data-help="status pozycja item ean pending in_progress ok not_found blocked network_error error stopped_by_guardrail statusy pozycji">
+          <h4>Statusy pozycji analizy</h4>
+          <p>Każdy kod EAN w ramach analizy ma przypisany status informujący o etapie przetwarzania:</p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Status</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Opis</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Co robić?</th></tr>
+            <tr><td style="padding:4px;"><strong>pending</strong></td><td style="padding:4px;">Pozycja oczekuje na przetworzenie w kolejce</td><td style="padding:4px;">Poczekaj - zostanie przetworzona automatycznie</td></tr>
+            <tr><td style="padding:4px;"><strong>in_progress</strong></td><td style="padding:4px;">Trwa pobieranie danych rynkowych dla tego EAN</td><td style="padding:4px;">Poczekaj - trwa przetwarzanie</td></tr>
+            <tr><td style="padding:4px;"><strong>ok</strong></td><td style="padding:4px;">Dane pobrane poprawnie, ocena opłacalności wykonana</td><td style="padding:4px;">Sprawdź wyniki w podglądzie runu</td></tr>
+            <tr><td style="padding:4px;"><strong>not_found</strong></td><td style="padding:4px;">Produkt nie został znaleziony na Allegro</td><td style="padding:4px;">Sprawdź poprawność kodu EAN. Produkt może nie być dostępny na Allegro.</td></tr>
+            <tr><td style="padding:4px;"><strong>blocked</strong></td><td style="padding:4px;">Zapytanie zablokowane przez platformę (HTTP 429 lub ban IP)</td><td style="padding:4px;">Wymień proxy lub poczekaj na wygaśnięcie blokady</td></tr>
+            <tr><td style="padding:4px;"><strong>network_error</strong></td><td style="padding:4px;">Błąd sieci - timeout, brak połączenia, proxy nie odpowiada</td><td style="padding:4px;">Sprawdź health score proxy w zakładce Warstwa sieciowa</td></tr>
+            <tr><td style="padding:4px;"><strong>error</strong></td><td style="padding:4px;">Błąd nieoczekiwany - wyjątek w systemie</td><td style="padding:4px;">Sprawdź logi systemowe. Zgłoś problem administratorowi.</td></tr>
+            <tr><td style="padding:4px;"><strong>stopped_by_guardrail</strong></td><td style="padding:4px;">Pozycja nie została przetworzona - analiza zatrzymana przez mechanizm stop-loss</td><td style="padding:4px;">Popraw problem (proxy, sieć) i uruchom analizę ponownie</td></tr>
+          </table>
+          <p><strong>Wskazówka:</strong> Statusy ok, not_found i stopped_by_guardrail to statusy końcowe - pozycja nie będzie ponownie przetwarzana. Statusy blocked, network_error i error mogą być ponowione przy restarcie analizy.</p>
+        </div>
+
+        <!-- STATUSY ANALIZY (RUNU) -->
+        <div class="help-item" data-help="status analiza run pending running completed failed canceled stopped statusy runu">
+          <h4>Statusy analizy (runu)</h4>
+          <p>Każda analiza (run) przechodzi przez następujące statusy:</p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Status</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Znaczenie</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Możliwe akcje</th></tr>
+            <tr><td style="padding:4px;"><strong>pending</strong></td><td style="padding:4px;">Analiza jest w kolejce - oczekuje na wolny slot (limit współbieżności)</td><td style="padding:4px;">Anuluj lub poczekaj</td></tr>
+            <tr><td style="padding:4px;"><strong>running</strong></td><td style="padding:4px;">Analiza jest aktywnie przetwarzana - pozycje są pobierane i oceniane</td><td style="padding:4px;">Monitoruj postęp na dashboardzie, anuluj jeśli potrzeba</td></tr>
+            <tr><td style="padding:4px;"><strong>completed</strong></td><td style="padding:4px;">Wszystkie pozycje zostały przetworzone - analiza zakończona pomyślnie</td><td style="padding:4px;">Pobierz wyniki (Excel), sprawdź metryki</td></tr>
+            <tr><td style="padding:4px;"><strong>failed</strong></td><td style="padding:4px;">Analiza zakończyła się błędem krytycznym (np. brak proxy, błąd systemu)</td><td style="padding:4px;">Sprawdź logi, napraw problem, uruchom ponownie</td></tr>
+            <tr><td style="padding:4px;"><strong>canceled</strong></td><td style="padding:4px;">Analiza anulowana ręcznie przez użytkownika</td><td style="padding:4px;">Wyniki przetworzone przed anulowaniem są dostępne do pobrania</td></tr>
+            <tr><td style="padding:4px;"><strong>stopped</strong></td><td style="padding:4px;">Analiza zatrzymana automatycznie przez mechanizm stop-loss</td><td style="padding:4px;">Sprawdź raport przyczyny, popraw problem, uruchom ponownie</td></tr>
+          </table>
+          <p><strong>Przepływ statusów:</strong> pending → running → completed/failed/stopped. Z running możliwe jest też przejście do canceled (ręczne anulowanie).</p>
+          <p><strong>Ważne:</strong> Statusy completed, failed, canceled i stopped są końcowe. Aby ponownie przeanalizować te same dane, utwórz nową analizę.</p>
+        </div>
+
+        <!-- KONFIGURACJA KURSU WALUT -->
+        <div class="help-item" data-help="waluta kurs przelicznik eur pln usd cad przeliczanie waluty konfiguracja wymiana">
+          <h4>Konfiguracja kursu walut</h4>
+          <p>System obsługuje ceny zakupu w różnych walutach. Przeliczenie odbywa się automatycznie na PLN na podstawie kursów zdefiniowanych w ustawieniach.</p>
+          <p><strong>Obsługiwane waluty:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Waluta</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Zmienna konfiguracji</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Przykład</th></tr>
+            <tr><td style="padding:4px;"><strong>EUR → PLN</strong></td><td style="padding:4px;">EXCHANGE_RATE_EUR_PLN</td><td style="padding:4px;">4.32</td></tr>
+            <tr><td style="padding:4px;"><strong>USD → PLN</strong></td><td style="padding:4px;">EXCHANGE_RATE_USD_PLN</td><td style="padding:4px;">3.98</td></tr>
+            <tr><td style="padding:4px;"><strong>CAD → PLN</strong></td><td style="padding:4px;">EXCHANGE_RATE_CAD_PLN</td><td style="padding:4px;">2.95</td></tr>
+          </table>
+          <p><strong>Jak zmienić kurs:</strong></p>
+          <ol>
+            <li>Przejdź do zakładki Ustawienia</li>
+            <li>Znajdź sekcję "Kursy walut"</li>
+            <li>Wpisz aktualny kurs dla odpowiedniej waluty</li>
+            <li>Kliknij "Zapisz"</li>
+          </ol>
+          <p><strong>Kiedy następuje przeliczenie:</strong> Kurs jest stosowany w momencie tworzenia analizy. Jeśli plik zawiera kolumnę "Waluta" z wartością EUR/USD/CAD, cena zakupu jest mnożona przez odpowiedni kurs. Produkty bez podanej waluty traktowane są jako PLN.</p>
+          <p><strong>Wskazówka:</strong> Aktualizuj kursy walut przed każdą dużą analizą, aby wyniki opłacalności były precyzyjne.</p>
+        </div>
+
+        <!-- PROFIL ROWNOLEGLOSCI 3x3 -->
+        <div class="help-item" data-help="rownoleglosc 3x3 concurrency wspolbieznosc profil predkosc wydajnosc limit worker">
+          <h4>Profil równoległości 3x3</h4>
+          <p>Profil 3x3 oznacza domyślną konfigurację współbieżności: <strong>3 równoległe zadania</strong>, każde z <strong>3 równoczesnymi połączeniami</strong>. Łącznie system wykonuje do 9 zapytań jednocześnie.</p>
+          <p><strong>Parametry konfiguracji:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Parametr</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Domyślnie</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Opis</th></tr>
+            <tr><td style="padding:4px;"><strong>CONCURRENCY_PER_USER</strong></td><td style="padding:4px;">3</td><td style="padding:4px;">Max równoczesnych analiz na jednego użytkownika</td></tr>
+            <tr><td style="padding:4px;"><strong>CONCURRENCY_GLOBAL</strong></td><td style="padding:4px;">12</td><td style="padding:4px;">Max równoczesnych analiz globalnie (wszyscy użytkownicy)</td></tr>
+            <tr><td style="padding:4px;"><strong>CONNECTIONS_PER_TASK</strong></td><td style="padding:4px;">3</td><td style="padding:4px;">Liczba równoczesnych połączeń w ramach jednego zadania</td></tr>
+          </table>
+          <p><strong>Wpływ na prędkość:</strong></p>
+          <ul>
+            <li>Wyższa współbieżność = szybsze przetwarzanie, ale większe ryzyko blokad i wyższy koszt</li>
+            <li>Niższa współbieżność = wolniejsze przetwarzanie, ale lepsza jakość (mniej błędów)</li>
+          </ul>
+          <p><strong>Kiedy zwiększyć:</strong></p>
+          <ul>
+            <li>Duża pula proxy (50+ sztuk) o dobrym health score (&gt; 80%)</li>
+            <li>Niski wskaźnik blokad (&lt; 2%)</li>
+            <li>Pilna potrzeba szybkich wyników</li>
+          </ul>
+          <p><strong>Kiedy zmniejszyć:</strong></p>
+          <ul>
+            <li>Mała pula proxy (&lt; 10 sztuk)</li>
+            <li>Wysoki wskaźnik blokad (&gt; 5%)</li>
+            <li>Częste aktywacje stop-loss</li>
+            <li>Wysoki koszt/1000 EAN (&gt; 10 PLN)</li>
+          </ul>
+        </div>
+
+        <!-- CIRCUIT BREAKER -->
+        <div class="help-item" data-help="circuit breaker bezpiecznik przerywacz obwodu closed open half-open stany awaria ochrona">
+          <h4>Circuit breaker - jak działa</h4>
+          <p>Circuit breaker (przerywacz obwodu) to mechanizm ochronny wzorowany na bezpieczniku elektrycznym. Zapobiega wysyłaniu zapytań do usługi, która nie odpowiada prawidłowo.</p>
+          <p><strong>Trzy stany:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Stan</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Opis</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Zachowanie</th></tr>
+            <tr><td style="padding:4px;color:#4caf50;"><strong>CLOSED</strong></td><td style="padding:4px;">Normalny - usługa działa prawidłowo</td><td style="padding:4px;">Zapytania przepuszczane. System liczy błędy.</td></tr>
+            <tr><td style="padding:4px;color:#f44336;"><strong>OPEN</strong></td><td style="padding:4px;">Wyłączony - usługa nie odpowiada</td><td style="padding:4px;">Zapytania blokowane natychmiast (fail-fast). Oszczędza zasoby i proxy.</td></tr>
+            <tr><td style="padding:4px;color:#ff9800;"><strong>HALF-OPEN</strong></td><td style="padding:4px;">Testowy - sprawdzanie czy usługa wróciła</td><td style="padding:4px;">Jedno zapytanie testowe. Sukces → CLOSED, błąd → OPEN.</td></tr>
+          </table>
+          <p><strong>Przejścia między stanami:</strong></p>
+          <ol>
+            <li>CLOSED → OPEN: gdy liczba kolejnych błędów przekroczy próg (domyślnie 5)</li>
+            <li>OPEN → HALF-OPEN: po upływie czasu oczekiwania (domyślnie 60 sekund)</li>
+            <li>HALF-OPEN → CLOSED: zapytanie testowe zakończyło się sukcesem</li>
+            <li>HALF-OPEN → OPEN: zapytanie testowe zakończyło się błędem</li>
+          </ol>
+          <p><strong>Korzyści:</strong> Zapobiega "zalewaniu" niesprawnej usługi zapytaniami, oszczędza proxy, zmniejsza koszty i przyspiesza wykrywanie problemów.</p>
+        </div>
+
+        <!-- POROWNYWANIE ANALIZ -->
+        <div class="help-item" data-help="porownanie porownywanie analiz compare runy dwa roznica delta">
+          <h4>Porównywanie analiz</h4>
+          <p>System pozwala porównać wyniki dwóch analiz, aby zobaczyć zmiany cen i opłacalności w czasie.</p>
+          <p><strong>Jak porównać dwa runy:</strong></p>
+          <ol>
+            <li>Przejdź do zakładki Historia analiz</li>
+            <li>Wybierz dwa zakończone runy do porównania</li>
+            <li>Kliknij przycisk "Porównaj" lub użyj endpointu API</li>
+          </ol>
+          <p><strong>Endpoint API:</strong></p>
+          <ul>
+            <li><code>GET /api/v1/analysis/compare?run_a={id1}&amp;run_b={id2}</code></li>
+            <li>Zwraca listę pozycji z porównaniem cen, marż i statusów opłacalności</li>
+          </ul>
+          <p><strong>Co zawiera porównanie:</strong></p>
+          <ul>
+            <li><strong>Delta ceny Allegro</strong> - zmiana ceny rynkowej między dwoma analizami</li>
+            <li><strong>Delta marży</strong> - zmiana marży w PLN i procentowo</li>
+            <li><strong>Zmiana statusu opłacalności</strong> - które produkty stały się opłacalne/nieopłacalne</li>
+            <li><strong>Nowe/usunięte produkty</strong> - które EAN pojawiły się lub zniknęły</li>
+            <li><strong>Zmiana wolumenu</strong> - czy sprzedaż wzrosła czy spadła</li>
+          </ul>
+          <p><strong>Zastosowanie:</strong> Regularne porównania pozwalają śledzić trendy cenowe i identyfikować produkty z rosnącą lub malejącą opłacalnością.</p>
+        </div>
+
+        <!-- TRYB BUFOROWANY VS LIVE -->
+        <div class="help-item" data-help="buforowany live cache tryb roznica offline baza danych oszczednosc koszt fresh">
+          <h4>Tryb buforowany vs tryb live</h4>
+          <p>System oferuje dwa tryby uruchamiania analizy:</p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Cecha</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Tryb live (domyślny)</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Tryb buforowany (cache)</th></tr>
+            <tr><td style="padding:4px;"><strong>Źródło danych</strong></td><td style="padding:4px;">Pobieranie z Allegro przez proxy</td><td style="padding:4px;">Dane z bazy (poprzednie pobrania)</td></tr>
+            <tr><td style="padding:4px;"><strong>Koszt</strong></td><td style="padding:4px;">Normalny (zużywa proxy, bandwidth)</td><td style="padding:4px;">Zero - brak zapytań sieciowych</td></tr>
+            <tr><td style="padding:4px;"><strong>Szybkość</strong></td><td style="padding:4px;">Minuty-godziny (zależy od ilości EAN)</td><td style="padding:4px;">Sekundy-minuty (odczyt z bazy)</td></tr>
+            <tr><td style="padding:4px;"><strong>Świeżość danych</strong></td><td style="padding:4px;">Aktualne - pobrane w momencie analizy</td><td style="padding:4px;">Zależy od Cache TTL (domyślnie 30 dni)</td></tr>
+            <tr><td style="padding:4px;"><strong>Wymagane proxy</strong></td><td style="padding:4px;">Tak - minimum 1 aktywne proxy w puli</td><td style="padding:4px;">Nie - działa bez proxy</td></tr>
+            <tr><td style="padding:4px;"><strong>Ryzyko stop-loss</strong></td><td style="padding:4px;">Tak - możliwe zatrzymanie</td><td style="padding:4px;">Nie - brak zapytań sieciowych</td></tr>
+          </table>
+          <p><strong>Kiedy używać trybu buforowanego:</strong></p>
+          <ul>
+            <li>Testowanie nowych kategorii/mnożników bez kosztów sieciowych</li>
+            <li>Ponowna analiza tych samych produktów z innymi parametrami</li>
+            <li>Brak proxy lub proxy słabej jakości</li>
+            <li>Szybka weryfikacja danych bez czekania na pobieranie</li>
+          </ul>
+          <p><strong>Kiedy używać trybu live:</strong></p>
+          <ul>
+            <li>Pierwsza analiza nowych produktów (brak danych w cache)</li>
+            <li>Potrzebujesz aktualnych cen rynkowych</li>
+            <li>Dane w cache starsze niż Cache TTL</li>
+          </ul>
+          <p><strong>Jak uruchomić:</strong> Zakładka Nowa analiza → przycisk "Start" (tryb live) lub "Start z bazy" (tryb buforowany).</p>
+        </div>
+
+        <!-- KLUCZE API -->
+        <div class="help-item" data-help="klucz api key token autoryzacja bearer read write admin rate limit curl przykład tworzenie">
+          <h4>Klucze API - jak używać</h4>
+          <p>Klucze API pozwalają na dostęp do systemu z poziomu zewnętrznych aplikacji, skryptów i integracji.</p>
+          <p><strong>Tworzenie klucza:</strong></p>
+          <ol>
+            <li>Przejdź do zakładki Klucze API</li>
+            <li>Kliknij "Utwórz nowy klucz"</li>
+            <li>Podaj nazwę (np. "Integracja ERP") i wybierz zakres uprawnień</li>
+            <li>Skopiuj klucz - <strong>jest wyświetlany tylko raz!</strong></li>
+          </ol>
+          <p><strong>Zakresy uprawnień:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Zakres</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Uprawnienia</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Zastosowanie</th></tr>
+            <tr><td style="padding:4px;"><strong>read</strong></td><td style="padding:4px;">Odczyt wyników, metryk, statusów</td><td style="padding:4px;">Dashboardy, monitoring, raporty</td></tr>
+            <tr><td style="padding:4px;"><strong>write</strong></td><td style="padding:4px;">Read + tworzenie analiz, upload plików</td><td style="padding:4px;">Automatyzacja analiz, integracja z ERP</td></tr>
+            <tr><td style="padding:4px;"><strong>admin</strong></td><td style="padding:4px;">Write + zarządzanie proxy, ustawieniami, kluczami</td><td style="padding:4px;">Administracja systemem</td></tr>
+          </table>
+          <p><strong>Rate limiting:</strong> Klucze API podlegają limitowi 200 zapytań na minutę. Nagłówek <code>X-RateLimit-Remaining</code> informuje o pozostałych zapytaniach.</p>
+          <p><strong>Przykłady użycia (curl):</strong></p>
+          <ul>
+            <li><code>curl -H "Authorization: Bearer jj_abc123..." https://system.example.com/api/v1/analysis/active</code></li>
+            <li><code>curl -X POST -H "Authorization: Bearer jj_abc123..." -F "file=@dane.xlsx" -F "category_id=1" https://system.example.com/api/v1/analysis/upload</code></li>
+            <li><code>curl -H "Authorization: Bearer jj_abc123..." https://system.example.com/api/v1/analysis/42/results</code></li>
+          </ul>
+          <p><strong>Bezpieczeństwo:</strong> Klucze zaczynają się od prefiksu <code>jj_</code>. Nigdy nie udostępniaj kluczy w publicznych repozytoriach. Klucze można dezaktywować w dowolnym momencie.</p>
+        </div>
+
+        <!-- WEBHOOK I ALERTY -->
+        <div class="help-item" data-help="webhook alert powiadomienie slack discord email event payload url konfiguracja notyfikacja">
+          <h4>Webhook i alerty - konfiguracja</h4>
+          <p>System może wysyłać automatyczne powiadomienia (webhook) o ważnych zdarzeniach.</p>
+          <p><strong>Konfiguracja:</strong></p>
+          <ol>
+            <li>Przejdź do zakładki Ustawienia</li>
+            <li>Znajdź pole "ALERT_WEBHOOK_URL"</li>
+            <li>Wpisz URL endpointu (np. webhook Slack, Discord, Zapier)</li>
+            <li>Kliknij "Zapisz"</li>
+          </ol>
+          <p><strong>Zdarzenia wyzwalające webhook:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Zdarzenie</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Kiedy wysyłany</th></tr>
+            <tr><td style="padding:4px;"><strong>analysis.completed</strong></td><td style="padding:4px;">Analiza zakończona pomyślnie</td></tr>
+            <tr><td style="padding:4px;"><strong>analysis.failed</strong></td><td style="padding:4px;">Analiza zakończona błędem</td></tr>
+            <tr><td style="padding:4px;"><strong>analysis.stopped</strong></td><td style="padding:4px;">Analiza zatrzymana przez stop-loss</td></tr>
+            <tr><td style="padding:4px;"><strong>price.alert</strong></td><td style="padding:4px;">Spełniony warunek reguły alertu cenowego</td></tr>
+            <tr><td style="padding:4px;"><strong>proxy.pool_low</strong></td><td style="padding:4px;">Mniej niż 3 aktywne proxy w puli</td></tr>
+            <tr><td style="padding:4px;"><strong>quota.warning</strong></td><td style="padding:4px;">Zużycie quota przekroczyło 80%</td></tr>
+          </table>
+          <p><strong>Format payload (JSON):</strong></p>
+          <ul>
+            <li><code>event</code> - typ zdarzenia (np. "analysis.completed")</li>
+            <li><code>timestamp</code> - czas zdarzenia (ISO 8601)</li>
+            <li><code>data</code> - szczegóły zdarzenia (id analizy, metryki, przyczyna)</li>
+            <li><code>tenant_id</code> - identyfikator firmy (multi-tenant)</li>
+          </ul>
+          <p><strong>Integracja ze Slack:</strong> Użyj Incoming Webhook URL ze Slack. System wyśle POST z payload JSON.</p>
+          <p><strong>Integracja z Discord:</strong> Użyj Webhook URL z ustawień kanału Discord.</p>
+        </div>
+
+        <!-- MONITORING EAN -->
+        <div class="help-item" data-help="monitoring ean cykliczny interwal automatyczny sledzenie cen bulk import usuwanie harmonogram">
+          <h4>Monitoring EAN - śledzenie cen</h4>
+          <p>Monitoring pozwala na automatyczne, cykliczne śledzenie cen wybranych produktów na Allegro.</p>
+          <p><strong>Dodawanie EAN do monitoringu:</strong></p>
+          <ol>
+            <li>Przejdź do zakładki Monitoring</li>
+            <li>Wpisz kod EAN w pole "Dodaj EAN"</li>
+            <li>Wybierz interwał sprawdzania (15 min, 30 min, 1h, 6h, 12h, 24h)</li>
+            <li>Kliknij "Dodaj"</li>
+          </ol>
+          <p><strong>Bulk import:</strong></p>
+          <ul>
+            <li>Kliknij "Import" w zakładce Monitoring</li>
+            <li>Wgraj plik .txt z jednym EAN na linię</li>
+            <li>Wszystkie EAN otrzymają domyślny interwał (konfigurowalny)</li>
+          </ul>
+          <p><strong>Jak działa:</strong></p>
+          <ul>
+            <li>System automatycznie pobiera aktualną cenę na Allegro w wybranym interwale</li>
+            <li>Dane są zapisywane w historii cen (tabela price_history)</li>
+            <li>Jeśli cena zmieni się o określony próg, uruchamiane są reguły alertów</li>
+            <li>Historia cen dostępna w podglądzie monitorowanego EAN</li>
+          </ul>
+          <p><strong>Usuwanie z monitoringu:</strong> Kliknij ikonę kosza przy danym EAN w tabeli monitoringu.</p>
+          <p><strong>Ważne:</strong> Monitoring zużywa proxy i quota - każde sprawdzenie to jedno zapytanie. Interwał 15 min dla 1000 EAN = 96000 zapytań/dobę.</p>
+        </div>
+
+        <!-- PROMETHEUS / GRAFANA -->
+        <div class="help-item" data-help="prometheus grafana metryki eksport dashboard monitoring wykres panel scrape endpoint observability">
+          <h4>Eksport do Prometheus/Grafana</h4>
+          <p>System udostępnia metryki w formacie Prometheus, które można wizualizować w Grafana.</p>
+          <p><strong>Endpoint metryk:</strong> <code>GET /api/v1/metrics/prometheus</code></p>
+          <p><strong>Dostępne metryki:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Metryka</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Typ</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Opis</th></tr>
+            <tr><td style="padding:4px;"><code>jj_analysis_total</code></td><td style="padding:4px;">counter</td><td style="padding:4px;">Łączna liczba analiz</td></tr>
+            <tr><td style="padding:4px;"><code>jj_analysis_active</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">Aktualnie uruchomione analizy</td></tr>
+            <tr><td style="padding:4px;"><code>jj_ean_processed_total</code></td><td style="padding:4px;">counter</td><td style="padding:4px;">Łączna liczba przetworzonych EAN</td></tr>
+            <tr><td style="padding:4px;"><code>jj_ean_per_minute</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">Aktualna prędkość przetwarzania</td></tr>
+            <tr><td style="padding:4px;"><code>jj_proxy_pool_active</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">Liczba aktywnych proxy</td></tr>
+            <tr><td style="padding:4px;"><code>jj_proxy_health_avg</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">Średni health score proxy</td></tr>
+            <tr><td style="padding:4px;"><code>jj_error_rate</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">Aktualny wskaźnik błędów</td></tr>
+            <tr><td style="padding:4px;"><code>jj_cost_per_1000</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">Koszt na 1000 EAN (PLN)</td></tr>
+            <tr><td style="padding:4px;"><code>jj_latency_p50</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">Mediana latencji (ms)</td></tr>
+            <tr><td style="padding:4px;"><code>jj_latency_p95</code></td><td style="padding:4px;">gauge</td><td style="padding:4px;">95. percentyl latencji (ms)</td></tr>
+          </table>
+          <p><strong>Konfiguracja Prometheus (prometheus.yml):</strong></p>
+          <ul>
+            <li>Dodaj job w scrape_configs z target URL systemu</li>
+            <li>Zalecany interwał: 15-30 sekund</li>
+            <li>Endpoint wymaga autoryzacji - użyj klucza API z zakresem "read"</li>
+          </ul>
+          <p><strong>Grafana dashboard:</strong> Zaimportuj gotowy dashboard z katalogu <code>/grafana/dashboard.json</code> lub utwórz własny z dostępnych metryk.</p>
+        </div>
+
+        <!-- MULTI-TENANT -->
+        <div class="help-item" data-help="multi-tenant firma konto organizacja izolacja dane role uzytkownik wielofirmowy tenant">
+          <h4>Multi-tenant - wiele firm</h4>
+          <p>System obsługuje wiele niezależnych firm (tenantów) na jednej instalacji. Każda firma ma całkowicie odizolowane dane.</p>
+          <p><strong>Izolacja danych:</strong></p>
+          <ul>
+            <li>Każda firma widzi tylko swoje analizy, wyniki, proxy i ustawienia</li>
+            <li>Dane są izolowane na poziomie bazy danych (kolumna tenant_id w każdej tabeli)</li>
+            <li>Klucze API są przypisane do konkretnej firmy</li>
+            <li>Quota i limity są rozliczane per firma</li>
+          </ul>
+          <p><strong>Jak założyć konto firmowe:</strong></p>
+          <ol>
+            <li>Administrator systemu tworzy nowego tenanta w panelu administracyjnym</li>
+            <li>Ustawia nazwę firmy, limity (quota EAN, max analiz) i plan</li>
+            <li>Tworzy konto administratora firmy z hasłem</li>
+            <li>Administrator firmy może zapraszać kolejnych użytkowników</li>
+          </ol>
+          <p><strong>Role użytkowników:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Rola</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Uprawnienia</th></tr>
+            <tr><td style="padding:4px;"><strong>viewer</strong></td><td style="padding:4px;">Przeglądanie wyników i metryk</td></tr>
+            <tr><td style="padding:4px;"><strong>analyst</strong></td><td style="padding:4px;">Viewer + tworzenie analiz, upload plików</td></tr>
+            <tr><td style="padding:4px;"><strong>admin</strong></td><td style="padding:4px;">Analyst + zarządzanie proxy, ustawieniami, kluczami API, użytkownikami</td></tr>
+          </table>
+        </div>
+
+        <!-- OPTYMALIZACJA KOSZTOW -->
+        <div class="help-item" data-help="optymalizacja koszt oszczednosc budzet proxy cache wspolbieznosc tani efektywnosc ean 1000">
+          <h4>Optymalizacja kosztów</h4>
+          <p>Koszt analizy zależy głównie od jakości proxy, współbieżności i wykorzystania cache. Oto sposoby na obniżenie kosztu/1000 EAN:</p>
+          <p><strong>1. Lepsze proxy:</strong></p>
+          <ul>
+            <li>Używaj proxy z health score &gt; 80% - mniej retries i błędów</li>
+            <li>Usuwaj proxy z wynikiem &lt; 30% - generują koszty bez korzyści</li>
+            <li>Proxy rezydencjalne mają lepszą jakość niż datacenter, ale są droższe per zapytanie</li>
+            <li>Rotuj proxy regularnie - świeże IP mają mniejsze ryzyko blokady</li>
+          </ul>
+          <p><strong>2. Wykorzystanie cache:</strong></p>
+          <ul>
+            <li>Ustaw Cache TTL na 7-14 dni jeśli ceny nie zmieniają się często</li>
+            <li>Użyj trybu "Start z bazy" dla ponownych analiz tych samych produktów</li>
+            <li>Cache eliminuje koszt sieciowy - koszt = 0 PLN/1000 EAN</li>
+          </ul>
+          <p><strong>3. Optymalizacja współbieżności:</strong></p>
+          <ul>
+            <li>Zmniejsz CONNECTIONS_PER_TASK do 2, jeśli masz mało proxy</li>
+            <li>Niższa współbieżność = mniej blokad = mniej ponawianych zapytań</li>
+            <li>Znajdź optymalny punkt: max prędkość przy minimalnym retry rate</li>
+          </ul>
+          <p><strong>4. Planowanie analiz:</strong></p>
+          <ul>
+            <li>Uruchamiaj duże analizy w nocy - mniejszy ruch na Allegro, mniej CAPTCHA</li>
+            <li>Łącz małe pliki w jeden duży - mniejszy overhead na inicjalizację</li>
+            <li>Filtruj dane przed uploadem - usuwaj EAN które na pewno nie są na Allegro</li>
+          </ul>
+          <p><strong>Cel:</strong> Koszt &lt; 5 PLN/1000 EAN jest osiągalny przy dobrej jakości proxy i optymalnej konfiguracji.</p>
+        </div>
+
+        <!-- BEZPIECZENSTWO DANYCH -->
+        <div class="help-item" data-help="bezpieczenstwo ochrona danych szyfrowanie csrf rate limit audit log sesja prywatnosc gdpr">
+          <h4>Bezpieczeństwo danych</h4>
+          <p>System implementuje wielowarstwowe zabezpieczenia chroniące dane użytkowników:</p>
+          <p><strong>Uwierzytelnianie:</strong></p>
+          <ul>
+            <li><strong>Hasła</strong> - hashowane algorytmem bcrypt z solą, nigdy nie przechowywane w postaci jawnej</li>
+            <li><strong>Blokada konta</strong> - po 5 nieudanych logowaniach konto jest blokowane na 5 minut (wzrastające do 1h)</li>
+            <li><strong>Sesje</strong> - tokeny sesji z konfiguralnym czasem wygaśnięcia (domyślnie 24h)</li>
+            <li><strong>Klucze API</strong> - hashowane w bazie, prefiks jj_ do identyfikacji</li>
+          </ul>
+          <p><strong>Ochrona przed atakami:</strong></p>
+          <ul>
+            <li><strong>CSRF</strong> - tokeny CSRF w każdym formularzu, walidowane po stronie serwera</li>
+            <li><strong>Rate limiting</strong> - ograniczenie liczby zapytań: login (5/min), upload (10/min), API (200/min)</li>
+            <li><strong>Walidacja danych</strong> - wszystkie dane wejściowe są walidowane i sanityzowane</li>
+            <li><strong>Content Security Policy</strong> - nagłówki bezpieczeństwa HTTP</li>
+          </ul>
+          <p><strong>Audit log:</strong></p>
+          <ul>
+            <li>Logowane zdarzenia: logowanie, wylogowanie, zmiana hasła, tworzenie/usuwanie kluczy API</li>
+            <li>Każdy wpis zawiera: kto, kiedy, co, adres IP, user agent</li>
+            <li>Logi dostępne w zakładce Status → Logi</li>
+          </ul>
+          <p><strong>Izolacja danych (multi-tenant):</strong> Każda firma widzi wyłącznie swoje dane. Zapytania do bazy automatycznie filtrują po tenant_id.</p>
+        </div>
+
+        <!-- WYMAGANIA SYSTEMOWE -->
+        <div class="help-item" data-help="wymagania systemowe cpu ram dysk docker przegladarka instalacja serwer minimalne">
+          <h4>Wymagania systemowe</h4>
+          <p><strong>Serwer - wymagania minimalne:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Komponent</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Minimum</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Zalecane</th></tr>
+            <tr><td style="padding:4px;"><strong>CPU</strong></td><td style="padding:4px;">2 rdzenie</td><td style="padding:4px;">4+ rdzeni</td></tr>
+            <tr><td style="padding:4px;"><strong>RAM</strong></td><td style="padding:4px;">2 GB</td><td style="padding:4px;">4+ GB</td></tr>
+            <tr><td style="padding:4px;"><strong>Dysk</strong></td><td style="padding:4px;">10 GB SSD</td><td style="padding:4px;">50+ GB SSD (baza rośnie z danymi)</td></tr>
+            <tr><td style="padding:4px;"><strong>Docker</strong></td><td style="padding:4px;">Docker 20.10+, Docker Compose 2.0+</td><td style="padding:4px;">Najnowsza stabilna wersja</td></tr>
+            <tr><td style="padding:4px;"><strong>System</strong></td><td style="padding:4px;">Linux (Ubuntu 20.04+, Debian 11+)</td><td style="padding:4px;">Ubuntu 22.04 LTS</td></tr>
+            <tr><td style="padding:4px;"><strong>Sieć</strong></td><td style="padding:4px;">Stałe połączenie internetowe</td><td style="padding:4px;">Min. 10 Mbps upload/download</td></tr>
+          </table>
+          <p><strong>Przeglądarka (klient):</strong></p>
+          <ul>
+            <li>Chrome 90+ (zalecane)</li>
+            <li>Firefox 90+</li>
+            <li>Safari 15+</li>
+            <li>Edge 90+</li>
+            <li>JavaScript musi być włączony</li>
+            <li>Responsywny layout - działa na tabletach i telefonach</li>
+          </ul>
+          <p><strong>Skalowanie:</strong> Dla dużych wdrożeń (&gt; 10 000 EAN/dobę) zalecane jest rozdzielenie serwisu na osobne kontenery: web, worker, baza danych, Redis.</p>
+        </div>
+
+        <!-- FAQ -->
+        <div class="help-item" data-help="faq pytania odpowiedzi czesto zadawane pomoc popularne zagadnienia">
+          <h4>FAQ - Często zadawane pytania</h4>
+          <p><strong>P: Ile czasu trwa analiza 1000 EAN?</strong></p>
+          <p>O: Zależy od jakości proxy i współbieżności. Typowo 30-90 minut w trybie live. W trybie buforowanym - kilka sekund.</p>
+          <p><strong>P: Czy mogę analizować produkty spoza Allegro?</strong></p>
+          <p>O: Obecnie system obsługuje wyłącznie Allegro. Wsparcie dla innych platform jest w planach.</p>
+          <p><strong>P: Co się stanie jak proxy się skończą?</strong></p>
+          <p>O: Analiza zostanie zatrzymana przez stop-loss (brak aktywnych proxy). Wgraj nowe proxy i uruchom ponownie.</p>
+          <p><strong>P: Czy dane z cache są aktualne?</strong></p>
+          <p>O: Dane są aktualne przez okres Cache TTL (domyślnie 30 dni). Po tym czasie tryb live pobierze świeże dane.</p>
+          <p><strong>P: Jak zmienić hasło?</strong></p>
+          <p>O: Przejdź do zakładki Ustawienia → sekcja "Hasło" → wpisz nowe hasło i zatwierdź.</p>
+          <p><strong>P: Czy mogę uruchomić kilka analiz jednocześnie?</strong></p>
+          <p>O: Tak, do limitu CONCURRENCY_PER_USER (domyślnie 3). Kolejne analizy będą czekać w kolejce.</p>
+          <p><strong>P: Co to jest "mnożnik opłacalności"?</strong></p>
+          <p>O: Minimalny stosunek przychodu netto do ceny zakupu. Np. 1.25 oznacza, że produkt musi generować min. 25% marży żeby być uznany za opłacalny.</p>
+          <p><strong>P: Dlaczego analiza ma status "stopped"?</strong></p>
+          <p>O: Mechanizm stop-loss wykrył problem jakościowy (zbyt wiele błędów, blokad lub CAPTCHA). Sprawdź raport przyczyny w podglądzie runu.</p>
+          <p><strong>P: Jak mogę zintegrować system z moim ERP?</strong></p>
+          <p>O: Użyj REST API z kluczem API o zakresie "write". Dokumentacja endpointów dostępna w artykule "API i eksport danych".</p>
+          <p><strong>P: Czy system obsługuje EAN-8?</strong></p>
+          <p>O: Tak, obsługiwane są kody EAN-8 (8 cyfr) i EAN-13 (13 cyfr).</p>
+          <p><strong>P: Co oznacza "prowizja" w kategorii?</strong></p>
+          <p>O: Prowizja Allegro pobierana od sprzedaży. Np. 0.10 = 10%. Jest odliczana od ceny Allegro przy obliczaniu marży: marża = (cena Allegro x (1 - prowizja)) - cena zakupu.</p>
+          <p><strong>P: Jak usunąć analizę?</strong></p>
+          <p>O: W historii analiz kliknij ikonę kosza przy wybranej analizie. Usunięcie jest nieodwracalne.</p>
+        </div>
+
+        <!-- SLOWNIK POJEC -->
+        <div class="help-item" data-help="slownik pojecia definicje terminologia ean proxy captcha stop-loss cache ttl circuit breaker health score kwarantanna throughput latencja p50 p95 mnoznik prowizja roi glossary">
+          <h4>Słownik pojęć</h4>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Pojęcie</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Definicja</th></tr>
+            <tr><td style="padding:4px;"><strong>EAN</strong></td><td style="padding:4px;">European Article Number - międzynarodowy kod kreskowy produktu (8 lub 13 cyfr). Używany do jednoznacznej identyfikacji produktów.</td></tr>
+            <tr><td style="padding:4px;"><strong>Proxy</strong></td><td style="padding:4px;">Serwer pośredniczący, przez który system kieruje zapytania sieciowe. Pozwala na rotację adresów IP i omijanie blokad.</td></tr>
+            <tr><td style="padding:4px;"><strong>CAPTCHA</strong></td><td style="padding:4px;">Mechanizm weryfikacji "czy jesteś człowiekiem" stosowany przez platformy e-commerce. Wysoki wskaźnik CAPTCHA oznacza wykrycie automatycznego dostępu.</td></tr>
+            <tr><td style="padding:4px;"><strong>Stop-loss</strong></td><td style="padding:4px;">Mechanizm zabezpieczający automatycznie zatrzymujący analizę gdy jakość pobierania danych spada poniżej progów. Chroni przed przepaleniem budżetu.</td></tr>
+            <tr><td style="padding:4px;"><strong>Cache TTL</strong></td><td style="padding:4px;">Time To Live - czas ważności danych w buforze (cache). Po jego upływie dane są uznawane za nieaktualne i wymagają ponownego pobrania.</td></tr>
+            <tr><td style="padding:4px;"><strong>Circuit breaker</strong></td><td style="padding:4px;">Przerywacz obwodu - mechanizm ochronny blokujący zapytania do niesprawnej usługi. Trzy stany: closed (normalny), open (blokada), half-open (test).</td></tr>
+            <tr><td style="padding:4px;"><strong>Health score</strong></td><td style="padding:4px;">Wynik zdrowia proxy (0-100%). Obliczany na podstawie sukcesów (+2%) i błędów (-5%). Wyższy wynik = lepsze proxy.</td></tr>
+            <tr><td style="padding:4px;"><strong>Kwarantanna</strong></td><td style="padding:4px;">Tymczasowe wyłączenie proxy z puli po serii błędów. Domyślnie 24 godziny. Proxy w kwarantannie nie jest używane do zapytań.</td></tr>
+            <tr><td style="padding:4px;"><strong>Throughput</strong></td><td style="padding:4px;">Przepustowość - liczba przetworzonych EAN na minutę. Metryka wydajności systemu.</td></tr>
+            <tr><td style="padding:4px;"><strong>Latencja</strong></td><td style="padding:4px;">Czas odpowiedzi na pojedyncze zapytanie (w milisekundach). Mierzona jako czas od wysłania zapytania do otrzymania odpowiedzi.</td></tr>
+            <tr><td style="padding:4px;"><strong>P50 / P95</strong></td><td style="padding:4px;">Percentyle latencji. P50 (mediana) - 50% zapytań jest szybszych. P95 - 95% zapytań jest szybszych. P95 pokazuje "najgorsze typowe" czasy.</td></tr>
+            <tr><td style="padding:4px;"><strong>Mnożnik</strong></td><td style="padding:4px;">Minimalny stosunek przychodu netto do ceny zakupu wymagany do uznania produktu za opłacalny. Np. 1.30 = min. 30% marży.</td></tr>
+            <tr><td style="padding:4px;"><strong>Prowizja</strong></td><td style="padding:4px;">Procentowa opłata pobierana przez Allegro od sprzedaży. Np. 0.10 = 10%. Odliczana od ceny sprzedaży przy obliczaniu marży.</td></tr>
+            <tr><td style="padding:4px;"><strong>ROI</strong></td><td style="padding:4px;">Return On Investment - zwrot z inwestycji. Stosunek zysku do kosztu zakupu, wyrażony w procentach.</td></tr>
+            <tr><td style="padding:4px;"><strong>Tenant</strong></td><td style="padding:4px;">Firma/organizacja w systemie multi-tenant. Każdy tenant ma odizolowane dane, użytkowników i ustawienia.</td></tr>
+            <tr><td style="padding:4px;"><strong>Rate limiting</strong></td><td style="padding:4px;">Ograniczenie liczby zapytań w jednostce czasu. Chroni system przed przeciążeniem i nadużyciami.</td></tr>
+            <tr><td style="padding:4px;"><strong>Guardrail</strong></td><td style="padding:4px;">Mechanizm ochronny (synonim stop-loss). Automatycznie zatrzymuje analizę przy przekroczeniu progów jakościowych.</td></tr>
+          </table>
+        </div>
+
+        <!-- LIMITY SYSTEMOWE -->
+        <div class="help-item" data-help="limity systemowe max rozmiar plik ean run analiza rate limit endpoint ograniczenia quota">
+          <h4>Limity systemowe</h4>
+          <p>Poniżej zestawienie wszystkich limitów obowiązujących w systemie:</p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Limit</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Wartość</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Uwagi</th></tr>
+            <tr><td style="padding:4px;"><strong>Max rozmiar pliku</strong></td><td style="padding:4px;">50 MB</td><td style="padding:4px;">Dotyczy plików Excel i CSV</td></tr>
+            <tr><td style="padding:4px;"><strong>Max EAN w pliku</strong></td><td style="padding:4px;">100 000</td><td style="padding:4px;">Po deduplikacji. Większe pliki podziel na części.</td></tr>
+            <tr><td style="padding:4px;"><strong>Max jednoczesnych analiz (per user)</strong></td><td style="padding:4px;">3</td><td style="padding:4px;">Konfigurowalny: CONCURRENCY_PER_USER</td></tr>
+            <tr><td style="padding:4px;"><strong>Max jednoczesnych analiz (globalnie)</strong></td><td style="padding:4px;">12</td><td style="padding:4px;">Konfigurowalny: CONCURRENCY_GLOBAL</td></tr>
+            <tr><td style="padding:4px;"><strong>Rate limit - login</strong></td><td style="padding:4px;">5 zapytań/min</td><td style="padding:4px;">Per adres IP</td></tr>
+            <tr><td style="padding:4px;"><strong>Rate limit - upload</strong></td><td style="padding:4px;">10 zapytań/min</td><td style="padding:4px;">Per użytkownik</td></tr>
+            <tr><td style="padding:4px;"><strong>Rate limit - API</strong></td><td style="padding:4px;">200 zapytań/min</td><td style="padding:4px;">Per klucz API</td></tr>
+            <tr><td style="padding:4px;"><strong>Max proxy w puli</strong></td><td style="padding:4px;">10 000</td><td style="padding:4px;">Per tenant</td></tr>
+            <tr><td style="padding:4px;"><strong>Max plik proxy</strong></td><td style="padding:4px;">5 MB</td><td style="padding:4px;">Plik .txt z listą URL</td></tr>
+            <tr><td style="padding:4px;"><strong>Quota EAN</strong></td><td style="padding:4px;">Zależy od planu</td><td style="padding:4px;">Miesięczny limit, reset 1. dnia miesiąca</td></tr>
+            <tr><td style="padding:4px;"><strong>Blokada konta</strong></td><td style="padding:4px;">5 prób → blokada 5 min - 1h</td><td style="padding:4px;">Wzrastający czas blokady</td></tr>
+            <tr><td style="padding:4px;"><strong>Sesja</strong></td><td style="padding:4px;">24 godziny</td><td style="padding:4px;">Konfigurowalny: SESSION_LIFETIME</td></tr>
+          </table>
+          <p><strong>Przekroczenie limitów:</strong> System zwraca kod HTTP 429 (Too Many Requests) z nagłówkiem <code>Retry-After</code> informującym kiedy można ponowić zapytanie.</p>
+        </div>
+
+        <!-- HISTORIA ZMIAN CEN -->
+        <div class="help-item" data-help="historia cen price history zmiana cena ean trend wykres przegladanie endpoint api">
+          <h4>Historia zmian cen</h4>
+          <p>System przechowuje historię cen dla monitorowanych produktów, umożliwiając analizę trendów cenowych.</p>
+          <p><strong>Jak przeglądać historię cen:</strong></p>
+          <ol>
+            <li>Przejdź do zakładki Monitoring</li>
+            <li>Kliknij na wybrany EAN w tabeli monitoringu</li>
+            <li>Wyświetli się wykres zmian cen w czasie oraz tabela z danymi</li>
+          </ol>
+          <p><strong>Endpoint API:</strong></p>
+          <ul>
+            <li><code>GET /api/v1/price-history/{ean}</code> - historia cen dla danego EAN</li>
+            <li><code>GET /api/v1/price-history/{ean}?from=2026-01-01&amp;to=2026-04-01</code> - filtrowanie po dacie</li>
+            <li><code>GET /api/v1/price-history/{ean}?format=csv</code> - eksport historii jako CSV</li>
+          </ul>
+          <p><strong>Dane w historii cen:</strong></p>
+          <table style="width:100%;margin:8px 0;">
+            <tr><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Pole</th><th style="text-align:left;padding:4px;border-bottom:1px solid var(--border);">Opis</th></tr>
+            <tr><td style="padding:4px;"><strong>timestamp</strong></td><td style="padding:4px;">Data i czas pobrania danych</td></tr>
+            <tr><td style="padding:4px;"><strong>price</strong></td><td style="padding:4px;">Najniższa cena na Allegro w momencie sprawdzenia</td></tr>
+            <tr><td style="padding:4px;"><strong>offers_count</strong></td><td style="padding:4px;">Liczba aktywnych ofert</td></tr>
+            <tr><td style="padding:4px;"><strong>sold_count</strong></td><td style="padding:4px;">Łączna liczba sprzedanych sztuk</td></tr>
+            <tr><td style="padding:4px;"><strong>source</strong></td><td style="padding:4px;">Źródło danych: "live" (pobrane z Allegro) lub "analysis" (z analizy)</td></tr>
+          </table>
+          <p><strong>Retencja danych:</strong> Historia cen jest przechowywana przez 365 dni. Starsze wpisy są automatycznie usuwane.</p>
+          <p><strong>Zastosowanie:</strong> Analiza trendów cenowych pozwala identyfikować sezonowe zmiany cen, reagować na spadki/wzrosty i optymalizować momenty zakupów.</p>
+        </div>
+
         <div class="help-item" data-help="kontakt pomoc wsparcie techniczne"><h4>Potrzebujesz dodatkowej pomocy?</h4><p>Jeśli problem nie jest opisany powyżej:</p><ul><li>Sprawdź logi systemowe (zakładka Status → Logi)</li><li>Sprawdź metryki Prometheus (/api/v1/metrics/prometheus)</li><li>Skontaktuj się z administratorem systemu</li></ul></div>
 
       </div>
@@ -1010,7 +1523,7 @@
     function renderDonut(segments,svgId,legendId){
       const svg=$(svgId),leg=$(legendId);if(!svg)return;
       const total=segments.reduce((a,s)=>a+s.value,0);
-      if(!total){svg.innerHTML='<text x="18" y="19" text-anchor="middle" fill="var(--dim)" font-size="4.5">brak danych</text>';if(leg)leg.innerHTML='<div style="color:var(--dim);font-size:13px;padding:12px;">Brak danych do wyświetlenia</div>';return;}
+      if(!total){svg.innerHTML='<text x="18" y="19" text-anchor="middle" fill="var(--dim)" font-size="4.5">brak danych</text>';if(leg)leg.innerHTML='';return;}
       const r=15.915;let offset=25;// start at top
       let paths='';let legend='';
       for(const s of segments){
