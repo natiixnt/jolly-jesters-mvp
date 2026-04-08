@@ -113,35 +113,39 @@
       <!-- Account login -->
       <div class="panel" id="panel-account">
         <p class="panel-desc">Logowanie na konto firmowe z limitem EAN-ów i billingiem</p>
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="email@firma.pl" />
-        <label>Hasło</label>
-        <div class="pw-wrap">
-          <input type="password" id="login-pw" placeholder="Hasło konta" />
-          <button type="button" class="show-toggle" onclick="togglePw('login-pw',this)">pokaż</button>
-        </div>
-        <button class="submit" id="login-btn">Zaloguj</button>
+        <form onsubmit="event.preventDefault(); document.getElementById('login-btn').click();" autocomplete="on">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="email@firma.pl" autocomplete="username" />
+          <label>Hasło</label>
+          <div class="pw-wrap">
+            <input type="password" id="login-pw" placeholder="Hasło konta" autocomplete="current-password" />
+            <button type="button" class="show-toggle" onclick="togglePw('login-pw',this)">pokaż</button>
+          </div>
+          <button type="button" class="submit" id="login-btn">Zaloguj</button>
+        </form>
         <div class="error" id="login-error" style="display:none;"></div>
       </div>
 
       <!-- Register -->
       <div class="panel" id="panel-register">
         <p class="panel-desc">Utwórz konto firmowe z własnym limitem i billingiem</p>
-        <div class="row">
-          <div><label>Nazwa firmy</label><input id="reg-name" placeholder="Moja Firma Sp. z o.o." /></div>
-          <div><label>Slug (w adresie URL)</label><input id="reg-slug" placeholder="moja-firma" /></div>
-        </div>
-        <label>Email administratora</label>
-        <input type="email" id="reg-email" placeholder="admin@firma.pl" />
-        <label>Imię i nazwisko</label>
-        <input id="reg-display" placeholder="Jan Kowalski" />
-        <label>Hasło</label>
-        <div class="pw-wrap">
-          <input type="password" id="reg-pw" placeholder="Min 12 znaków, wielka i mała litera, cyfra, znak specjalny" />
-          <button type="button" class="show-toggle" onclick="togglePw('reg-pw',this)">pokaż</button>
-        </div>
-        <div class="hint">Min 12 znaków, wielka i mała litera, cyfra, znak specjalny</div>
-        <button class="submit" id="reg-btn">Zarejestruj konto</button>
+        <form onsubmit="event.preventDefault(); document.getElementById('reg-btn').click();" autocomplete="on">
+          <div class="row">
+            <div><label>Nazwa firmy</label><input id="reg-name" placeholder="Moja Firma Sp. z o.o." /></div>
+            <div><label>Slug (w adresie URL)</label><input id="reg-slug" placeholder="moja-firma" /></div>
+          </div>
+          <label>Email administratora</label>
+          <input type="email" id="reg-email" placeholder="admin@firma.pl" autocomplete="email" />
+          <label>Imię i nazwisko</label>
+          <input id="reg-display" placeholder="Jan Kowalski" autocomplete="name" />
+          <label>Hasło</label>
+          <div class="pw-wrap">
+            <input type="password" id="reg-pw" placeholder="Min 12 znaków, wielka i mała litera, cyfra, znak specjalny" autocomplete="new-password" />
+            <button type="button" class="show-toggle" onclick="togglePw('reg-pw',this)">pokaż</button>
+          </div>
+          <div class="hint">Min 12 znaków, wielka i mała litera, cyfra, znak specjalny</div>
+          <button type="button" class="submit" id="reg-btn">Zarejestruj konto</button>
+        </form>
         <div class="error" id="reg-error" style="display:none;"></div>
         <div class="success" id="reg-success" style="display:none;"></div>
       </div>
