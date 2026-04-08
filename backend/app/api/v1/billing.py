@@ -56,7 +56,7 @@ def get_usage(
 
 @router.get("/quota", response_model=QuotaCheck)
 def check_quota(
-    ean_count: int = 0,
+    ean_count: int = Query(default=0, ge=0, le=1000000),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):

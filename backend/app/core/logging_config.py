@@ -46,6 +46,20 @@ def setup_logging():
 
     root.addHandler(handler)
 
+    # --- audit logger (separate handler so audit lines are easy to filter) ---
+    audit = logging.getLogger("audit")
+    audit.setLevel(logging.INFO)
+    audit.propagate = False  # don't duplicate into root logger
+    audit_handler = logging.StreamHandler(sys.stderr)
+    if log_format == "json":
+        audit_handler.setFormatter(JsonFormatter())
+    else:
+        audit_handler.setFormatter(logging.Formatter(
+            "%(asctime)s AUDIT %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+    audit.addHandler(audit_handler)
+
     # quiet noisy libraries
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)

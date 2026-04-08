@@ -33,6 +33,7 @@ from app.services.stoploss_service import StopLossChecker, StopLossConfig
 from app.services import proxy_pool_service
 from app.providers import get_provider
 from app.services.alerting_service import alert_stoploss, notify_run_completed
+from app.services.audit_service import log_event
 from app.services.billing_service import record_run_usage
 from app.services.circuit_breaker import CircuitBreaker
 from app.utils.allegro_scraper_client import fetch_via_allegro_scraper
@@ -471,6 +472,10 @@ def run_analysis_task(self, run_id: int):
                     "STOP_LOSS triggered run_id=%s reason=%s details=%s",
                     run.id, verdict.reason, verdict.details,
                 )
+                log_event("stoploss_trigger",
+                          tenant_id=str(run.tenant_id) if run.tenant_id else None,
+                          details={"run_id": run.id, "reason": verdict.reason,
+                                   "details": verdict.details})
                 run.status = AnalysisStatus.stopped
                 run.run_metadata = {
                     **(run.run_metadata or {}),

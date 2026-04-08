@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, get_current_user_optional
 from app.db.session import get_db
 from app.services import api_key_service
+from app.services.audit_service import log_event
 
 router = APIRouter(tags=["api-keys"])
 
@@ -16,13 +17,15 @@ DEFAULT_TENANT = "00000000-0000-0000-0000-000000000000"
 
 
 class CreateKeyRequest(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=255)
+    scopes: Optional[List[str]] = Field(None, max_length=20)  # defaults to ["read"] if not provided
 
 
 class APIKeyOut(BaseModel):
     id: int
     name: str
     key_prefix: str
+    scopes: List[str]
     is_active: bool
     last_used_at: Optional[str]
     expires_at: Optional[str]
@@ -34,6 +37,7 @@ class APIKeyCreated(BaseModel):
     name: str
     key: str  # full key - shown only once
     key_prefix: str
+    scopes: List[str]
     created_at: str
 
 
@@ -49,6 +53,7 @@ def list_keys(
             id=k.id,
             name=k.name,
             key_prefix=k.key_prefix,
+            scopes=k.get_scopes(),
             is_active=k.is_active,
             last_used_at=k.last_used_at.isoformat() if k.last_used_at else None,
             expires_at=k.expires_at.isoformat() if k.expires_at else None,
@@ -61,16 +66,27 @@ def list_keys(
 @router.post("/", response_model=APIKeyCreated)
 def create_key(
     req: CreateKeyRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
     tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
-    record, raw_key = api_key_service.create_api_key(db, tenant_id=tenant_id, name=req.name)
+    try:
+        record, raw_key = api_key_service.create_api_key(
+            db, tenant_id=tenant_id, name=req.name, scopes=req.scopes,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    log_event("api_key_create", tenant_id=str(tenant_id),
+              ip=request.client.host if request.client else None,
+              details={"key_name": req.name, "key_prefix": record.key_prefix,
+                       "scopes": record.get_scopes()})
     return APIKeyCreated(
         id=record.id,
         name=record.name,
         key=raw_key,
         key_prefix=record.key_prefix,
+        scopes=record.get_scopes(),
         created_at=record.created_at.isoformat() if record.created_at else "",
     )
 
@@ -78,6 +94,7 @@ def create_key(
 @router.delete("/{key_id}")
 def revoke_key(
     key_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
@@ -85,4 +102,7 @@ def revoke_key(
     ok = api_key_service.revoke_key(db, tenant_id=tenant_id, key_id=key_id)
     if not ok:
         raise HTTPException(404, "API key not found")
+    log_event("api_key_revoke", tenant_id=str(tenant_id),
+              ip=request.client.host if request.client else None,
+              details={"key_id": key_id})
     return {"status": "ok"}

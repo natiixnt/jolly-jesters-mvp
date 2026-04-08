@@ -4,6 +4,9 @@ Covers: stop-loss new thresholds, concurrency limits, proxy pool healthcheck,
 cost formula in run metrics, and API key auto-expiration.
 """
 
+import hashlib
+import hmac
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -559,3 +562,210 @@ class TestApiKeyAutoExpiration:
         result = validate_api_key(db_session, raw_key)
         assert result is not None
         assert result.is_active is True
+
+
+# ===========================================================================
+# 6. API key scopes
+# ===========================================================================
+
+class TestApiKeyScopes:
+    """Verify scope-based access control on API keys."""
+
+    def _make_tenant(self, db_session, suffix="scope"):
+        from app.models.tenant import Tenant
+        tid = uuid.uuid4()
+        tenant = Tenant(id=tid, name="test-tenant-" + suffix, slug="test-tenant-" + suffix)
+        db_session.add(tenant)
+        db_session.commit()
+        return tenant
+
+    def _create_api_key_direct(self, db_session, tenant_id, name, scopes=None):
+        import hashlib
+        import json
+        import secrets
+        from app.models.api_key import APIKey
+
+        raw_key = "jj_" + secrets.token_urlsafe(32)
+        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        key_prefix = raw_key[:11]
+
+        record = APIKey(
+            tenant_id=tenant_id,
+            user_id=None,
+            name=name,
+            key_hash=key_hash,
+            key_prefix=key_prefix,
+            scopes=json.dumps(scopes) if scopes else '["read"]',
+        )
+        db_session.add(record)
+        db_session.commit()
+        db_session.refresh(record)
+        return record, raw_key
+
+    def test_key_with_read_scope_passes_read_check(self, db_session):
+        from app.services.api_key_service import validate_api_key
+        tenant = self._make_tenant(db_session, "s1")
+        _record, raw_key = self._create_api_key_direct(
+            db_session, tenant.id, "read-only", scopes=["read"],
+        )
+        result = validate_api_key(db_session, raw_key, required_scope="read")
+        assert result is not None
+
+    def test_key_with_read_scope_fails_write_check(self, db_session):
+        from app.services.api_key_service import validate_api_key
+        tenant = self._make_tenant(db_session, "s2")
+        _record, raw_key = self._create_api_key_direct(
+            db_session, tenant.id, "read-only", scopes=["read"],
+        )
+        result = validate_api_key(db_session, raw_key, required_scope="write")
+        assert result is None
+
+    def test_full_access_key_passes_admin_check(self, db_session):
+        from app.services.api_key_service import validate_api_key
+        tenant = self._make_tenant(db_session, "s3")
+        _record, raw_key = self._create_api_key_direct(
+            db_session, tenant.id, "full", scopes=["read", "write", "admin"],
+        )
+        result = validate_api_key(db_session, raw_key, required_scope="admin")
+        assert result is not None
+
+    def test_default_scopes_are_read_only(self, db_session):
+        from app.models.api_key import APIKey, SCOPE_READ_ONLY
+        tenant = self._make_tenant(db_session, "s4")
+        _record, _raw = self._create_api_key_direct(
+            db_session, tenant.id, "default",
+        )
+        assert _record.get_scopes() == SCOPE_READ_ONLY
+
+    def test_validate_scopes_rejects_invalid(self):
+        from app.services.api_key_service import validate_scopes
+        with pytest.raises(ValueError, match="Invalid scopes"):
+            validate_scopes(["read", "delete_everything"])
+
+
+# ===========================================================================
+# 7. API key rate limiting
+# ===========================================================================
+
+class TestApiKeyRateLimiting:
+    """Verify per-key rate limiting."""
+
+    def test_allows_requests_under_limit(self):
+        from app.services.api_key_service import check_api_key_rate, _api_key_usage
+        test_hash = "test_hash_under_limit"
+        _api_key_usage.pop(test_hash, None)
+
+        for _ in range(5):
+            assert check_api_key_rate(test_hash, max_per_minute=10) is True
+
+    def test_blocks_requests_over_limit(self):
+        from app.services.api_key_service import check_api_key_rate, _api_key_usage
+        test_hash = "test_hash_over_limit"
+        _api_key_usage.pop(test_hash, None)
+
+        for _ in range(3):
+            assert check_api_key_rate(test_hash, max_per_minute=3) is True
+        # Fourth request should be blocked
+        assert check_api_key_rate(test_hash, max_per_minute=3) is False
+
+    def test_old_entries_expire(self):
+        import time as _time
+        from app.services.api_key_service import check_api_key_rate, _api_key_usage
+        test_hash = "test_hash_expire"
+        # Manually insert old timestamps
+        _api_key_usage[test_hash] = [_time.time() - 120] * 5  # 2 minutes ago
+        # Should be allowed since old entries are cleaned
+        assert check_api_key_rate(test_hash, max_per_minute=3) is True
+
+
+# ===========================================================================
+# 8. Token security - issuer/audience claims and refresh
+# ===========================================================================
+
+class TestTokenSecurity:
+    """Verify token iss/aud claims and refresh mechanism."""
+
+    def _make_mock_user(self):
+        user = MagicMock()
+        user.id = uuid.uuid4()
+        user.tenant_id = uuid.uuid4()
+        user.is_active = True
+        return user
+
+    def test_token_contains_iss_and_aud(self):
+        from app.services.auth_service import issue_token, TOKEN_ISSUER, TOKEN_AUDIENCE
+        import base64 as b64
+
+        user = self._make_mock_user()
+        token = issue_token(user)
+        encoded, _sig = token.rsplit(".", 1)
+        padding = 4 - len(encoded) % 4
+        if padding != 4:
+            encoded += "=" * padding
+        payload = b64.urlsafe_b64decode(encoded).decode()
+        parts = payload.split(":")
+        assert len(parts) == 6
+        assert parts[4] == TOKEN_ISSUER
+        assert parts[5] == TOKEN_AUDIENCE
+
+    def test_validate_token_accepts_valid(self):
+        from app.services.auth_service import issue_token, validate_token
+
+        user = self._make_mock_user()
+        token = issue_token(user)
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = user
+
+        result = validate_token(db, token)
+        assert result is not None
+
+    def test_validate_token_rejects_tampered(self):
+        from app.services.auth_service import issue_token, validate_token
+
+        user = self._make_mock_user()
+        token = issue_token(user)
+        # Tamper with signature
+        tampered = token[:-4] + "XXXX"
+
+        db = MagicMock()
+        result = validate_token(db, tampered)
+        assert result is None
+
+    def test_refresh_token_too_early(self):
+        from app.services.auth_service import issue_token, refresh_token
+
+        user = self._make_mock_user()
+        token = issue_token(user)
+
+        db = MagicMock()
+        # Fresh token should not be refreshable
+        result = refresh_token(db, token)
+        assert result is None
+
+    def test_refresh_token_in_window(self):
+        from app.services.auth_service import (
+            issue_token, refresh_token,
+            TOKEN_TTL_HOURS, TOKEN_REFRESH_WINDOW_RATIO,
+        )
+        import base64 as b64
+
+        user = self._make_mock_user()
+        # Create a token that appears old (within refresh window)
+        ttl_seconds = TOKEN_TTL_HOURS * 3600
+        # Set iat to put us at 80% of TTL (inside 25% refresh window)
+        old_iat = int(time.time() - ttl_seconds * 0.80)
+
+        from app.services.auth_service import JWT_SECRET, TOKEN_ISSUER, TOKEN_AUDIENCE
+        jti = "deadbeef01234567"
+        payload = f"{user.id}:{user.tenant_id}:{old_iat}:{jti}:{TOKEN_ISSUER}:{TOKEN_AUDIENCE}"
+        encoded = b64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+        sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        old_token = f"{encoded}.{sig}"
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = user
+
+        new_token = refresh_token(db, old_token)
+        assert new_token is not None
+        assert new_token != old_token

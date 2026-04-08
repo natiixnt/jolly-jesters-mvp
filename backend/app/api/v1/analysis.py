@@ -70,7 +70,7 @@ def _verify_run_access(run, current_user: Optional[CurrentUser]) -> None:
     """Raise 404 if run doesn't belong to tenant (when multi-tenant active)."""
     if run and run.tenant_id:
         if not current_user or current_user.tenant_id != run.tenant_id:
-            raise HTTPException(status_code=404, detail="Analysis not found")
+            raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
 STREAM_HEARTBEAT_INTERVAL = 5.0
 
 
@@ -95,7 +95,7 @@ async def upload_analysis(
 
     category = db.query(Category).filter(Category.id == category_uuid).first()
     if not category or not category.is_active:
-        raise HTTPException(status_code=404, detail="Category not found or inactive")
+        raise HTTPException(status_code=404, detail="Kategoria nie znaleziona lub nieaktywna")
 
     if not file.filename or not file.filename.lower().endswith((".xls", ".xlsx", ".csv")):
         raise HTTPException(status_code=400, detail="Plik musi byc .xls/.xlsx/.csv")
@@ -183,11 +183,11 @@ def bulk_ean_analysis(
     from app.models.enums import AnalysisItemSource, ScrapeStatus as SS
 
     if not body.items or len(body.items) > 10000:
-        raise HTTPException(status_code=400, detail="Items list must have 1-10000 entries")
+        raise HTTPException(status_code=400, detail="Lista produktow musi zawierac od 1 do 10000 elementow")
 
     cat = db.query(Category).filter(Category.id == body.category_id).first()
     if not cat or not cat.is_active:
-        raise HTTPException(status_code=404, detail="Category not found or inactive")
+        raise HTTPException(status_code=404, detail="Kategoria nie znaleziona lub nieaktywna")
 
     _check_concurrent_limit(db, current_user)
 
@@ -288,7 +288,7 @@ def get_run_metrics(run_id: int, db: Session = Depends(get_db), current_user: Op
     _verify_run_access(run, current_user)
     metrics = analysis_service.get_run_metrics(db, run_id)
     if not metrics:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     return metrics
 
 
@@ -298,7 +298,7 @@ def export_metrics_csv(run_id: int, db: Session = Depends(get_db), current_user:
     _verify_run_access(run, current_user)
     metrics = analysis_service.get_run_metrics(db, run_id)
     if not metrics:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     output = io.StringIO()
     writer = csv.writer(output)
     fields = metrics.dict()
@@ -318,11 +318,11 @@ def export_metrics_excel(run_id: int, db: Session = Depends(get_db), current_use
     run = analysis_service.get_run_status(db, run_id)
     _verify_run_access(run, current_user)
     if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono uruchomienia")
 
     metrics = analysis_service.get_run_metrics(db, run_id)
     if not metrics:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
 
     from openpyxl import Workbook
 
@@ -383,7 +383,7 @@ def compare_runs(
     ra = analysis_service.get_run_status(db, run_a)
     rb = analysis_service.get_run_status(db, run_b)
     if not ra or not rb:
-        raise HTTPException(status_code=404, detail="One or both runs not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono jednego lub obu uruchomien")
     _verify_run_access(ra, current_user)
     _verify_run_access(rb, current_user)
 
@@ -427,7 +427,7 @@ def compare_runs(
 def get_analysis_status(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     _verify_run_access(run, current_user)
     return run
 
@@ -436,14 +436,14 @@ def get_analysis_status(run_id: int, db: Session = Depends(get_db), current_user
 def download_results(run_id: int, inline: bool = False, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     _verify_run_access(run, current_user)
     if run.status not in {AnalysisStatus.completed, AnalysisStatus.stopped}:
-        raise HTTPException(status_code=400, detail="Analysis not completed yet")
+        raise HTTPException(status_code=400, detail="Analiza jeszcze nie zakonczona")
 
     content = export_run_bytes(db, run_id)
     if content is None:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     filename = f"analysis_{run_id}.xlsx"
     disposition = "inline" if inline else f'attachment; filename="{filename}"'
     headers = {"Content-Disposition": disposition}
@@ -475,7 +475,7 @@ def get_analysis_results(
         include_debug=debug,
     )
     if not results:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     if not debug:
         payload = jsonable_encoder(
             results,
@@ -506,7 +506,7 @@ def get_analysis_results_updates(
         include_debug=debug,
     )
     if not results:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     if not debug:
         payload = jsonable_encoder(
             results,
@@ -527,7 +527,7 @@ async def stream_analysis(
     with SessionLocal() as db:
         run = analysis_service.get_run_status(db, run_id)
         if not run:
-            raise HTTPException(status_code=404, detail="Analysis not found")
+            raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
         _verify_run_access(run, current_user)
 
     async def event_generator():
@@ -651,14 +651,14 @@ async def stream_analysis(
 def cancel_analysis_run(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     run = analysis_service.get_run_status(db, run_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
     _verify_run_access(run, current_user)
     if run.status in {AnalysisStatus.completed, AnalysisStatus.failed, AnalysisStatus.stopped}:
-        raise HTTPException(status_code=400, detail="Analysis already finished")
+        raise HTTPException(status_code=400, detail="Analiza jest juz zakonczona")
 
     run = analysis_service.cancel_analysis_run(db, run_id)
     if not run:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono analizy")
 
     task_ids = set(analysis_service.list_run_task_ids(db, run_id))
     if run.root_task_id:
@@ -683,7 +683,7 @@ def stop_analysis_run(run_id: int, db: Session = Depends(get_db), current_user: 
 def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session, current_user: Optional[CurrentUser] = None) -> AnalysisUploadResponse:
     category = db.query(Category).filter(Category.id == payload.category_id).first()
     if not category or not category.is_active:
-        raise HTTPException(status_code=404, detail="Category not found or inactive")
+        raise HTTPException(status_code=404, detail="Kategoria nie znaleziona lub nieaktywna")
 
     _check_concurrent_limit(db, current_user)
 

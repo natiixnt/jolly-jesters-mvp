@@ -64,6 +64,10 @@ if not _jwt_secret_raw:
     _jwt_secret_raw = secrets.token_hex(32)
 JWT_SECRET = _jwt_secret_raw
 TOKEN_TTL_HOURS = int(os.getenv("TOKEN_TTL_HOURS", "24"))
+TOKEN_ISSUER = os.getenv("TOKEN_ISSUER", "jolly-jesters")
+TOKEN_AUDIENCE = os.getenv("TOKEN_AUDIENCE", "jolly-jesters-api")
+# Tokens can be refreshed in the last 25% of their lifetime
+TOKEN_REFRESH_WINDOW_RATIO = 0.25
 
 
 def hash_password(password: str) -> str:
@@ -124,20 +128,23 @@ def authenticate(db: Session, email: str, password: str) -> Optional[User]:
 def issue_token(user: User) -> str:
     """HMAC-based token with base64-encoded payload to avoid leaking UUIDs.
 
-    Payload format: user_id:tenant_id:iat:jti
+    Payload format: user_id:tenant_id:iat:jti:iss:aud
     - iat = issued-at unix timestamp
     - jti = unique token identifier for potential blacklisting
+    - iss = issuer claim
+    - aud = audience claim
     """
     import base64 as b64
     iat = str(int(time.time()))
     jti = secrets.token_hex(8)
-    payload = f"{user.id}:{user.tenant_id}:{iat}:{jti}"
+    payload = f"{user.id}:{user.tenant_id}:{iat}:{jti}:{TOKEN_ISSUER}:{TOKEN_AUDIENCE}"
     encoded = b64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{encoded}.{sig}"
 
 
-def validate_token(db: Session, token: str) -> Optional[User]:
+def _decode_token_payload(token: str) -> Optional[tuple[str, str, int]]:
+    """Decode and verify a token, returning (user_id_str, payload, iat) or None."""
     import base64 as b64
     if "." not in token:
         return None
@@ -153,11 +160,20 @@ def validate_token(db: Session, token: str) -> Optional[User]:
         return None
 
     parts = payload.split(":")
-    # Support new 4-part (uid:tid:iat:jti) and legacy 3-part (uid:tid:ts)
-    if len(parts) == 4:
-        user_id_str, tenant_id_str, ts_str, _jti = parts
+    # Support 6-part (uid:tid:iat:jti:iss:aud), 4-part (uid:tid:iat:jti), legacy 3-part (uid:tid:ts)
+    if len(parts) == 6:
+        user_id_str, _tenant_id_str, ts_str, _jti, iss, aud = parts
+        # Validate issuer and audience claims
+        if iss != TOKEN_ISSUER:
+            logger.warning("Token issuer mismatch: expected '%s', got '%s'", TOKEN_ISSUER, iss)
+            return None
+        if aud != TOKEN_AUDIENCE:
+            logger.warning("Token audience mismatch: expected '%s', got '%s'", TOKEN_AUDIENCE, aud)
+            return None
+    elif len(parts) == 4:
+        user_id_str, _tenant_id_str, ts_str, _jti = parts
     elif len(parts) == 3:
-        user_id_str, tenant_id_str, ts_str = parts
+        user_id_str, _tenant_id_str, ts_str = parts
     else:
         return None
 
@@ -166,12 +182,23 @@ def validate_token(db: Session, token: str) -> Optional[User]:
     except ValueError:
         return None
 
-    # Enforce token expiry (exp = iat + TTL)
-    if time.time() - ts > TOKEN_TTL_HOURS * 3600:
-        return None
-
+    # Verify HMAC signature
     expected = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig, expected):
+        return None
+
+    return (user_id_str, payload, ts)
+
+
+def validate_token(db: Session, token: str) -> Optional[User]:
+    result = _decode_token_payload(token)
+    if result is None:
+        return None
+
+    user_id_str, _payload, ts = result
+
+    # Enforce token expiry (exp = iat + TTL)
+    if time.time() - ts > TOKEN_TTL_HOURS * 3600:
         return None
 
     try:
@@ -180,6 +207,44 @@ def validate_token(db: Session, token: str) -> Optional[User]:
         return None
 
     return db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+
+
+def refresh_token(db: Session, token: str) -> Optional[str]:
+    """Refresh a token if it is still valid but within the refresh window.
+
+    Returns a new token string if the old one is close to expiry,
+    None if the token is invalid or not yet eligible for refresh.
+    """
+    result = _decode_token_payload(token)
+    if result is None:
+        return None
+
+    user_id_str, _payload, ts = result
+
+    now = time.time()
+    ttl_seconds = TOKEN_TTL_HOURS * 3600
+    elapsed = now - ts
+
+    # Token must still be valid
+    if elapsed > ttl_seconds:
+        return None
+
+    # Only allow refresh in the last portion of the token's lifetime
+    refresh_threshold = ttl_seconds * (1 - TOKEN_REFRESH_WINDOW_RATIO)
+    if elapsed < refresh_threshold:
+        return None  # Too early to refresh
+
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        return None
+
+    user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+    if not user:
+        return None
+
+    logger.info("Refreshing token for user %s (token age: %ds)", user_id_str, int(elapsed))
+    return issue_token(user)
 
 
 def get_tenant(db: Session, tenant_id: UUID) -> Optional[Tenant]:
