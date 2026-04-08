@@ -1,6 +1,9 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import CurrentUser, get_current_user_optional
 from app.db.session import get_db
 from app.schemas.settings import CurrencyRates, SettingsRead, SettingsUpdate
 from app.services import settings_service
@@ -9,7 +12,7 @@ router = APIRouter(tags=["settings"])
 
 
 @router.get("/", response_model=SettingsRead)
-def get_settings(db: Session = Depends(get_db)):
+def get_settings(db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     record = settings_service.get_settings(db)
     if not record:
         raise HTTPException(status_code=404, detail="Settings not found")
@@ -17,7 +20,7 @@ def get_settings(db: Session = Depends(get_db)):
 
 
 @router.put("/", response_model=SettingsRead)
-def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
+def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     record = settings_service.update_settings(
         db=db,
         cache_ttl_days=payload.cache_ttl_days,
@@ -31,7 +34,7 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
 
 
 @router.get("/currencies", response_model=CurrencyRates)
-def get_currency_rates(db: Session = Depends(get_db)):
+def get_currency_rates(db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     rates = settings_service.get_currency_rates(db)
     return {
         "rates": [
@@ -42,7 +45,7 @@ def get_currency_rates(db: Session = Depends(get_db)):
 
 
 @router.put("/currencies", response_model=CurrencyRates)
-def update_currency_rates(payload: CurrencyRates, db: Session = Depends(get_db)):
+def update_currency_rates(payload: CurrencyRates, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     try:
         rates = settings_service.update_currency_rates(db, [r.dict() for r in payload.rates])
     except ValueError as exc:

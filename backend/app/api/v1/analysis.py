@@ -95,7 +95,7 @@ async def upload_analysis(
     if not file.filename.lower().endswith((".xls", ".xlsx", ".csv")):
         raise HTTPException(status_code=400, detail="Plik musi byc .xls/.xlsx/.csv")
 
-    _check_concurrent_limit(db)
+    _check_concurrent_limit(db, current_user)
 
     # enforce max upload size (50 MB)
     MAX_UPLOAD_BYTES = 50 * 1024 * 1024
@@ -151,7 +151,7 @@ def bulk_ean_analysis(
     if not cat or not cat.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
-    _check_concurrent_limit(db)
+    _check_concurrent_limit(db, current_user)
 
     run = AnalysisRun(
         category_id=cat.id,
@@ -572,7 +572,7 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session, cur
     if not category or not category.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
-    _check_concurrent_limit(db)
+    _check_concurrent_limit(db, current_user)
 
     try:
         products = analysis_service.build_cached_worklist(

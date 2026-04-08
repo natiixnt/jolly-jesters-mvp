@@ -36,6 +36,7 @@ class ScrapeStatus(str, enum.Enum):
     blocked = "blocked"
     network_error = "network_error"
     error = "error"
+    stopped_by_guardrail = "stopped_by_guardrail"
 
 
 class AlertCondition(str, enum.Enum):

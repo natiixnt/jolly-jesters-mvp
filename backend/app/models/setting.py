@@ -16,3 +16,6 @@ class Setting(Base):
     stoploss_max_error_rate = Column(Numeric(5, 4), nullable=False, server_default="0.5000", default=0.50)
     stoploss_max_captcha_rate = Column(Numeric(5, 4), nullable=False, server_default="0.8000", default=0.80)
     stoploss_max_consecutive_errors = Column(Integer, nullable=False, server_default="10", default=10)
+    stoploss_max_retry_rate = Column(Numeric(5, 4), nullable=False, server_default="0.0500", default=0.05)
+    stoploss_max_blocked_rate = Column(Numeric(5, 4), nullable=False, server_default="0.1000", default=0.10)
+    stoploss_max_cost_per_1000 = Column(Numeric(8, 2), nullable=False, server_default="10.00", default=10.0)

@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import CurrentUser, get_current_user_optional
 from app.db.session import get_db
+from app.models.category import Category
 from app.models.product import Product
 from app.models.product_market_data import ProductMarketData
 
@@ -26,11 +28,18 @@ def get_price_history(
     ean: str,
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
-    rows = (
+    query = (
         db.query(ProductMarketData)
         .join(Product, ProductMarketData.product_id == Product.id)
+        .join(Category, Product.category_id == Category.id)
         .filter(Product.ean == ean)
+    )
+    if current_user:
+        query = query.filter(Category.tenant_id == current_user.tenant_id)
+    rows = (
+        query
         .order_by(ProductMarketData.fetched_at.desc())
         .limit(limit)
         .all()

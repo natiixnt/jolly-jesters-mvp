@@ -27,7 +27,7 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db), curr
 
 
 @router.patch("/{category_id}", response_model=CategoryRead)
-def update_category(category_id: str, payload: CategoryUpdate, db: Session = Depends(get_db)):
+def update_category(category_id: str, payload: CategoryUpdate, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     try:
         category_uuid = uuid.UUID(category_id)
     except ValueError:
@@ -44,7 +44,7 @@ def update_category(category_id: str, payload: CategoryUpdate, db: Session = Dep
 
 
 @router.get("/{category_id}", response_model=CategoryRead)
-def get_category(category_id: str, db: Session = Depends(get_db)):
+def get_category(category_id: str, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     try:
         category_uuid = uuid.UUID(category_id)
     except ValueError:

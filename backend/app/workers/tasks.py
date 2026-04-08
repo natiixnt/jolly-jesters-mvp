@@ -363,6 +363,9 @@ def run_analysis_task(self, run_id: int):
             max_error_rate=float(setting.stoploss_max_error_rate),
             max_captcha_rate=float(setting.stoploss_max_captcha_rate),
             max_consecutive_errors=setting.stoploss_max_consecutive_errors,
+            max_retry_rate=float(setting.stoploss_max_retry_rate),
+            max_blocked_rate=float(setting.stoploss_max_blocked_rate),
+            max_cost_per_1000=float(setting.stoploss_max_cost_per_1000),
         ))
 
         for item in items:
@@ -434,6 +437,9 @@ def run_analysis_task(self, run_id: int):
             verdict = stoploss.record(
                 item.scrape_status,
                 captcha_solves=getattr(result, 'captcha_solves', 0) or 0 if result else 0,
+                retries=getattr(result, 'retries', 0) or 0 if result else 0,
+                is_blocked=item.scrape_status == ScrapeStatus.blocked,
+                cost=getattr(result, 'cost', 0.0) or 0.0 if result else 0.0,
             )
             if verdict.should_stop:
                 logger.warning(
@@ -448,6 +454,14 @@ def run_analysis_task(self, run_id: int):
                     "stopped_at_item": item.row_number,
                 }
                 run.finished_at = datetime.now(timezone.utc)
+                # mark remaining pending items as stopped_by_guardrail
+                db.query(AnalysisRunItem).filter(
+                    AnalysisRunItem.analysis_run_id == run.id,
+                    AnalysisRunItem.scrape_status == ScrapeStatus.pending,
+                ).update(
+                    {"scrape_status": ScrapeStatus.stopped_by_guardrail},
+                    synchronize_session="fetch",
+                )
                 db.commit()
                 try:
                     alert_stoploss(run.id, verdict.reason, verdict.details or {})
