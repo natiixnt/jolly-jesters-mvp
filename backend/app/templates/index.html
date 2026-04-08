@@ -301,6 +301,13 @@
     .btn-sm:hover{background:rgba(var(--accent),.1); border-color:rgba(var(--accent),.3);}
     .btn-sm.btn-danger{border-color:rgba(var(--red),.2); background:rgba(var(--red),.04); color:rgb(var(--red));}
     .btn-sm.btn-danger:hover{background:rgba(var(--red),.1); border-color:rgba(var(--red),.4);}
+    .empty-state { text-align:center; padding:32px 16px; color:var(--muted); }
+    .empty-icon { font-size:2.5rem; margin-bottom:8px; }
+    .empty-text { font-size:1.1rem; margin-bottom:4px; }
+    .empty-hint { font-size:0.85rem; color:var(--dim); }
+    .btn.outline { background:transparent; border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; cursor:pointer; }
+    .btn.outline:hover { border-color:var(--accent); color:var(--accent); }
+    .form-error { color:#e74c3c; font-size:0.85rem; margin-top:4px; display:none; }
   </style>
 </head>
 <body>
@@ -449,14 +456,14 @@
       <div class="card" id="onboarding" style="display:none;margin-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div class="card-label">Pierwsze kroki</div>
-          <button onclick="localStorage.setItem('jj_onboarding_dismissed','1');this.closest('.card').style.display='none';" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:4px;font-size:16px;line-height:1;" title="Zamknij na stale">&#x2715;</button>
+          <button onclick="localStorage.setItem('jj_onboarding_dismissed','1');this.closest('.card').style.display='none';" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:4px;font-size:16px;line-height:1;" title="Zamknij na stałe">&#x2715;</button>
         </div>
         <div class="card-title">Witaj w Jolly Jesters</div>
         <div class="card-desc">Konfiguracja w 4 krokach</div>
-        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorie</h4><p>Ustawienia - stworz kategorie z mnoznikiem i prowizja</p></div></div>
+        <div class="step"><div class="step-num">1</div><div class="step-body"><h4>Dodaj kategorie</h4><p>Ustawienia - stwórz kategorię z mnożnikiem i prowizją</p></div></div>
         <div class="step"><div class="step-num">2</div><div class="step-body"><h4>Wgraj proxy</h4><p>Ustawienia - wgraj plik .txt</p></div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analize</h4><p>Nowa analiza - wrzuc Excel z EAN-ami</p></div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdz wyniki</h4><p>Pobierz Excel lub przegladaj metryki</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body"><h4>Uruchom analizę</h4><p>Nowa analiza - wrzuć Excel z EAN-ami</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body"><h4>Sprawdź wyniki</h4><p>Pobierz Excel lub przeglądaj metryki</p></div></div>
       </div>
     </div>
 
@@ -507,7 +514,7 @@
         </div>
         <div class="btn-row" style="margin-bottom:12px;">
           <button class="btn sm" id="market-load">Szukaj</button>
-          <span class="hint" id="market-meta" style="margin:0;">0 rekordow</span>
+          <span class="hint" id="market-meta" style="margin:0;">0 rekordów</span>
         </div>
         <div id="market-table"></div>
         <div id="market-pager" style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:16px;flex-wrap:wrap;"></div>
@@ -526,7 +533,7 @@
             <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;">Z pliku</div>
             <div class="dz" id="pp-dropzone" style="padding:16px;cursor:pointer;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" style="margin-bottom:2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <div class="dz-title" style="font-size:12px;">Kliknij lub przeciagnij .txt</div>
+              <div class="dz-title" style="font-size:12px;">Kliknij lub przeciągnij .txt</div>
               <div class="dz-sub" id="pp-file-name" style="font-size:11px;">1 proxy na linie</div>
               <input id="pp-file" type="file" accept=".txt" hidden />
             </div>
@@ -614,7 +621,7 @@
         <div class="help-item" data-help="plik excel csv format kolumny"><h4>Format pliku</h4><p>Obsługiwane: .xlsx, .xls, .csv. Wymagane kolumny:</p><ul><li><strong>EAN</strong> - kod kreskowy (8-13 cyfr)</li><li><strong>cena zakupu</strong> - Twoja cena nabycia</li><li><strong>nazwa</strong> - opcjonalna</li><li><strong>waluta</strong> - opcjonalna (domyślnie PLN)</li></ul></div>
         <div class="help-item" data-help="wyniki oplacalnosc cena marza zysk allegro"><h4>Jak czytać wyniki?</h4><ul><li><strong>Cena Allegro</strong> - najniższa cena na Allegro</li><li><strong>Marża</strong> - różnica między ceną Allegro a ceną zakupu (minus prowizja)</li><li><strong>Opłacalny</strong> - tak, jeśli marża przekracza mnożnik</li><li><strong>Sprzedanych</strong> - ilość sprzedanych sztuk</li></ul></div>
         <div class="help-item" data-help="metryki koszt ean przepustowosc czas latency"><h4>Metryki i koszty</h4><ul><li><strong>EAN/min</strong> - prędkość przetwarzania</li><li><strong>Koszt/1000 EAN</strong> - estymacja (z CAPTCHA solving)</li><li><strong>Retry rate</strong> - % zapytań ponawianych</li><li><strong>Latency P50/P95</strong> - czas odpowiedzi</li></ul></div>
-        <div class="help-item" data-help="stoploss stop loss zatrzymanie blad ochrona"><h4>Stop-loss</h4><p>System automatycznie zatrzymuje analize przy problemach:</p><ul><li><strong>Error rate</strong> - zbyt wiele bledow (domyslnie > 50%)</li><li><strong>Captcha rate</strong> - zbyt wiele CAPTCHA (> 80%)</li><li><strong>Consecutive errors</strong> - seria bledow z rzedu (10)</li><li><strong>Retry rate</strong> - zbyt wiele ponownych prob (> 30%)</li><li><strong>Blocked rate</strong> - zbyt wiele zablokowanych zapytan (> 20%)</li><li><strong>Koszt / 1000 EAN</strong> - przekroczony limit kosztow ($5)</li></ul><p>Raport przyczyny zatrzymania dostepny w podgladzie runu.</p></div>
+        <div class="help-item" data-help="stoploss stop loss zatrzymanie blad ochrona"><h4>Stop-loss</h4><p>System automatycznie zatrzymuje analizę przy problemach:</p><ul><li><strong>Error rate</strong> - zbyt wiele błędów (domyślnie > 50%)</li><li><strong>Captcha rate</strong> - zbyt wiele CAPTCHA (> 80%)</li><li><strong>Consecutive errors</strong> - seria błędów z rzędu (10)</li><li><strong>Retry rate</strong> - zbyt wiele ponownych prób (> 30%)</li><li><strong>Blocked rate</strong> - zbyt wiele zablokowanych zapytań (> 20%)</li><li><strong>Koszt / 1000 EAN</strong> - przekroczony limit kosztów ($5)</li></ul><p>Raport przyczyny zatrzymania dostępny w podglądzie runu.</p></div>
         <div class="help-item" data-help="proxy siec polaczenie połączenie ip kwarantanna"><h4>Proxy</h4><ul><li>Wgraj plik .txt w ustawieniach (1 proxy na linię)</li><li>System automatycznie ocenia jakość (health score 0-1)</li><li>Słabe proxy trafiają na kwarantannę (15 min)</li></ul></div>
         <div class="help-item" data-help="kategoria prowizja mnoznik"><h4>Kategorie</h4><ul><li><strong>Mnożnik</strong> - min marża (np. 1.25 = min 25% ROI)</li><li><strong>Prowizja</strong> - % prowizji Allegro</li><li>Każda kategoria może mieć inne parametry</li></ul></div>
         <div class="help-item" data-help="api eksport excel csv prometheus"><h4>API i eksport</h4><ul><li><strong>Excel</strong> - pełne wyniki z metrykami</li><li><strong>CSV</strong> - podsumowanie runu</li><li><strong>REST API</strong> - /api/v1/</li><li><strong>Prometheus</strong> - /api/v1/metrics/prometheus</li></ul></div>
@@ -682,7 +689,7 @@
             </select>
           </div>
           <div>
-            <div class="stat-label" style="margin-bottom:4px;">Prog (PLN lub %)</div>
+            <div class="stat-label" style="margin-bottom:4px;">Próg (PLN lub %)</div>
             <input class="inp" id="alert-threshold" type="number" step="0.01" placeholder="np. 100.00" />
           </div>
           <button class="btn primary" id="alert-add-btn" style="height:40px;">Dodaj</button>
@@ -881,11 +888,11 @@
       <div class="modal-bd">
         <div id="preview-metrics" style="display:none;"><div class="card-label">Metryki</div><div class="mg" id="preview-mg"></div></div>
         <div id="preview-stoploss" style="display:none;background:#2d1b1b;border:1px solid #c0392b;border-radius:8px;padding:16px;margin:12px 0;">
-          <h4 style="color:#e74c3c;margin:0 0 8px;">Mechanizm zabezpieczajacy (stop-loss)</h4>
+          <h4 style="color:#e74c3c;margin:0 0 8px;">Mechanizm zabezpieczający (stop-loss)</h4>
           <table style="width:100%;color:#ddd;">
             <tr><td style="color:#999;width:180px;padding:4px 0;">Przyczyna:</td><td id="sl-reason" style="padding:4px 0;"></td></tr>
-            <tr><td style="color:#999;padding:4px 0;">Przekroczony prog:</td><td id="sl-threshold" style="padding:4px 0;"></td></tr>
-            <tr><td style="color:#999;padding:4px 0;">Wartosc w momencie zatrzymania:</td><td id="sl-value" style="padding:4px 0;"></td></tr>
+            <tr><td style="color:#999;padding:4px 0;">Przekroczony próg:</td><td id="sl-threshold" style="padding:4px 0;"></td></tr>
+            <tr><td style="color:#999;padding:4px 0;">Wartość w momencie zatrzymania:</td><td id="sl-value" style="padding:4px 0;"></td></tr>
             <tr><td style="color:#999;padding:4px 0;">Zatrzymano na elemencie:</td><td id="sl-item" style="padding:4px 0;"></td></tr>
             <tr><td style="color:#999;padding:4px 0;">Czas zdarzenia:</td><td id="sl-timestamp" style="padding:4px 0;"></td></tr>
           </table>
@@ -960,7 +967,7 @@
         if(pct<0.5)continue;
         paths+=`<circle cx="18" cy="18" r="${r}" fill="none" stroke="${s.color}" stroke-width="3.5" stroke-dasharray="${pct} ${100-pct}" stroke-dashoffset="${offset}" stroke-linecap="round"/>`;
         offset-=pct;
-        legend+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0;"></span>${s.label}: <strong>${s.value.toLocaleString()}</strong> (${pct.toFixed(0)}%)</div>`;
+        legend+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0;"></span>${s.label}: <strong>${s.value.toLocaleString('pl-PL')}</strong> (${pct.toFixed(0)}%)</div>`;
       }
       // center text
       const mainPct=segments[0]?((segments[0].value/total)*100).toFixed(0):'0';
@@ -982,7 +989,7 @@
         for(const r of runs)totalEans+=r.processed_products||0;
         setText($('ds-total'),totalRuns);
         setText($('ds-active-sub'),`${activeRuns} trwa, ${completedRuns} ukończonych`);
-        setText($('ds-eans'),totalEans.toLocaleString());
+        setText($('ds-eans'),totalEans.toLocaleString('pl-PL'));
 
         // bar chart - last 24 runs
         const chart=$('dash-chart');
@@ -1044,7 +1051,7 @@
         const allScrapes=okScrapes+errScrapes;
         const rate=allScrapes>0?((okScrapes/allScrapes)*100).toFixed(1)+'%':'brak danych';
         setText($('ds-success-rate'),rate);
-        setText($('ds-success-detail'),`${okScrapes.toLocaleString()} udanych z ${allScrapes.toLocaleString()} zapytań`);
+        setText($('ds-success-detail'),`${okScrapes.toLocaleString('pl-PL')} udanych z ${allScrapes.toLocaleString('pl-PL')} zapytań`);
         const hd=$('dash-health-dot'),ht=$('dash-health-text');
         if(hd)hd.classList.add('ok');
         if(ht)ht.textContent='system online';
@@ -1084,14 +1091,15 @@
       const body=$('preview-body'),mg=$('preview-metrics'),mgg=$('preview-mg'),sl=$('preview-stoploss'),dx=$('preview-dl-xlsx'),dc=$('preview-dl-csv');
       setHtml(body,'<div class="hint">ładowanie...</div>');hide(mg);hide(sl);hide(dx);hide(dc);
       $('preview-refresh')?.setAttribute('data-id',id);
-      $('preview-refresh')?.addEventListener('click',()=>openPreview($('preview-refresh')?.getAttribute('data-id')));
+      const refreshBtn=$('preview-refresh');
+      if(refreshBtn){const newBtn=refreshBtn.cloneNode(true);refreshBtn.parentNode.replaceChild(newBtn,refreshBtn);newBtn.addEventListener('click',()=>openPreview(newBtn.getAttribute('data-id')));}
       const [data,metrics,info]=await Promise.all([apiGet(`/api/v1/analysis/${id}/results?limit=50`).catch(()=>null),apiGet(`/api/v1/analysis/${id}/metrics`).catch(()=>null),apiGet(`/api/v1/analysis/${id}`).catch(()=>null)]);
       if(info&&['completed','stopped'].includes(info.status)&&dx){dx.href=`/api/v1/analysis/${id}/download`;show(dx);}
       if(metrics&&dc){dc.href=`/api/v1/analysis/${id}/metrics/csv`;show(dc);}
       if(metrics&&mgg){
         mgg.innerHTML=[mc('EAN/min',metrics.ean_per_min,'rgb(var(--blue))'),mc('Koszt/1k',metrics.cost_per_1000_ean!=null?`$${metrics.cost_per_1000_ean}`:null,'rgb(var(--amber))'),mc('Avg lat.',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),mc('P95',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),mc('Retry',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),mc('CAPTCHA',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'rgb(var(--red))':null),mc('OK',`${metrics.completed_items}/${metrics.total_items}`,'rgb(var(--green))'),mc('Blocked',metrics.blocked_items,'rgb(var(--red))'),mc('Czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null)].join('');show(mg);
       }
-      if(info?.status==='stopped'&&sl){const m=info.run_metadata||{};const d=m.stop_details||{};setText($('sl-reason'),m.stop_reason||'nieznany');setText($('sl-threshold'),d.threshold!=null?d.threshold_type==='rate'?`${(d.threshold*100).toFixed(1)}%`:d.threshold:d.metric||'-');setText($('sl-value'),d.rate!=null?`${(d.rate*100).toFixed(1)}%`:d.value!=null?d.value:'-');setText($('sl-item'),m.stopped_at_item?`pozycja #${m.stopped_at_item}`:'-');setText($('sl-timestamp'),m.stopped_at?new Date(m.stopped_at).toLocaleString():info.updated_at?new Date(info.updated_at).toLocaleString():'-');show(sl);}
+      if(info?.status==='stopped'&&sl){const m=info.run_metadata||{};const d=m.stop_details||{};setText($('sl-reason'),m.stop_reason||'nieznany');setText($('sl-threshold'),d.threshold!=null?d.threshold_type==='rate'?`${(d.threshold*100).toFixed(1)}%`:d.threshold:d.metric||'-');setText($('sl-value'),d.rate!=null?`${(d.rate*100).toFixed(1)}%`:d.value!=null?d.value:'-');setText($('sl-item'),m.stopped_at_item?`pozycja #${m.stopped_at_item}`:'-');setText($('sl-timestamp'),m.stopped_at?new Date(m.stopped_at).toLocaleString('pl-PL'):info.updated_at?new Date(info.updated_at).toLocaleString('pl-PL'):'-');show(sl);}
       const rows=data?.items||[];
       if(!rows.length){setHtml(body,'<div class="hint">Brak wyników</div>');return;}
       setHtml(body,`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Kupno</th><th>Allegro</th><th>Marża</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="mono">${escapeHtml(r.ean||'')}</td><td>${escapeHtml((r.name||'').slice(0,50))}</td><td>${escapeHtml(String(r.purchase_price_pln??'-'))}</td><td>${escapeHtml(String(r.allegro_price_pln??'-'))}</td><td>${r.margin_pln!=null?escapeHtml(r.margin_pln.toFixed(2)):'-'}</td><td>${escapeHtml(r.scrape_status||'-')}</td></tr>`).join('')}</tbody></table></div>`);
@@ -1100,7 +1108,7 @@
     async function loadHistory(){
       try{const runs=await apiGet('/api/v1/analysis?limit=50');if(!runs?.length){setHtml($('history-list'),'<div class="sbox">Brak historii</div>');return;}
       setHtml($('history-list'),runs.map(r=>{const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';const rid=parseInt(r.id)||0;
-      return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${escapeHtml(r.category_name||'')} #${rid}</strong><span class="badge ${bc}">${escapeHtml(r.status)}</span></div><div style="font-size:12px;color:var(--dim);margin-top:2px;">${r.created_at?escapeHtml(new Date(r.created_at).toLocaleString()):''} - ${parseInt(r.processed_products)||0}/${parseInt(r.total_products)||0} EAN</div><div class="btn-row" style="margin-top:6px;"><button class="btn sm" onclick="openPreview(${rid})">Podgląd</button>${['completed','stopped'].includes(r.status)?`<a class="btn sm" href="/api/v1/analysis/${rid}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;}).join(''));}catch(e){setHtml($('history-list'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-size:20px;margin-bottom:8px;">📋</div><div style="font-weight:500;">Brak historii analiz</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Uruchom pierwszą analizę w zakładce "Nowa analiza"</div></div>');}
+      return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${escapeHtml(r.category_name||'')} #${rid}</strong><span class="badge ${bc}">${escapeHtml(r.status)}</span></div><div style="font-size:12px;color:var(--dim);margin-top:2px;">${r.created_at?escapeHtml(new Date(r.created_at).toLocaleString('pl-PL')):''} - ${parseInt(r.processed_products)||0}/${parseInt(r.total_products)||0} EAN</div><div class="btn-row" style="margin-top:6px;"><button class="btn sm" onclick="openPreview(${rid})">Podgląd</button>${['completed','stopped'].includes(r.status)?`<a class="btn sm" href="/api/v1/analysis/${rid}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;}).join(''));}catch(e){setHtml($('history-list'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-size:20px;margin-bottom:8px;">📋</div><div style="font-weight:500;">Brak historii analiz</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Uruchom pierwszą analizę w zakładce "Nowa analiza"</div></div>');}
     }
 
     let mOff=0,mTotal=0;const mPerPage=50;
@@ -1125,7 +1133,7 @@
       btns.push(`<button class="pager-btn" ${cur>=pages-1?'disabled':''}onclick="${loadFn}(${(cur+1)*perPage})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>`);
       container.innerHTML=btns.join('');
     }
-    async function loadMarket(off){mOff=off||0;try{let u=`/api/v1/market-data?offset=${mOff}&limit=${mPerPage}`;const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;const d=await apiGet(u);const items=d?.items||d||[];mTotal=d?.total||items.length||(items.length<mPerPage?mOff+items.length:mOff+mPerPage+1);setText($('market-meta'),`${mTotal} rekordow`);const pager=$('market-pager');if(!items.length){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');if(pager)pager.innerHTML='';return;}setHtml($('market-table'),`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzed.</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr><td class="mono">${escapeHtml(r.ean||'')}</td><td>${escapeHtml((r.name||'').slice(0,40))}</td><td>${escapeHtml(String(r.price??r.allegro_price??'-'))}</td><td>${escapeHtml(String(r.sold_count??'-'))}</td><td style="font-size:11px;">${r.last_checked_at?escapeHtml(new Date(r.last_checked_at).toLocaleString()):'-'}</td></tr>`).join('')}</tbody></table></div>`);if(pager)renderPager(mTotal,mOff,mPerPage,pager,'loadMarket');}catch(e){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');}}
+    async function loadMarket(off){mOff=off||0;try{let u=`/api/v1/market-data?offset=${mOff}&limit=${mPerPage}`;const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;const d=await apiGet(u);const items=d?.items||d||[];mTotal=d?.total||items.length||(items.length<mPerPage?mOff+items.length:mOff+mPerPage+1);setText($('market-meta'),`${mTotal} rekordów`);const pager=$('market-pager');if(!items.length){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawią się po pierwszej analizie</div></div>');if(pager)pager.innerHTML='';return;}setHtml($('market-table'),`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzed.</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr><td class="mono">${escapeHtml(r.ean||'')}</td><td>${escapeHtml((r.name||'').slice(0,40))}</td><td>${escapeHtml(String(r.price??r.allegro_price??'-'))}</td><td>${escapeHtml(String(r.sold_count??'-'))}</td><td style="font-size:11px;">${r.last_checked_at?escapeHtml(new Date(r.last_checked_at).toLocaleString('pl-PL')):'-'}</td></tr>`).join('')}</tbody></table></div>`);if(pager)renderPager(mTotal,mOff,mPerPage,pager,'loadMarket');}catch(e){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawią się po pierwszej analizie</div></div>');}}
     $('market-load')?.addEventListener('click',()=>loadMarket(0));
 
     async function loadProxyPool(){
@@ -1144,11 +1152,11 @@
       try{const u=new URL(url);if(u.password)u.password='***';if(u.username)u.username=u.username.slice(0,3)+'***';return u.toString();}catch{return url;}
     }
     async function quarantineProxy(id){
-      await fetch(`/api/v1/proxy-pool/${id}/quarantine`,{method:'POST',credentials:'include'});
+      try{const r=await fetch(`/api/v1/proxy-pool/${id}/quarantine`,{method:'POST',credentials:'include'});if(!r.ok)throw new Error('Blad');}catch(e){alert('Nie udalo sie zmienic statusu proxy');}
       loadProxyList();
     }
     async function unquarantineProxy(id){
-      await fetch(`/api/v1/proxy-pool/${id}/unquarantine`,{method:'POST',credentials:'include'});
+      try{const r=await fetch(`/api/v1/proxy-pool/${id}/unquarantine`,{method:'POST',credentials:'include'});if(!r.ok)throw new Error('Blad');}catch(e){alert('Nie udalo sie zmienic statusu proxy');}
       loadProxyList();
     }
     async function loadProxyList(){
@@ -1157,10 +1165,10 @@
       try{
         const proxies=await apiGet('/api/v1/proxy-pool?active_only=false');
         if(!proxies?.length){
-          container.innerHTML='<div class="sbox" style="text-align:center;padding:24px;"><div style="font-weight:500;">Brak proxy w puli</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Wgraj plik lub wklej proxy powyzej</div></div>';
+          container.innerHTML='<div class="sbox" style="text-align:center;padding:24px;"><div style="font-weight:500;">Brak proxy w puli</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Wgraj plik lub wklej proxy powyżej</div></div>';
           return;
         }
-        let html='<table class="tbl"><thead><tr><th>URL</th><th>Label</th><th>Wynik zdrowia</th><th>Status</th><th>Sukces / Blad</th><th>Akcje</th></tr></thead><tbody>';
+        let html='<table class="tbl"><thead><tr><th>URL</th><th>Label</th><th>Wynik zdrowia</th><th>Status</th><th>Sukces / Błąd</th><th>Akcje</th></tr></thead><tbody>';
         for(const p of proxies.slice(0,200)){
           const score=p.health_score??1.0;
           const scoreColor=score>0.8?'rgb(var(--green))':score>0.5?'rgb(var(--amber))':'rgb(var(--red))';
@@ -1169,7 +1177,7 @@
             ?'<span class="badge err">Kwarantanna</span>'
             :'<span class="badge ok">Aktywny</span>';
           const actionBtn=isQ
-            ?`<button onclick="unquarantineProxy(${p.id})" class="btn-sm">Przywroc</button>`
+            ?`<button onclick="unquarantineProxy(${p.id})" class="btn-sm">Przywróć</button>`
             :`<button onclick="quarantineProxy(${p.id})" class="btn-sm btn-danger">Kwarantanna</button>`;
           html+=`<tr>
             <td class="mono">${escapeHtml(maskUrl(p.url||''))}</td>
@@ -1183,7 +1191,7 @@
         html+='</tbody></table>';
         container.innerHTML=html;
       }catch(e){
-        container.innerHTML='<div class="sbox" style="text-align:center;padding:24px;">Blad ladowania listy proxy</div>';
+        container.innerHTML='<div class="sbox" style="text-align:center;padding:24px;">Błąd ładowania listy proxy</div>';
       }
     }
     // proxy-refresh button removed - auto-refresh handles it
@@ -1209,7 +1217,7 @@
         setText($('pp-file-name'),'1 proxy na linie');
         ppInp.value='';
         loadProxyPool();
-      }catch(e){setText($('pp-upload-status'),'blad uploadu');}
+      }catch(e){setText($('pp-upload-status'),'błąd uploadu');}
     });
     // proxy format validation: host:port, host:port:user:pass, http://..., socks5://...
     function validateProxyLines(txt){
@@ -1220,7 +1228,7 @@
       for(let i=0;i<lines.length;i++){
         if(!proxyRe.test(lines[i]))bad.push(i+1);
       }
-      if(bad.length)return{ok:false,msg:`bledny format w liniach: ${bad.slice(0,5).join(', ')}${bad.length>5?' (+'+(bad.length-5)+')':''}. Poprawny: host:port lub host:port:user:pass`,lines};
+      if(bad.length)return{ok:false,msg:`błędny format w liniach: ${bad.slice(0,5).join(', ')}${bad.length>5?' (+'+(bad.length-5)+')':''}. Poprawny: host:port lub host:port:user:pass`,lines};
       return{ok:true,lines};
     }
     $('pp-paste-btn')?.addEventListener('click',async()=>{
@@ -1237,7 +1245,7 @@
         setText($('pp-upload-status'),`dodano ${d.count||d.imported||v.lines.length} proxy`);
         $('pp-paste').value='';
         loadProxyPool();
-      }catch(e){setText($('pp-upload-status'),'blad uploadu');}
+      }catch(e){setText($('pp-upload-status'),'błąd uploadu');}
     });
 
     async function loadSettings(){try{const s=await apiGet('/api/v1/settings/');if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;if($('sl-retry-rate'))$('sl-retry-rate').value=Math.round((s.stoploss_max_retry_rate||.3)*100);if($('sl-blocked-rate'))$('sl-blocked-rate').value=Math.round((s.stoploss_max_blocked_rate||.2)*100);if($('sl-cost-per-1000'))$('sl-cost-per-1000').value=s.stoploss_max_cost_per_1000||5;}catch(e){}loadCategories();loadProxyStatus();loadCurrencies();}
@@ -1334,7 +1342,7 @@
       if(!apiToken)return;
       try{
         const u=await apiAuthGet('/api/v1/billing/usage');
-        setText($('usage-eans'),u.total_ean?.toLocaleString()||'0');
+        setText($('usage-eans'),u.total_ean?.toLocaleString('pl-PL')||'0');
         setText($('usage-cost'),'$'+(u.total_cost_usd||0).toFixed(2));
         setText($('usage-runs'),u.run_count||0);
         setText($('usage-quota-sub'),`z ${u.quota} limitu`);
@@ -1431,7 +1439,7 @@
         // donut: scrape results
         renderDonut([
           {value:okScrapes,color:'rgb(var(--green))',label:'Udane'},
-          {value:errScrapes,color:'rgb(var(--red))',label:'Bledy'},
+          {value:errScrapes,color:'rgb(var(--red))',label:'Błędy'},
           {value:captcha,color:'rgb(var(--amber))',label:'CAPTCHA'},
         ],'donut-scrape','donut-scrape-legend');
 
@@ -1446,7 +1454,7 @@
         if(pg)pg.innerHTML=[
           mc('Aktywne runy',get('jj_active_runs'),'rgb(var(--blue))'),
           mc('Avg latency',get('jj_avg_latency_ms')+'ms'),
-          mc('CAPTCHA solves',captcha.toLocaleString(),'rgb(var(--amber))'),
+          mc('CAPTCHA solves',captcha.toLocaleString('pl-PL'),'rgb(var(--amber))'),
           mc('Koszt CAPTCHA','~$'+(captcha*0.002).toFixed(2),'rgb(var(--amber))'),
         ].join('');
       }catch(e){}
@@ -1481,7 +1489,7 @@
       const ean=$('mon-ean')?.value?.trim();if(!ean){show($('mon-error'));setText($('mon-error'),'Wpisz EAN');return;}
       hide($('mon-error'));
       try{await apiPost('/api/v1/monitoring/watch',{ean,label:$('mon-label')?.value||null,refresh_interval_minutes:parseInt($('mon-interval')?.value||60)});$('mon-ean').value='';$('mon-label').value='';loadMonitoring();}
-      catch(e){show($('mon-error'));setText($('mon-error'),e.message||'blad');}
+      catch(e){show($('mon-error'));setText($('mon-error'),e.message||'błąd');}
     });
     $('mon-bulk-btn')?.addEventListener('click',async()=>{
       const raw=$('mon-bulk')?.value||'';const eans=raw.split(/[\n,;]+/).map(s=>s.trim()).filter(s=>s.length>=8);
