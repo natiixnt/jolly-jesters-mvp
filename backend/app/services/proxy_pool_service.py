@@ -11,11 +11,15 @@ from typing import Dict, List, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models.network_proxy import NetworkProxy
 
 logger = logging.getLogger(__name__)
 
-QUARANTINE_DURATION_MINUTES = 15
+def _quarantine_minutes() -> int:
+    settings = get_settings()
+    return settings.network_quarantine_ttl_hours * 60
+
 HEALTH_DECAY_FACTOR = Decimal("0.05")
 HEALTH_RECOVERY_FACTOR = Decimal("0.02")
 MIN_HEALTH_SCORE = Decimal("0.0")
@@ -107,7 +111,7 @@ def record_failure(db: Session, proxy_url_hash: str, reason: str = "") -> None:
     if recent_fails >= CONSECUTIVE_FAILS_QUARANTINE:
         quarantine_proxy(
             db, proxy.id,
-            duration_minutes=QUARANTINE_DURATION_MINUTES,
+            duration_minutes=_quarantine_minutes(),
             reason=f"auto: {CONSECUTIVE_FAILS_QUARANTINE} consecutive fails",
         )
     db.flush()
@@ -116,12 +120,14 @@ def record_failure(db: Session, proxy_url_hash: str, reason: str = "") -> None:
 def quarantine_proxy(
     db: Session,
     proxy_id: int,
-    duration_minutes: int = QUARANTINE_DURATION_MINUTES,
+    duration_minutes: Optional[int] = None,
     reason: str = "manual",
 ) -> Optional[NetworkProxy]:
     proxy = get_proxy(db, proxy_id)
     if not proxy:
         return None
+    if duration_minutes is None:
+        duration_minutes = _quarantine_minutes()
     proxy.quarantine_until = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
     proxy.quarantine_reason = reason
     db.commit()
@@ -200,3 +206,19 @@ def _count_recent_consecutive_fails(proxy: NetworkProxy) -> int:
     # If last_fail > last_success, assume ongoing failures
     # This is a rough heuristic; proper tracking would need a log table
     return proxy.fail_count if not proxy.last_success_at else min(proxy.fail_count, CONSECUTIVE_FAILS_QUARANTINE)
+
+
+def run_healthcheck(db: Session) -> dict:
+    """Check all active proxies and update scores. Called periodically."""
+    proxies = db.query(NetworkProxy).filter(NetworkProxy.is_active == True).all()
+    results = {"checked": 0, "quarantined": 0, "recovered": 0}
+    now = datetime.now(timezone.utc)
+    for proxy in proxies:
+        # Auto-recover from quarantine if TTL expired
+        if proxy.quarantine_until and proxy.quarantine_until <= now:
+            proxy.quarantine_until = None
+            proxy.quarantine_reason = None
+            results["recovered"] += 1
+        results["checked"] += 1
+    db.commit()
+    return results

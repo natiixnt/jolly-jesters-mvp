@@ -11,7 +11,10 @@ from app.db.session import SessionLocal
 from app.models.analysis_run import AnalysisRun
 from app.models.category import Category
 from app.models.enums import AnalysisStatus
+from celery.schedules import crontab
+
 from app.services.analysis_service import build_cached_worklist, prepare_cached_analysis_run, record_run_task
+from app.services.proxy_pool_service import run_healthcheck
 from app.workers.tasks import celery_app, run_analysis_task
 
 logger = logging.getLogger(__name__)
@@ -78,12 +81,28 @@ def refresh_stale_products():
         db.close()
 
 
+@celery_app.task(name="proxy_healthcheck")
+def proxy_healthcheck_task():
+    """Periodic proxy pool healthcheck - recovers quarantined proxies."""
+    db = SessionLocal()
+    try:
+        result = run_healthcheck(db)
+        logger.info("Proxy healthcheck completed: %s", result)
+        return result
+    finally:
+        db.close()
+
+
 # Celery Beat schedule
 celery_app.conf.beat_schedule = {
     "refresh-stale-products": {
         "task": "scheduled.refresh_stale_products",
         "schedule": 86400.0,  # every 24 hours
         "options": {"queue": ANALYSIS_QUEUE},
+    },
+    "proxy-healthcheck": {
+        "task": "proxy_healthcheck",
+        "schedule": crontab(minute="*/5"),
     },
 }
 celery_app.conf.timezone = "UTC"
