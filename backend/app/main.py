@@ -251,21 +251,29 @@ def login_page(request: Request):
 
 @app.post("/login", response_class=HTMLResponse)
 @limiter.limit("5/minute")
-async def login_submit(request: Request, password: str = Form(...)):
-    # --- CSRF validation ---
+async def login_submit(request: Request):
     form_data = await request.form()
-    csrf_from_form = form_data.get("csrf_token", "")
+    password = str(form_data.get("password", ""))
+
+    # --- CSRF validation ---
+    csrf_from_form = str(form_data.get("csrf_token", ""))
     csrf_from_cookie = request.cookies.get("csrf_token", "")
     if (
         not csrf_from_form
         or not csrf_from_cookie
-        or not hmac.compare_digest(str(csrf_from_form), str(csrf_from_cookie))
+        or not hmac.compare_digest(csrf_from_form, csrf_from_cookie)
     ):
-        return templates.TemplateResponse(
+        csrf_token = secrets.token_hex(32)
+        resp = templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "CSRF validation failed", "csrf_token": ""},
+            {"request": request, "error": "CSRF validation failed", "csrf_token": csrf_token},
             status_code=403,
         )
+        resp.set_cookie(
+            "csrf_token", csrf_token, httponly=True, samesite="strict",
+            max_age=3600, secure=_cookie_secure(), path="/login",
+        )
+        return resp
 
     # --- Brute-force guard ---
     client_ip = (
