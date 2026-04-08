@@ -557,6 +557,14 @@
           <div><label>Window size</label><input class="inp" id="sl-window" type="number" min="5" /></div>
           <div><label>Max consecutive errors</label><input class="inp" id="sl-consec" type="number" min="1" /></div>
         </div>
+        <div class="row2">
+          <div><label>Max retry rate (%)</label><input class="inp" id="sl-retry-rate" type="number" min="0" max="100" /></div>
+          <div><label>Max blocked rate (%)</label><input class="inp" id="sl-blocked-rate" type="number" min="0" max="100" /></div>
+        </div>
+        <div class="row2">
+          <div><label>Max koszt / 1000 EAN ($)</label><input class="inp" id="sl-cost-per-1000" type="number" min="0" step="0.01" /></div>
+          <div></div>
+        </div>
         <div class="btn-row"><button class="btn primary" id="save-stoploss-btn">Zapisz stop-loss</button></div>
       </div>
       <div class="card">
@@ -596,7 +604,7 @@
         <div class="help-item" data-help="plik excel csv format kolumny"><h4>Format pliku</h4><p>Obsługiwane: .xlsx, .xls, .csv. Wymagane kolumny:</p><ul><li><strong>EAN</strong> - kod kreskowy (8-13 cyfr)</li><li><strong>cena zakupu</strong> - Twoja cena nabycia</li><li><strong>nazwa</strong> - opcjonalna</li><li><strong>waluta</strong> - opcjonalna (domyślnie PLN)</li></ul></div>
         <div class="help-item" data-help="wyniki oplacalnosc cena marza zysk allegro"><h4>Jak czytać wyniki?</h4><ul><li><strong>Cena Allegro</strong> - najniższa cena na Allegro</li><li><strong>Marża</strong> - różnica między ceną Allegro a ceną zakupu (minus prowizja)</li><li><strong>Opłacalny</strong> - tak, jeśli marża przekracza mnożnik</li><li><strong>Sprzedanych</strong> - ilość sprzedanych sztuk</li></ul></div>
         <div class="help-item" data-help="metryki koszt ean przepustowosc czas latency"><h4>Metryki i koszty</h4><ul><li><strong>EAN/min</strong> - prędkość przetwarzania</li><li><strong>Koszt/1000 EAN</strong> - estymacja (z CAPTCHA solving)</li><li><strong>Retry rate</strong> - % zapytań ponawianych</li><li><strong>Latency P50/P95</strong> - czas odpowiedzi</li></ul></div>
-        <div class="help-item" data-help="stoploss stop loss zatrzymanie blad ochrona"><h4>Stop-loss</h4><p>System automatycznie zatrzymuje analizę przy problemach:</p><ul><li><strong>Error rate</strong> - zbyt wiele błędów (domyślnie > 50%)</li><li><strong>Captcha rate</strong> - zbyt wiele CAPTCHA (> 80%)</li><li><strong>Consecutive errors</strong> - seria błędów z rzędu (10)</li></ul></div>
+        <div class="help-item" data-help="stoploss stop loss zatrzymanie blad ochrona"><h4>Stop-loss</h4><p>System automatycznie zatrzymuje analize przy problemach:</p><ul><li><strong>Error rate</strong> - zbyt wiele bledow (domyslnie > 50%)</li><li><strong>Captcha rate</strong> - zbyt wiele CAPTCHA (> 80%)</li><li><strong>Consecutive errors</strong> - seria bledow z rzedu (10)</li><li><strong>Retry rate</strong> - zbyt wiele ponownych prob (> 30%)</li><li><strong>Blocked rate</strong> - zbyt wiele zablokowanych zapytan (> 20%)</li><li><strong>Koszt / 1000 EAN</strong> - przekroczony limit kosztow ($5)</li></ul><p>Raport przyczyny zatrzymania dostepny w podgladzie runu.</p></div>
         <div class="help-item" data-help="proxy siec polaczenie połączenie ip kwarantanna"><h4>Proxy</h4><ul><li>Wgraj plik .txt w ustawieniach (1 proxy na linię)</li><li>System automatycznie ocenia jakość (health score 0-1)</li><li>Słabe proxy trafiają na kwarantannę (15 min)</li></ul></div>
         <div class="help-item" data-help="kategoria prowizja mnoznik"><h4>Kategorie</h4><ul><li><strong>Mnożnik</strong> - min marża (np. 1.25 = min 25% ROI)</li><li><strong>Prowizja</strong> - % prowizji Allegro</li><li>Każda kategoria może mieć inne parametry</li></ul></div>
         <div class="help-item" data-help="api eksport excel csv prometheus"><h4>API i eksport</h4><ul><li><strong>Excel</strong> - pełne wyniki z metrykami</li><li><strong>CSV</strong> - podsumowanie runu</li><li><strong>REST API</strong> - /api/v1/</li><li><strong>Prometheus</strong> - /api/v1/metrics/prometheus</li></ul></div>
@@ -862,7 +870,16 @@
       <div class="modal-hd"><h3 id="preview-title">Podgląd</h3><div style="display:flex;gap:8px;"><a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a><a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV</a><button class="btn sm" id="preview-refresh">Odśwież</button><button class="btn sm" id="preview-close">Zamknij</button></div></div>
       <div class="modal-bd">
         <div id="preview-metrics" style="display:none;"><div class="card-label">Metryki</div><div class="mg" id="preview-mg"></div></div>
-        <div id="preview-stoploss" class="banner red" style="display:none;"></div>
+        <div id="preview-stoploss" style="display:none;background:#2d1b1b;border:1px solid #c0392b;border-radius:8px;padding:16px;margin:12px 0;">
+          <h4 style="color:#e74c3c;margin:0 0 8px;">Mechanizm zabezpieczajacy (stop-loss)</h4>
+          <table style="width:100%;color:#ddd;">
+            <tr><td style="color:#999;width:180px;padding:4px 0;">Przyczyna:</td><td id="sl-reason" style="padding:4px 0;"></td></tr>
+            <tr><td style="color:#999;padding:4px 0;">Przekroczony prog:</td><td id="sl-threshold" style="padding:4px 0;"></td></tr>
+            <tr><td style="color:#999;padding:4px 0;">Wartosc w momencie zatrzymania:</td><td id="sl-value" style="padding:4px 0;"></td></tr>
+            <tr><td style="color:#999;padding:4px 0;">Zatrzymano na elemencie:</td><td id="sl-item" style="padding:4px 0;"></td></tr>
+            <tr><td style="color:#999;padding:4px 0;">Czas zdarzenia:</td><td id="sl-timestamp" style="padding:4px 0;"></td></tr>
+          </table>
+        </div>
         <div id="preview-body"><div class="hint">ładowanie...</div></div>
       </div>
     </div>
@@ -1062,7 +1079,7 @@
       if(metrics&&mgg){
         mgg.innerHTML=[mc('EAN/min',metrics.ean_per_min,'rgb(var(--blue))'),mc('Koszt/1k',metrics.cost_per_1000_ean!=null?`$${metrics.cost_per_1000_ean}`:null,'rgb(var(--amber))'),mc('Avg lat.',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),mc('P95',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),mc('Retry',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),mc('CAPTCHA',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'rgb(var(--red))':null),mc('OK',`${metrics.completed_items}/${metrics.total_items}`,'rgb(var(--green))'),mc('Blocked',metrics.blocked_items,'rgb(var(--red))'),mc('Czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null)].join('');show(mg);
       }
-      if(info?.status==='stopped'&&sl){const m=info.run_metadata||{};let msg=`Stop-loss: ${m.stop_reason||'nieznany'}`;if(m.stop_details?.rate)msg+=` (${(m.stop_details.rate*100).toFixed(1)}%)`;if(m.stopped_at_item)msg+=` - pozycja #${m.stopped_at_item}`;setText(sl,msg);show(sl);}
+      if(info?.status==='stopped'&&sl){const m=info.run_metadata||{};const d=m.stop_details||{};setText($('sl-reason'),m.stop_reason||'nieznany');setText($('sl-threshold'),d.threshold!=null?d.threshold_type==='rate'?`${(d.threshold*100).toFixed(1)}%`:d.threshold:d.metric||'-');setText($('sl-value'),d.rate!=null?`${(d.rate*100).toFixed(1)}%`:d.value!=null?d.value:'-');setText($('sl-item'),m.stopped_at_item?`pozycja #${m.stopped_at_item}`:'-');setText($('sl-timestamp'),m.stopped_at?new Date(m.stopped_at).toLocaleString():info.updated_at?new Date(info.updated_at).toLocaleString():'-');show(sl);}
       const rows=data?.items||[];
       if(!rows.length){setHtml(body,'<div class="hint">Brak wyników</div>');return;}
       setHtml(body,`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Kupno</th><th>Allegro</th><th>Marża</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,50)}</td><td>${r.purchase_price_pln??'-'}</td><td>${r.allegro_price_pln??'-'}</td><td>${r.margin_pln!=null?r.margin_pln.toFixed(2):'-'}</td><td>${r.scrape_status||'-'}</td></tr>`).join('')}</tbody></table></div>`);
@@ -1155,9 +1172,9 @@
       }catch(e){setText($('pp-upload-status'),'blad uploadu');}
     });
 
-    async function loadSettings(){try{const s=await apiGet('/api/v1/settings/');if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;}catch(e){}loadCategories();loadProxyStatus();loadCurrencies();}
+    async function loadSettings(){try{const s=await apiGet('/api/v1/settings/');if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;if($('sl-retry-rate'))$('sl-retry-rate').value=Math.round((s.stoploss_max_retry_rate||.3)*100);if($('sl-blocked-rate'))$('sl-blocked-rate').value=Math.round((s.stoploss_max_blocked_rate||.2)*100);if($('sl-cost-per-1000'))$('sl-cost-per-1000').value=s.stoploss_max_cost_per_1000||5;}catch(e){}loadCategories();loadProxyStatus();loadCurrencies();}
     $('save-ttl-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30)});setText($('cache-ttl-status'),'zapisano');}catch(e){setText($('cache-ttl-status'),'błąd');}});
-    $('save-stoploss-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30),stoploss_max_error_rate:(Number($('sl-error-rate')?.value)||50)/100,stoploss_max_captcha_rate:(Number($('sl-captcha-rate')?.value)||80)/100,stoploss_window_size:Number($('sl-window')?.value)||20,stoploss_max_consecutive_errors:Number($('sl-consec')?.value)||10});alert('zapisano');}catch(e){alert('błąd');}});
+    $('save-stoploss-btn')?.addEventListener('click',async()=>{try{await apiPut('/api/v1/settings/',{cache_ttl_days:Number($('cache-ttl-input')?.value||30),stoploss_max_error_rate:(Number($('sl-error-rate')?.value)||50)/100,stoploss_max_captcha_rate:(Number($('sl-captcha-rate')?.value)||80)/100,stoploss_window_size:Number($('sl-window')?.value)||20,stoploss_max_consecutive_errors:Number($('sl-consec')?.value)||10,stoploss_max_retry_rate:(Number($('sl-retry-rate')?.value)||30)/100,stoploss_max_blocked_rate:(Number($('sl-blocked-rate')?.value)||20)/100,stoploss_max_cost_per_1000:Number($('sl-cost-per-1000')?.value)||5});alert('zapisano');}catch(e){alert('błąd');}});
     async function loadProxyStatus(){try{const m=await apiGet('/api/v1/proxies');setText($('proxy-file-status'),`${m.count||0} proxy`);}catch(e){}}
     // proxy dropzone
     const proxyDz=$('proxy-dropzone'),proxyInp=$('proxy-file');
