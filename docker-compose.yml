@@ -68,6 +68,12 @@ services:
     environment:
       - ALLEGRO_SCRAPER_URL=http://allegro_scraper:3000
       - MAX_CONCURRENT_RUNS=${MAX_CONCURRENT_RUNS:-3}
+      - CONCURRENCY_PER_USER=${CONCURRENCY_PER_USER:-3}
+      - CONCURRENCY_GLOBAL_MAX=${CONCURRENCY_GLOBAL_MAX:-12}
+      - COST_RATE_NETWORK_PER_GB=${COST_RATE_NETWORK_PER_GB:-12.53}
+      - COST_RATE_ACCESS_VERIFICATION=${COST_RATE_ACCESS_VERIFICATION:-5.19}
+      - NETWORK_HEALTHCHECK_INTERVAL=${NETWORK_HEALTHCHECK_INTERVAL:-5}
+      - NETWORK_QUARANTINE_TTL=${NETWORK_QUARANTINE_TTL:-24}
     command: >
       bash -lc "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
@@ -101,6 +107,12 @@ services:
     environment:
       - ALLEGRO_SCRAPER_URL=http://allegro_scraper:3000
       - MAX_CONCURRENT_RUNS=${MAX_CONCURRENT_RUNS:-3}
+      - CONCURRENCY_PER_USER=${CONCURRENCY_PER_USER:-3}
+      - CONCURRENCY_GLOBAL_MAX=${CONCURRENCY_GLOBAL_MAX:-12}
+      - COST_RATE_NETWORK_PER_GB=${COST_RATE_NETWORK_PER_GB:-12.53}
+      - COST_RATE_ACCESS_VERIFICATION=${COST_RATE_ACCESS_VERIFICATION:-5.19}
+      - NETWORK_HEALTHCHECK_INTERVAL=${NETWORK_HEALTHCHECK_INTERVAL:-5}
+      - NETWORK_QUARANTINE_TTL=${NETWORK_QUARANTINE_TTL:-24}
     command: >
       sh -c "celery -A app.workers.tasks worker --loglevel=info -Q analysis --concurrency=${CELERY_CONCURRENCY:-3} --prefetch-multiplier=1 --max-tasks-per-child=20"
     volumes:
