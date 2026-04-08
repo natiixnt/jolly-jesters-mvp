@@ -896,13 +896,13 @@ Progi konfigurowane przez interfejs użytkownika, wartości domyślne:
 
 | Parametr | Domyślna wartość | Opis |
 |---|---|---|
-| `ALLEGRO_SCRAPER_URL` | `http://allegro_scraper:3000` | URL mikroserwisu analizy danych rynkowych |
-| `ALLEGRO_SCRAPER_POLL_INTERVAL` | `2.0` | Interwal odpytywania statusu zadania (sekundy) |
-| `ALLEGRO_SCRAPER_TIMEOUT_SECONDS` | `90` | Timeout pojedynczego zapytania (sekundy) |
-| `SCRAPER_WORKER_COUNT` | `3` | Liczba procesów roboczych modułu danych |
-| `SCRAPER_CONCURRENCY_PER_WORKER` | `3` | Równoległość per proces roboczy |
-| `SCRAPER_MAX_TASK_RETRIES` | `2` | Maksymalna liczba ponownych prób |
-| `SCRAPER_MAX_PENDING_TASKS` | `100` | Maksymalna liczba oczekujących zadań |
+| `ALLEGRO_DATA_URL` | `http://allegro_data:3000` | URL mikroserwisu analizy danych rynkowych |
+| `ALLEGRO_DATA_POLL_INTERVAL` | `2.0` | Interwal odpytywania statusu zadania (sekundy) |
+| `ALLEGRO_DATA_TIMEOUT_SECONDS` | `90` | Timeout pojedynczego zapytania (sekundy) |
+| `DATA_WORKER_COUNT` | `3` | Liczba procesów roboczych modułu danych |
+| `DATA_CONCURRENCY_PER_WORKER` | `3` | Równoległość per proces roboczy |
+| `DATA_MAX_TASK_RETRIES` | `2` | Maksymalna liczba ponownych prób |
+| `DATA_MAX_PENDING_TASKS` | `100` | Maksymalna liczba oczekujących zadań |
 | `ANYSOLVER_API_KEY` | (wymagane) | Klucz API do weryfikacji dostępu |
 
 ### Analiza opłacalności
