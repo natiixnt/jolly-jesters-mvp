@@ -134,10 +134,18 @@ async def upload_analysis(
     if current_user:
         run.tenant_id = current_user.tenant_id
         run.user_id = current_user.user_id
-    result = run_analysis_task.delay(run.id)
-    run.root_task_id = result.id
-    analysis_service.record_run_task(db, run, result.id, "run_analysis")
-    db.commit()
+    try:
+        result = run_analysis_task.delay(run.id)
+        run.root_task_id = result.id
+        analysis_service.record_run_task(db, run, result.id, "run_analysis")
+        db.commit()
+    except Exception as exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("Failed to enqueue task for run %s: %s", run.id, exc)
+        run.status = AnalysisStatus.failed
+        run.error_message = "Nie udalo sie uruchomic zadania"
+        db.commit()
+        raise HTTPException(status_code=503, detail="Nie udalo sie uruchomic analizy")
 
     log_event("file_upload",
               user_id=str(current_user.user_id) if current_user else None,
@@ -166,6 +174,8 @@ class BulkEanRequest(PydanticBaseModel):
 
     @pydantic_validator("items")
     def validate_items_length(cls, v):
+        if len(v) == 0:
+            raise ValueError("Items list must not be empty")
         if len(v) > 10000:
             raise ValueError("Items list must have at most 10000 entries")
         return v
@@ -243,10 +253,18 @@ def bulk_ean_analysis(
     db.commit()
     db.refresh(run)
 
-    result = run_analysis_task.delay(run.id)
-    run.root_task_id = result.id
-    analysis_service.record_run_task(db, run, result.id, "run_analysis")
-    db.commit()
+    try:
+        result = run_analysis_task.delay(run.id)
+        run.root_task_id = result.id
+        analysis_service.record_run_task(db, run, result.id, "run_analysis")
+        db.commit()
+    except Exception as exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("Failed to enqueue task for run %s: %s", run.id, exc)
+        run.status = AnalysisStatus.failed
+        run.error_message = "Nie udalo sie uruchomic zadania"
+        db.commit()
+        raise HTTPException(status_code=503, detail="Nie udalo sie uruchomic analizy")
 
     return AnalysisUploadResponse(analysis_run_id=run.id, status=run.status)
 
@@ -722,9 +740,17 @@ def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session, cur
     if current_user:
         run.tenant_id = current_user.tenant_id
         run.user_id = current_user.user_id
-    result = run_analysis_task.delay(run.id)
-    run.root_task_id = result.id
-    analysis_service.record_run_task(db, run, result.id, "run_analysis")
-    db.commit()
+    try:
+        result = run_analysis_task.delay(run.id)
+        run.root_task_id = result.id
+        analysis_service.record_run_task(db, run, result.id, "run_analysis")
+        db.commit()
+    except Exception as exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("Failed to enqueue task for run %s: %s", run.id, exc)
+        run.status = AnalysisStatus.failed
+        run.error_message = "Nie udalo sie uruchomic zadania"
+        db.commit()
+        raise HTTPException(status_code=503, detail="Nie udalo sie uruchomic analizy")
 
     return AnalysisUploadResponse(analysis_run_id=run.id, status=run.status)

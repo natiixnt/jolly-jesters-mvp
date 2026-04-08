@@ -177,6 +177,9 @@ async def enforce_basic_auth(request: Request, call_next):
     now = time.time()
     window_seconds = 600  # 10 minutes
     fail_limit = 5
+    # emergency cleanup to prevent OOM
+    if len(FAILED_AUTH) > 10000:
+        FAILED_AUTH.clear()
     # purge old entries
     if client_ip in FAILED_AUTH:
         FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if now - ts <= window_seconds]

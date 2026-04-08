@@ -6,10 +6,7 @@ EAN_PATTERN = re.compile(r'^\d{8,13}$')
 
 def validate_ean(ean: str) -> str:
     """Validate and normalize EAN code. Returns cleaned EAN or raises ValueError."""
-    cleaned = ean.strip().lstrip('0') if ean else ''
-    # Pad to at least 8 digits
-    if len(cleaned) < 8:
-        cleaned = ean.strip()
+    cleaned = ean.strip() if ean else ''
     if not EAN_PATTERN.match(cleaned):
         raise ValueError(f"Nieprawidlowy kod EAN: {ean}")
     return cleaned

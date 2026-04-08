@@ -27,6 +27,12 @@ _account_locks: dict[str, tuple[int, float]] = {}  # email -> (fail_count, locke
 
 def check_account_lock(email: str) -> None:
     """Check if account is locked due to too many failed attempts."""
+    # Clean expired locks periodically to prevent unbounded growth
+    if len(_account_locks) > 10000:
+        now = time.time()
+        expired = [k for k, (_, until) in _account_locks.items() if until and now >= until]
+        for k in expired:
+            del _account_locks[k]
     lock = _account_locks.get(email)
     if lock:
         fail_count, locked_until = lock

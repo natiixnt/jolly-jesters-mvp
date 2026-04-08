@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from celery import Celery
+from celery.exceptions import SoftTimeLimitExceeded
 from celery.signals import worker_process_init
 from sqlalchemy.orm import Session
 
@@ -308,7 +309,7 @@ def _release_run_lock(run_id: int) -> None:
         pass
 
 
-@celery_app.task(acks_late=True, bind=True)
+@celery_app.task(acks_late=True, bind=True, time_limit=7200, soft_time_limit=6900)
 def run_analysis_task(self, run_id: int):
     if not _acquire_run_lock(run_id):
         logger.warning("RUN_TASK run_id=%s already locked, skipping", run_id)
@@ -535,6 +536,14 @@ def run_analysis_task(self, run_id: int):
                 notify_run_completed(run.id, run.status.value, run.processed_products, run.total_products, cat_name)
             except Exception:
                 logger.debug("NOTIFICATION failed run_id=%s", run.id)
+    except SoftTimeLimitExceeded:
+        logger.warning("Task soft time limit exceeded for run %s", run_id)
+        if db:
+            run = db.query(AnalysisRun).get(run_id)
+            if run:
+                run.status = AnalysisStatus.failed
+                run.error_message = "Przekroczono limit czasu zadania"
+                db.commit()
     finally:
         db.close()
         _release_run_lock(run_id)

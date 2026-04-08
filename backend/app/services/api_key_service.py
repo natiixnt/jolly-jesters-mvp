@@ -33,6 +33,12 @@ def check_api_key_rate(key_hash: str, max_per_minute: int = 60) -> bool:
     now = time.time()
     window = 60  # 1 minute
 
+    # Clean stale entries periodically to prevent unbounded growth
+    if len(_api_key_usage) > 10000:
+        stale = [k for k, ts in _api_key_usage.items() if not ts or now - ts[-1] > 300]
+        for k in stale:
+            del _api_key_usage[k]
+
     if key_hash not in _api_key_usage:
         _api_key_usage[key_hash] = []
 
