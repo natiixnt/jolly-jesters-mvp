@@ -1,7 +1,7 @@
 PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 PYTHONPATH := backend
 
-.PHONY: test up down logs migrate
+.PHONY: test up down logs migrate volume-test
 
 test:
 	UI_AUTH_BYPASS=1 PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest -q
@@ -17,3 +17,6 @@ logs:
 
 migrate:
 	docker compose exec backend alembic -c alembic.ini upgrade head
+
+volume-test:
+	python tools/volume_test.py --url http://localhost --file sample.xlsx --output raport_test_wolumenowy.txt
