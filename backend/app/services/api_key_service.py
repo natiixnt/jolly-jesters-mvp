@@ -55,6 +55,8 @@ def validate_api_key(db: Session, raw_key: str) -> Optional[APIKey]:
         return None
 
     if key.expires_at and key.expires_at < datetime.now(timezone.utc):
+        key.is_active = False
+        db.commit()
         return None
 
     key.last_used_at = datetime.now(timezone.utc)

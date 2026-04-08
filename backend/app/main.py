@@ -25,6 +25,8 @@ from app.db.session import get_db
 from app.utils.allegro_scraper_client import check_scraper_health
 
 
+# NOTE: in-memory brute-force tracker - resets on restart and not shared across
+# workers. For production, consider Redis-backed rate limiting.
 FAILED_AUTH: dict[str, list[float]] = {}
 
 
@@ -48,7 +50,9 @@ app.add_middleware(
 )
 
 if not settings.ui_password or settings.ui_password == "1234":
-    logger.warning("UI_PASSWORD not set or still default '1234' - set a strong password via UI_PASSWORD env var")
+    if os.getenv("ENVIRONMENT", "dev").lower() in ("production", "prod"):
+        raise RuntimeError("UI_PASSWORD must be set to a strong value in production")
+    logger.warning("UI_PASSWORD not set or still default '1234' - INSECURE, change for production!")
 
 app.include_router(api_router)
 
@@ -117,7 +121,7 @@ async def enforce_basic_auth(request: Request, call_next):
     )
     now = time.time()
     window_seconds = 600  # 10 minutes
-    fail_limit = 8
+    fail_limit = 5
     # purge old entries
     if client_ip in FAILED_AUTH:
         FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if now - ts <= window_seconds]
@@ -184,7 +188,7 @@ def login_submit(request: Request, password: str = Form(...)):
         or (request.client.host if request.client else "unknown")
     )
     window_seconds = 600
-    fail_limit = 8
+    fail_limit = 5
     if client_ip in FAILED_AUTH:
         FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if time.time() - ts <= window_seconds]
         if len(FAILED_AUTH[client_ip]) >= fail_limit:
@@ -202,7 +206,7 @@ def login_submit(request: Request, password: str = Form(...)):
         value=token,
         httponly=True,
         max_age=max(1, (settings.ui_session_ttl_hours or 24) * 3600),
-        samesite="lax",
+        samesite="strict",
         secure=os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes"),
         path="/",
     )
