@@ -18,4 +18,6 @@ build
 coverage
 .env
 .env.*
+tests/
+*.db
 downloaded_files
