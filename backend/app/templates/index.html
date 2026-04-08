@@ -901,6 +901,7 @@
     const hide=el=>{if(el)el.style.display='none';};
     const setText=(el,t)=>{if(el)el.textContent=t;};
     const setHtml=(el,t)=>{if(el)el.innerHTML=t;};
+    function escapeHtml(str){if(!str)return '';return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     async function apiGet(u){const r=await fetch(u,{credentials:'include'});if(!r.ok)throw new Error(r.status);return r.json();}
     async function apiPost(u,b){const r=await fetch(u,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
     async function apiPut(u,b){const r=await fetch(u,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});if(!r.ok)throw new Error(r.status);return r.json();}
@@ -945,7 +946,7 @@
     $('preview-close')?.addEventListener('click',()=>closeModal(previewModal));
     previewModal?.addEventListener('click',e=>{if(e.target===previewModal)closeModal(previewModal);});
 
-    function mc(l,v,c){return `<div class="mc"><div class="mc-label">${l}</div><div class="mc-val" style="color:${c||'var(--text)'}">${v??'-'}</div></div>`;}
+    function mc(l,v,c){return `<div class="mc"><div class="mc-label">${escapeHtml(l)}</div><div class="mc-val" style="color:${c||'var(--text)'}">${escapeHtml(String(v??'-'))}</div></div>`;}
 
     // donut chart: segments=[{value,color,label}], svgId, legendId
     function renderDonut(segments,svgId,legendId){
@@ -995,7 +996,7 @@
             chart.innerHTML=sizes.map((v,i)=>{
               const h=Math.max(6,Math.round(v/max*80));
               const hue=260+i*4;
-              return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${v} EAN"></div>`;
+              return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${parseInt(v)||0} EAN"></div>`;
             }).join('');
           }else{
             chart.innerHTML='<div style="color:var(--dim);font-size:14px;padding:20px;text-align:center;">Brak danych do wyświetlenia</div>';
@@ -1012,8 +1013,8 @@
               const time=r.created_at?new Date(r.created_at).toLocaleString('pl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
               return `<div class="activity-item">
                 <div class="activity-dot" style="background:${dotColor};"></div>
-                <div style="flex:1;"><strong>${r.category_name||'Analiza'}</strong> #${r.id} <span class="badge ${r.status==='completed'?'ok':r.status==='running'?'info':'err'}" style="margin-left:6px;">${r.status}</span></div>
-                <div style="font-size:11px;color:var(--dim);white-space:nowrap;">${time}</div>
+                <div style="flex:1;"><strong>${escapeHtml(r.category_name||'Analiza')}</strong> #${parseInt(r.id)||0} <span class="badge ${r.status==='completed'?'ok':r.status==='running'?'info':'err'}" style="margin-left:6px;">${escapeHtml(r.status)}</span></div>
+                <div style="font-size:11px;color:var(--dim);white-space:nowrap;">${escapeHtml(time)}</div>
               </div>`;
             }).join('');
           }else{
@@ -1066,12 +1067,13 @@
         setHtml($('dash-active'),runs.map(r=>{
           const st=r.status||'running';
           const bc=st==='stopped'?'err':st==='completed'?'ok':st==='failed'?'err':'info';
-          return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${r.category_name||'run'} #${r.id}</strong><span class="badge ${bc}">${st}</span></div>
-          <div style="font-size:12px;color:var(--dim);margin-top:4px;">${r.processed_products}/${r.total_products} EAN</div>
+          const rid=parseInt(r.id)||0;
+          return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${escapeHtml(r.category_name||'run')} #${rid}</strong><span class="badge ${bc}">${escapeHtml(st)}</span></div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px;">${parseInt(r.processed_products)||0}/${parseInt(r.total_products)||0} EAN</div>
           <div class="btn-row" style="margin-top:8px;">
-            ${['pending','running'].includes(st)?`<button class="btn sm ghost" onclick="cancelRun(${r.id})">Anuluj</button>`:''}
-            <button class="btn sm" onclick="openPreview(${r.id})">Podgląd</button>
-            ${['completed','stopped'].includes(st)?`<a class="btn sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;
+            ${['pending','running'].includes(st)?`<button class="btn sm ghost" onclick="cancelRun(${rid})">Anuluj</button>`:''}
+            <button class="btn sm" onclick="openPreview(${rid})">Podgląd</button>
+            ${['completed','stopped'].includes(st)?`<a class="btn sm" href="/api/v1/analysis/${rid}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;
         }).join(''));
       }catch(e){}
     }
@@ -1092,13 +1094,13 @@
       if(info?.status==='stopped'&&sl){const m=info.run_metadata||{};const d=m.stop_details||{};setText($('sl-reason'),m.stop_reason||'nieznany');setText($('sl-threshold'),d.threshold!=null?d.threshold_type==='rate'?`${(d.threshold*100).toFixed(1)}%`:d.threshold:d.metric||'-');setText($('sl-value'),d.rate!=null?`${(d.rate*100).toFixed(1)}%`:d.value!=null?d.value:'-');setText($('sl-item'),m.stopped_at_item?`pozycja #${m.stopped_at_item}`:'-');setText($('sl-timestamp'),m.stopped_at?new Date(m.stopped_at).toLocaleString():info.updated_at?new Date(info.updated_at).toLocaleString():'-');show(sl);}
       const rows=data?.items||[];
       if(!rows.length){setHtml(body,'<div class="hint">Brak wyników</div>');return;}
-      setHtml(body,`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Kupno</th><th>Allegro</th><th>Marża</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,50)}</td><td>${r.purchase_price_pln??'-'}</td><td>${r.allegro_price_pln??'-'}</td><td>${r.margin_pln!=null?r.margin_pln.toFixed(2):'-'}</td><td>${r.scrape_status||'-'}</td></tr>`).join('')}</tbody></table></div>`);
+      setHtml(body,`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Kupno</th><th>Allegro</th><th>Marża</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="mono">${escapeHtml(r.ean||'')}</td><td>${escapeHtml((r.name||'').slice(0,50))}</td><td>${escapeHtml(String(r.purchase_price_pln??'-'))}</td><td>${escapeHtml(String(r.allegro_price_pln??'-'))}</td><td>${r.margin_pln!=null?escapeHtml(r.margin_pln.toFixed(2)):'-'}</td><td>${escapeHtml(r.scrape_status||'-')}</td></tr>`).join('')}</tbody></table></div>`);
     }
 
     async function loadHistory(){
       try{const runs=await apiGet('/api/v1/analysis?limit=50');if(!runs?.length){setHtml($('history-list'),'<div class="sbox">Brak historii</div>');return;}
-      setHtml($('history-list'),runs.map(r=>{const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';
-      return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${r.category_name||''} #${r.id}</strong><span class="badge ${bc}">${r.status}</span></div><div style="font-size:12px;color:var(--dim);margin-top:2px;">${r.created_at?new Date(r.created_at).toLocaleString():''} - ${r.processed_products}/${r.total_products} EAN</div><div class="btn-row" style="margin-top:6px;"><button class="btn sm" onclick="openPreview(${r.id})">Podgląd</button>${['completed','stopped'].includes(r.status)?`<a class="btn sm" href="/api/v1/analysis/${r.id}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;}).join(''));}catch(e){setHtml($('history-list'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-size:20px;margin-bottom:8px;">📋</div><div style="font-weight:500;">Brak historii analiz</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Uruchom pierwszą analizę w zakładce "Nowa analiza"</div></div>');}
+      setHtml($('history-list'),runs.map(r=>{const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';const rid=parseInt(r.id)||0;
+      return `<div class="sbox"><div style="display:flex;justify-content:space-between;align-items:center;"><strong>${escapeHtml(r.category_name||'')} #${rid}</strong><span class="badge ${bc}">${escapeHtml(r.status)}</span></div><div style="font-size:12px;color:var(--dim);margin-top:2px;">${r.created_at?escapeHtml(new Date(r.created_at).toLocaleString()):''} - ${parseInt(r.processed_products)||0}/${parseInt(r.total_products)||0} EAN</div><div class="btn-row" style="margin-top:6px;"><button class="btn sm" onclick="openPreview(${rid})">Podgląd</button>${['completed','stopped'].includes(r.status)?`<a class="btn sm" href="/api/v1/analysis/${rid}/download" style="text-decoration:none;">XLSX</a>`:''}</div></div>`;}).join(''));}catch(e){setHtml($('history-list'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-size:20px;margin-bottom:8px;">📋</div><div style="font-weight:500;">Brak historii analiz</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Uruchom pierwszą analizę w zakładce "Nowa analiza"</div></div>');}
     }
 
     let mOff=0,mTotal=0;const mPerPage=50;
@@ -1123,7 +1125,7 @@
       btns.push(`<button class="pager-btn" ${cur>=pages-1?'disabled':''}onclick="${loadFn}(${(cur+1)*perPage})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>`);
       container.innerHTML=btns.join('');
     }
-    async function loadMarket(off){mOff=off||0;try{let u=`/api/v1/market-data?offset=${mOff}&limit=${mPerPage}`;const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;const d=await apiGet(u);const items=d?.items||d||[];mTotal=d?.total||items.length||(items.length<mPerPage?mOff+items.length:mOff+mPerPage+1);setText($('market-meta'),`${mTotal} rekordow`);const pager=$('market-pager');if(!items.length){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');if(pager)pager.innerHTML='';return;}setHtml($('market-table'),`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzed.</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr><td class="mono">${r.ean||''}</td><td>${(r.name||'').slice(0,40)}</td><td>${r.price??r.allegro_price??'-'}</td><td>${r.sold_count??'-'}</td><td style="font-size:11px;">${r.last_checked_at?new Date(r.last_checked_at).toLocaleString():'-'}</td></tr>`).join('')}</tbody></table></div>`);if(pager)renderPager(mTotal,mOff,mPerPage,pager,'loadMarket');}catch(e){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');}}
+    async function loadMarket(off){mOff=off||0;try{let u=`/api/v1/market-data?offset=${mOff}&limit=${mPerPage}`;const c=$('market-category')?.value;if(c)u+=`&category_id=${c}`;const e=$('market-ean')?.value;if(e)u+=`&ean=${encodeURIComponent(e)}`;const d=await apiGet(u);const items=d?.items||d||[];mTotal=d?.total||items.length||(items.length<mPerPage?mOff+items.length:mOff+mPerPage+1);setText($('market-meta'),`${mTotal} rekordow`);const pager=$('market-pager');if(!items.length){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');if(pager)pager.innerHTML='';return;}setHtml($('market-table'),`<div style="overflow:auto;border-radius:var(--r);"><table class="tbl"><thead><tr><th>EAN</th><th>Nazwa</th><th>Cena</th><th>Sprzed.</th><th>Sprawdzono</th></tr></thead><tbody>${items.map(r=>`<tr><td class="mono">${escapeHtml(r.ean||'')}</td><td>${escapeHtml((r.name||'').slice(0,40))}</td><td>${escapeHtml(String(r.price??r.allegro_price??'-'))}</td><td>${escapeHtml(String(r.sold_count??'-'))}</td><td style="font-size:11px;">${r.last_checked_at?escapeHtml(new Date(r.last_checked_at).toLocaleString()):'-'}</td></tr>`).join('')}</tbody></table></div>`);if(pager)renderPager(mTotal,mOff,mPerPage,pager,'loadMarket');}catch(e){setHtml($('market-table'),'<div class="sbox" style="text-align:center;padding:32px;"><div style="font-weight:500;">Brak danych rynkowych</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Dane pojawia sie po pierwszej analizie</div></div>');}}
     $('market-load')?.addEventListener('click',()=>loadMarket(0));
 
     async function loadProxyPool(){
@@ -1170,11 +1172,11 @@
             ?`<button onclick="unquarantineProxy(${p.id})" class="btn-sm">Przywroc</button>`
             :`<button onclick="quarantineProxy(${p.id})" class="btn-sm btn-danger">Kwarantanna</button>`;
           html+=`<tr>
-            <td class="mono">${maskUrl(p.url||'')}</td>
-            <td>${p.label||'-'}</td>
+            <td class="mono">${escapeHtml(maskUrl(p.url||''))}</td>
+            <td>${escapeHtml(p.label||'-')}</td>
             <td><span style="color:${scoreColor};font-weight:bold;">${(score*100).toFixed(0)}%</span></td>
             <td>${statusBadge}</td>
-            <td>${p.success_count||0} / ${p.fail_count||0}</td>
+            <td>${parseInt(p.success_count)||0} / ${parseInt(p.fail_count)||0}</td>
             <td>${actionBtn}</td>
           </tr>`;
         }
@@ -1250,10 +1252,10 @@
     proxyDz?.addEventListener('drop',e=>{e.preventDefault();proxyDz.style.borderColor='';if(e.dataTransfer.files[0]){proxyInp.files=e.dataTransfer.files;setText($('proxy-file-name'),proxyInp.files[0].name);}});
     proxyInp?.addEventListener('change',()=>{setText($('proxy-file-name'),proxyInp?.files?.[0]?.name||'nie wybrano pliku');});
     $('upload-proxies-btn')?.addEventListener('click',async()=>{const f=$('proxy-file')?.files?.[0];if(!f)return;const fd=new FormData();fd.append('file',f);try{await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});loadProxyStatus();setText($('proxy-file-name'),'wgrano!');}catch(e){}});
-    async function loadCategories(){try{const cats=await apiGet('/api/v1/categories/?include_inactive=1');[$('category-select'),$('market-category')].forEach(sel=>{if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">-- wybierz --</option>'+cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');if(v)sel.value=v;});const list=$('cat-list');if(list)list.innerHTML=cats.map(c=>`<div class="cat-row"><span>${c.name}</span><span style="color:var(--dim);font-size:12px;">x${c.profitability_multiplier}</span><span style="color:var(--dim);font-size:12px;">${c.commission_rate?(c.commission_rate*100).toFixed(1)+'%':'-'}</span><button class="btn sm ghost" onclick="toggleCat('${c.id}',${!c.is_active})">${c.is_active?'Wyłącz':'Włącz'}</button></div>`).join('');validateStart();}catch(e){}}
+    async function loadCategories(){try{const cats=await apiGet('/api/v1/categories/?include_inactive=1');[$('category-select'),$('market-category')].forEach(sel=>{if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">-- wybierz --</option>'+cats.map(c=>`<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.name)}</option>`).join('');if(v)sel.value=v;});const list=$('cat-list');if(list)list.innerHTML=cats.map(c=>`<div class="cat-row"><span>${escapeHtml(c.name)}</span><span style="color:var(--dim);font-size:12px;">x${parseFloat(c.profitability_multiplier)||0}</span><span style="color:var(--dim);font-size:12px;">${c.commission_rate?(c.commission_rate*100).toFixed(1)+'%':'-'}</span><button class="btn sm ghost" onclick="toggleCat('${escapeHtml(String(c.id))}',${!c.is_active})">${c.is_active?'Wyłącz':'Włącz'}</button></div>`).join('');validateStart();}catch(e){}}
     async function toggleCat(id,a){try{await apiPatch(`/api/v1/categories/${id}`,{is_active:a});loadCategories();}catch(e){}}
     $('add-cat-btn')?.addEventListener('click',async()=>{const n=$('cat-name')?.value?.trim(),m=Number($('cat-mult')?.value),c=Number($('cat-comm')?.value||0)/100;if(!n||!m){show($('cat-add-error'));setText($('cat-add-error'),'podaj nazwę i mnożnik');return;}hide($('cat-add-error'));try{await apiPost('/api/v1/categories/',{name:n,profitability_multiplier:m,commission_rate:c});$('cat-name').value='';$('cat-mult').value='';$('cat-comm').value='';loadCategories();}catch(e){show($('cat-add-error'));setText($('cat-add-error'),'błąd');}});
-    async function loadCurrencies(){try{const d=await apiGet('/api/v1/settings/currencies');setHtml($('currency-list'),(d?.rates||[]).map(r=>`<div class="row2" style="margin-bottom:4px;"><div><input class="inp curr-code" value="${r.currency}" readonly style="opacity:.5;" /></div><div><input class="inp curr-rate" type="number" step="0.01" value="${r.rate_to_pln}" data-code="${r.currency}" /></div></div>`).join(''));}catch(e){}}
+    async function loadCurrencies(){try{const d=await apiGet('/api/v1/settings/currencies');setHtml($('currency-list'),(d?.rates||[]).map(r=>`<div class="row2" style="margin-bottom:4px;"><div><input class="inp curr-code" value="${escapeHtml(r.currency)}" readonly style="opacity:.5;" /></div><div><input class="inp curr-rate" type="number" step="0.01" value="${parseFloat(r.rate_to_pln)||0}" data-code="${escapeHtml(r.currency)}" /></div></div>`).join(''));}catch(e){}}
     $('save-currencies-btn')?.addEventListener('click',async()=>{const rates=[];document.querySelectorAll('.curr-rate').forEach(i=>{rates.push({currency:i.dataset.code,rate_to_pln:Number(i.value),is_default:i.dataset.code==='PLN'});});try{await apiPut('/api/v1/settings/currencies',{rates});}catch(e){}});
     const fileInput=$('file-input'),dropzone=$('dropzone');
     dropzone?.addEventListener('click',()=>fileInput?.click());
@@ -1345,7 +1347,7 @@
         const h=await apiAuthGet('/api/v1/billing/usage/history');
         const el=$('usage-history');
         if(el&&h?.length){
-          el.innerHTML=`<table class="tbl"><thead><tr><th>Okres</th><th>EAN-y</th><th>CAPTCHA</th><th>Koszt</th><th>Runy</th></tr></thead><tbody>${h.map(r=>`<tr><td>${r.period}</td><td>${r.total_ean}</td><td>${r.total_captcha}</td><td>$${r.total_cost_usd.toFixed(2)}</td><td>${r.run_count}</td></tr>`).join('')}</tbody></table>`;
+          el.innerHTML=`<table class="tbl"><thead><tr><th>Okres</th><th>EAN-y</th><th>CAPTCHA</th><th>Koszt</th><th>Runy</th></tr></thead><tbody>${h.map(r=>`<tr><td>${escapeHtml(r.period)}</td><td>${parseInt(r.total_ean)||0}</td><td>${parseInt(r.total_captcha)||0}</td><td>$${parseFloat(r.total_cost_usd||0).toFixed(2)}</td><td>${parseInt(r.run_count)||0}</td></tr>`).join('')}</tbody></table>`;
         }else if(el){el.innerHTML='<div class="sbox">brak historii</div>';}
       }catch(e){}
     }
@@ -1403,8 +1405,8 @@
         const runs=await apiGet('/api/v1/analysis?limit=100');
         if(!runs?.length){el.innerHTML='<div class="sbox" style="text-align:center;">Brak analiz</div>';return;}
         el.innerHTML=`<div style="overflow:auto;"><table class="tbl"><thead><tr><th>ID</th><th>Kategoria</th><th>Status</th><th>EAN-y</th><th>Data</th><th></th></tr></thead><tbody>${runs.map(r=>{
-          const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';
-          return `<tr><td>#${r.id}</td><td>${r.category_name||'-'}</td><td><span class="badge ${bc}">${r.status}</span></td><td>${r.processed_products}/${r.total_products}</td><td style="font-size:11px;">${r.created_at?new Date(r.created_at).toLocaleString('pl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'-'}</td><td><button class="btn sm" onclick="openPreview(${r.id})">Podgląd</button></td></tr>`;
+          const bc=r.status==='completed'?'ok':r.status==='stopped'||r.status==='failed'?'err':'info';const rid=parseInt(r.id)||0;
+          return `<tr><td>#${rid}</td><td>${escapeHtml(r.category_name||'-')}</td><td><span class="badge ${bc}">${escapeHtml(r.status)}</span></td><td>${parseInt(r.processed_products)||0}/${parseInt(r.total_products)||0}</td><td style="font-size:11px;">${r.created_at?escapeHtml(new Date(r.created_at).toLocaleString('pl',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})):'-'}</td><td><button class="btn sm" onclick="openPreview(${rid})">Podgląd</button></td></tr>`;
         }).join('')}</tbody></table></div>`;
       }catch(e){el.innerHTML='<div class="sbox">Błąd ładowania</div>';}
     }
@@ -1468,10 +1470,10 @@
         setText($('mon-count'),items.length);
         if(!items.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">👁</div><div class="empty-text">Brak monitorowanych EAN-ów</div><div class="empty-hint">Dodaj EAN powyżej</div></div>';return;}
         list.innerHTML=items.map(i=>`<div class="cat-row" style="grid-template-columns:1fr 1fr 1fr auto;">
-          <div><strong>${i.ean}</strong><br><span style="font-size:11px;color:var(--muted);">${i.label||''}</span></div>
-          <div style="font-size:12px;color:var(--muted);">co ${i.refresh_interval_minutes} min</div>
-          <div style="font-size:12px;color:var(--muted);">${i.last_scraped_at?new Date(i.last_scraped_at).toLocaleString('pl'):'jeszcze nie sprawdzony'}</div>
-          <button class="btn ghost" onclick="unwatchEan('${i.ean}')" style="font-size:11px;color:rgb(var(--red));">Usuń</button>
+          <div><strong>${escapeHtml(i.ean)}</strong><br><span style="font-size:11px;color:var(--muted);">${escapeHtml(i.label||'')}</span></div>
+          <div style="font-size:12px;color:var(--muted);">co ${parseInt(i.refresh_interval_minutes)||60} min</div>
+          <div style="font-size:12px;color:var(--muted);">${i.last_scraped_at?escapeHtml(new Date(i.last_scraped_at).toLocaleString('pl')):'jeszcze nie sprawdzony'}</div>
+          <button class="btn ghost" onclick="unwatchEan('${escapeHtml(i.ean)}')" style="font-size:11px;color:rgb(var(--red));">Usuń</button>
         </div>`).join('');
       }catch(e){console.warn('loadMonitoring',e);}
     }
@@ -1500,16 +1502,16 @@
         const rl=$('rules-list');
         if(!rules.length){rl.innerHTML='<div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-text">Brak reguł</div></div>';}
         else{rl.innerHTML=rules.map(r=>`<div class="cat-row" style="grid-template-columns:2fr 1fr 1fr auto;">
-          <div><strong>${r.name}</strong><br><span style="font-size:11px;color:var(--muted);">${r.ean||'wszystkie EAN-y'}</span></div>
-          <div><span class="badge info">${r.condition_type.replace(/_/g,' ')}</span></div>
-          <div style="font-size:12px;">${r.threshold_value||'-'}</div>
-          <button class="btn ghost" onclick="deleteRule(${r.id})" style="font-size:11px;color:rgb(var(--red));">Usuń</button>
+          <div><strong>${escapeHtml(r.name)}</strong><br><span style="font-size:11px;color:var(--muted);">${escapeHtml(r.ean||'wszystkie EAN-y')}</span></div>
+          <div><span class="badge info">${escapeHtml(r.condition_type.replace(/_/g,' '))}</span></div>
+          <div style="font-size:12px;">${escapeHtml(String(r.threshold_value||'-'))}</div>
+          <button class="btn ghost" onclick="deleteRule(${parseInt(r.id)||0})" style="font-size:11px;color:rgb(var(--red));">Usuń</button>
         </div>`).join('');}
         const el=$('events-list');
         if(!events.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">Brak zdarzeń</div></div>';}
         else{el.innerHTML=events.map(e=>`<div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;font-size:13px;">
-          <div style="display:flex;justify-content:space-between;"><span class="badge warn">${e.condition_type.replace(/_/g,' ')}</span><span style="font-size:11px;color:var(--dim);">${new Date(e.created_at).toLocaleString('pl')}</span></div>
-          <div style="margin-top:6px;">${e.message}</div>
+          <div style="display:flex;justify-content:space-between;"><span class="badge warn">${escapeHtml(e.condition_type.replace(/_/g,' '))}</span><span style="font-size:11px;color:var(--dim);">${escapeHtml(new Date(e.created_at).toLocaleString('pl'))}</span></div>
+          <div style="margin-top:6px;">${escapeHtml(e.message)}</div>
         </div>`).join('');}
         // badge in sidebar
         const badge=$('alert-badge');if(events.length){badge.style.display='';badge.textContent=events.length;}else{badge.style.display='none';}
@@ -1535,10 +1537,10 @@
         const list=$('apikeys-list');
         if(!keys.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">🔑</div><div class="empty-text">Brak kluczy</div></div>';return;}
         list.innerHTML=keys.map(k=>`<div class="cat-row" style="grid-template-columns:2fr 1fr 1fr auto;">
-          <div><strong>${k.name}</strong><br><code style="font-size:11px;color:var(--dim);">${k.key_prefix}...</code></div>
+          <div><strong>${escapeHtml(k.name)}</strong><br><code style="font-size:11px;color:var(--dim);">${escapeHtml(k.key_prefix)}...</code></div>
           <div>${k.is_active?'<span class="badge ok">aktywny</span>':'<span class="badge err">cofnięty</span>'}</div>
-          <div style="font-size:12px;color:var(--muted);">${k.last_used_at?new Date(k.last_used_at).toLocaleString('pl'):'nigdy'}</div>
-          ${k.is_active?`<button class="btn ghost" onclick="revokeKey(${k.id})" style="font-size:11px;color:rgb(var(--red));">Cofnij</button>`:''}
+          <div style="font-size:12px;color:var(--muted);">${k.last_used_at?escapeHtml(new Date(k.last_used_at).toLocaleString('pl')):'nigdy'}</div>
+          ${k.is_active?`<button class="btn ghost" onclick="revokeKey(${parseInt(k.id)||0})" style="font-size:11px;color:rgb(var(--red));">Cofnij</button>`:''}
         </div>`).join('');
       }catch(e){console.warn('loadAPIKeys',e);}
     }

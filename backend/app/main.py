@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 import time
 
 from app.core.logging_config import setup_logging
@@ -14,21 +15,24 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.db.session import get_db
+from app.services.audit_service import log_event
 from app.utils.allegro_scraper_client import check_scraper_health
 
 
 # NOTE: in-memory brute-force tracker - resets on restart and not shared across
 # workers. For production, consider Redis-backed rate limiting.
 FAILED_AUTH: dict[str, list[float]] = {}
-
 
 app = FastAPI(
     title="Jolly Jesters MVP",
@@ -37,7 +41,20 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 logger = logging.getLogger(__name__)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    logger.error("Unhandled exception: %s\n%s", str(exc), traceback.format_exc())
+    # Never leak stack traces to client
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Wewnetrzny blad serwera. Skontaktuj sie z administratorem."},
+    )
 
 _cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
 _cors_origins = [o.strip() for o in _cors_origins if o.strip()]
@@ -50,11 +67,29 @@ app.add_middleware(
 )
 
 @app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    """Reject requests larger than 50 MB based on Content-Length header."""
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > 52_428_800:  # 50 MB
+        return JSONResponse(status_code=413, content={"detail": "Request too large"})
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "connect-src 'self'; "
+        "img-src 'self' data:; "
+        "frame-ancestors 'none'"
+    )
     return response
 
 
@@ -104,6 +139,17 @@ def _validate_cookie(token: str) -> bool:
         return False
     expected = _sign_session(ts)
     return hmac.compare_digest(sig, expected)
+
+
+def _is_production() -> bool:
+    return os.getenv("ENVIRONMENT", "dev").lower() in ("production", "prod")
+
+
+def _cookie_secure() -> bool:
+    """Use Secure flag in production or when explicitly enabled."""
+    if _is_production():
+        return True
+    return os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 
 
 def _is_api_path(path: str) -> bool:
@@ -186,11 +232,41 @@ def healthz():
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    csrf_token = secrets.token_hex(32)
+    response = templates.TemplateResponse(
+        "login.html", {"request": request, "error": None, "csrf_token": csrf_token}
+    )
+    response.set_cookie(
+        "csrf_token",
+        csrf_token,
+        httponly=True,
+        samesite="strict",
+        max_age=3600,
+        secure=_cookie_secure(),
+        path="/login",
+    )
+    return response
 
 
 @app.post("/login", response_class=HTMLResponse)
-def login_submit(request: Request, password: str = Form(...)):
+@limiter.limit("5/minute")
+async def login_submit(request: Request, password: str = Form(...)):
+    # --- CSRF validation ---
+    form_data = await request.form()
+    csrf_from_form = form_data.get("csrf_token", "")
+    csrf_from_cookie = request.cookies.get("csrf_token", "")
+    if (
+        not csrf_from_form
+        or not csrf_from_cookie
+        or not hmac.compare_digest(str(csrf_from_form), str(csrf_from_cookie))
+    ):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "CSRF validation failed", "csrf_token": ""},
+            status_code=403,
+        )
+
+    # --- Brute-force guard ---
     client_ip = (
         request.headers.get("x-forwarded-for", "").split(",")[0].strip()
         or request.headers.get("x-real-ip", "")
@@ -201,13 +277,29 @@ def login_submit(request: Request, password: str = Form(...)):
     if client_ip in FAILED_AUTH:
         FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if time.time() - ts <= window_seconds]
         if len(FAILED_AUTH[client_ip]) >= fail_limit:
-            return templates.TemplateResponse("login.html", {"request": request, "error": "Too many attempts, try later."}, status_code=429)
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Too many attempts, try later.", "csrf_token": ""},
+                status_code=429,
+            )
     expected = settings.ui_password
     if not expected:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "UI_PASSWORD not configured on server"}, status_code=503)
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "UI_PASSWORD not configured on server", "csrf_token": ""},
+            status_code=503,
+        )
     if not hmac.compare_digest(password, expected):
         FAILED_AUTH.setdefault(client_ip, []).append(time.time())
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid password"}, status_code=401)
+        log_event("login_failure", ip=client_ip, details={"reason": "invalid_password"})
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Invalid password", "csrf_token": ""},
+            status_code=401,
+        )
+
+    # --- Issue session cookie and clear CSRF cookie (session fixation protection) ---
+    log_event("login_success", ip=client_ip)
     token, ts = _issue_cookie()
     response = RedirectResponse(url="/", status_code=302)
     response.set_cookie(
@@ -216,9 +308,10 @@ def login_submit(request: Request, password: str = Form(...)):
         httponly=True,
         max_age=max(1, (settings.ui_session_ttl_hours or 24) * 3600),
         samesite="strict",
-        secure=os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes"),
+        secure=_cookie_secure(),
         path="/",
     )
+    response.delete_cookie("csrf_token", path="/login")
     return response
 
 
@@ -226,4 +319,5 @@ def login_submit(request: Request, password: str = Form(...)):
 def logout():
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("jj_session", path="/")
+    response.delete_cookie("csrf_token", path="/login")
     return response
