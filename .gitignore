@@ -17,3 +17,6 @@ allegro/allegro.pl-scraper-main/output/
 **/cloudflared*.log
 tools/cloudflared*
 *.db
+*.sqlite3
+secrets/
+credentials/
