@@ -43,11 +43,20 @@ _cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
 _cors_origins = [o.strip() for o in _cors_origins if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins or ["*"],
+    allow_origins=_cors_origins or [],
     allow_credentials=bool(_cors_origins),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 
 if not settings.ui_password or settings.ui_password == "1234":
     if os.getenv("ENVIRONMENT", "dev").lower() in ("production", "prod"):

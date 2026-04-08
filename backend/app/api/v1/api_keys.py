@@ -6,12 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import CurrentUser, get_current_user_optional
 from app.db.session import get_db
 from app.services import api_key_service
 
 router = APIRouter(tags=["api-keys"])
 
-TENANT = "00000000-0000-0000-0000-000000000000"
+DEFAULT_TENANT = "00000000-0000-0000-0000-000000000000"
 
 
 class CreateKeyRequest(BaseModel):
@@ -37,8 +38,12 @@ class APIKeyCreated(BaseModel):
 
 
 @router.get("/", response_model=List[APIKeyOut])
-def list_keys(db: Session = Depends(get_db)):
-    keys = api_key_service.list_keys(db, tenant_id=TENANT)
+def list_keys(
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
+    keys = api_key_service.list_keys(db, tenant_id=tenant_id)
     return [
         APIKeyOut(
             id=k.id,
@@ -54,8 +59,13 @@ def list_keys(db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=APIKeyCreated)
-def create_key(req: CreateKeyRequest, db: Session = Depends(get_db)):
-    record, raw_key = api_key_service.create_api_key(db, tenant_id=TENANT, name=req.name)
+def create_key(
+    req: CreateKeyRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
+    record, raw_key = api_key_service.create_api_key(db, tenant_id=tenant_id, name=req.name)
     return APIKeyCreated(
         id=record.id,
         name=record.name,
@@ -66,8 +76,13 @@ def create_key(req: CreateKeyRequest, db: Session = Depends(get_db)):
 
 
 @router.delete("/{key_id}")
-def revoke_key(key_id: int, db: Session = Depends(get_db)):
-    ok = api_key_service.revoke_key(db, tenant_id=TENANT, key_id=key_id)
+def revoke_key(
+    key_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
+    ok = api_key_service.revoke_key(db, tenant_id=tenant_id, key_id=key_id)
     if not ok:
         raise HTTPException(404, "API key not found")
     return {"status": "ok"}

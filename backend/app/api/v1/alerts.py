@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import CurrentUser, get_current_user_optional
 from app.db.session import get_db
 from app.services import alert_engine
 
 router = APIRouter(tags=["alerts"])
 
-TENANT = "00000000-0000-0000-0000-000000000000"
+DEFAULT_TENANT = "00000000-0000-0000-0000-000000000000"
 
 
 class CreateRuleRequest(BaseModel):
@@ -47,8 +48,13 @@ class AlertEventOut(BaseModel):
 
 
 @router.get("/rules", response_model=List[AlertRuleOut])
-def list_rules(active_only: bool = True, db: Session = Depends(get_db)):
-    rules = alert_engine.list_rules(db, tenant_id=TENANT, active_only=active_only)
+def list_rules(
+    active_only: bool = True,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
+    rules = alert_engine.list_rules(db, tenant_id=tenant_id, active_only=active_only)
     return [
         AlertRuleOut(
             id=r.id,
@@ -65,10 +71,15 @@ def list_rules(active_only: bool = True, db: Session = Depends(get_db)):
 
 
 @router.post("/rules", response_model=AlertRuleOut)
-def create_rule(req: CreateRuleRequest, db: Session = Depends(get_db)):
+def create_rule(
+    req: CreateRuleRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
     r = alert_engine.create_rule(
         db,
-        tenant_id=TENANT,
+        tenant_id=tenant_id,
         name=req.name,
         condition_type=req.condition_type,
         threshold_value=req.threshold_value,
@@ -91,16 +102,26 @@ def create_rule(req: CreateRuleRequest, db: Session = Depends(get_db)):
 
 
 @router.delete("/rules/{rule_id}")
-def delete_rule(rule_id: int, db: Session = Depends(get_db)):
-    ok = alert_engine.delete_rule(db, tenant_id=TENANT, rule_id=rule_id)
+def delete_rule(
+    rule_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
+    ok = alert_engine.delete_rule(db, tenant_id=tenant_id, rule_id=rule_id)
     if not ok:
         raise HTTPException(404, "Rule not found")
     return {"status": "ok"}
 
 
 @router.get("/events", response_model=List[AlertEventOut])
-def list_events(limit: int = 50, db: Session = Depends(get_db)):
-    events = alert_engine.list_events(db, tenant_id=TENANT, limit=limit)
+def list_events(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
+    events = alert_engine.list_events(db, tenant_id=tenant_id, limit=limit)
     return [
         AlertEventOut(
             id=e.id,

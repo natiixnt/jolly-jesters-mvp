@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Tuple
@@ -545,10 +544,17 @@ def get_run_metrics(db: Session, run_id: int) -> AnalysisRunMetrics | None:
         if elapsed > 0 and processed > 0:
             ean_per_min = round(processed / (elapsed / 60), 2)
 
-    captcha_cost_usd = float(os.environ.get("CAPTCHA_COST_USD", "0.002"))
-    cost_per_1000 = None
-    if processed > 0:
-        cost_per_1000 = round((total_captcha * captcha_cost_usd) / processed * 1000, 4)
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    # Estimate GB transfer (rough: ~50KB per EAN request average)
+    gb_transfer_est = (processed * 50 / 1024 / 1024) if processed > 0 else 0
+    captcha_cost = (total_captcha / 1000) * settings.cost_rate_access_verification
+    network_cost = gb_transfer_est * settings.cost_rate_network_per_gb
+    total_cost = captcha_cost + network_cost
+    cost_per_1000 = round(total_cost / processed * 1000, 4) if processed > 0 else None
+
+    success_rate = round(completed / total, 4) if total > 0 else None
 
     return AnalysisRunMetrics(
         run_id=run.id,
@@ -569,6 +575,7 @@ def get_run_metrics(db: Session, run_id: int) -> AnalysisRunMetrics | None:
         ean_per_min=ean_per_min,
         cost_per_1000_ean=cost_per_1000,
         elapsed_seconds=round(elapsed, 1) if elapsed else None,
+        success_rate=success_rate,
     )
 
 

@@ -131,6 +131,7 @@ class AnalysisRunMetrics(BaseModel):
     ean_per_min: Optional[float] = None
     cost_per_1000_ean: Optional[float] = None
     elapsed_seconds: Optional[float] = None
+    success_rate: Optional[float] = None
 
 
 class AnalysisStartFromDbRequest(BaseModel):

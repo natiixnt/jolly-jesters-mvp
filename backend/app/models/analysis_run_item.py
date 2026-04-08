@@ -37,6 +37,8 @@ class AnalysisRunItem(Base):
     captcha_solves = Column(Integer, nullable=True, default=0)
     retries = Column(Integer, nullable=True, default=0)
     attempts = Column(Integer, nullable=True, default=0)
+    network_node_id = Column(String(64), nullable=True)
+    provider_status = Column(String(32), nullable=True)
 
     updated_at = Column(
         DateTime(timezone=True),

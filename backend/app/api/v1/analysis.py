@@ -36,13 +36,27 @@ from app.services.import_service import handle_upload
 from app.workers.tasks import celery_app, run_analysis_task
 
 
-def _check_concurrent_limit(db: Session) -> None:
-    active = analysis_service.list_active_runs(db, limit=app_settings.max_concurrent_runs + 1)
-    if len(active) >= app_settings.max_concurrent_runs:
+def _check_concurrent_limit(db: Session, current_user: Optional[CurrentUser] = None) -> None:
+    """Check both per-user and global concurrency limits."""
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    # Global limit
+    all_active = analysis_service.list_active_runs(db, limit=settings.concurrency_global_max + 1)
+    if len(all_active) >= settings.concurrency_global_max:
         raise HTTPException(
             status_code=429,
-            detail=f"Osiągnięto limit {app_settings.max_concurrent_runs} równoczesnych analiz. Poczekaj na zakończenie bieżących.",
+            detail=f"Globalny limit rownoczesnych analiz ({settings.concurrency_global_max}) osiagniety. Sprobuj pozniej."
         )
+
+    # Per-user limit (if user is authenticated)
+    if current_user:
+        user_active = [r for r in all_active if r.user_id and str(r.user_id) == str(current_user.user_id)]
+        if len(user_active) >= settings.concurrency_per_user:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Limit rownoczesnych analiz na uzytkownika ({settings.concurrency_per_user}) osiagniety."
+            )
 
 router = APIRouter(tags=["analysis"])
 
@@ -51,8 +65,9 @@ STREAM_POLL_INTERVAL = 2.0
 
 def _verify_run_access(run, current_user: Optional[CurrentUser]) -> None:
     """Raise 404 if run doesn't belong to tenant (when multi-tenant active)."""
-    if current_user and run and run.tenant_id and run.tenant_id != current_user.tenant_id:
-        raise HTTPException(status_code=404, detail="Analysis not found")
+    if run and run.tenant_id:
+        if not current_user or current_user.tenant_id != run.tenant_id:
+            raise HTTPException(status_code=404, detail="Analysis not found")
 STREAM_HEARTBEAT_INTERVAL = 5.0
 
 
@@ -400,7 +415,19 @@ def get_analysis_results_updates(
 
 
 @router.get("/{run_id}/stream")
-async def stream_analysis(run_id: int, request: Request, debug: bool = False):
+async def stream_analysis(
+    run_id: int,
+    request: Request,
+    debug: bool = False,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    # Verify access before starting stream
+    with SessionLocal() as db:
+        run = analysis_service.get_run_status(db, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+        _verify_run_access(run, current_user)
+
     async def event_generator():
         last_status = None
         last_processed = None

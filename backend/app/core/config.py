@@ -36,6 +36,17 @@ class Settings(BaseSettings):
 
     # Concurrency limits
     max_concurrent_runs: int = Field(default=3, env="MAX_CONCURRENT_RUNS")
+    # 3x3 concurrency profile
+    concurrency_per_user: int = Field(default=3, env="CONCURRENCY_PER_USER")
+    concurrency_global_max: int = Field(default=12, env="CONCURRENCY_GLOBAL_MAX")
+
+    # Cost rate configuration (Etap 1 metering)
+    cost_rate_network_per_gb: float = Field(default=12.53, env="COST_RATE_NETWORK_PER_GB")
+    cost_rate_access_verification: float = Field(default=5.19, env="COST_RATE_ACCESS_VERIFICATION")
+
+    # Network pool configuration
+    network_healthcheck_interval_min: int = Field(default=5, env="NETWORK_HEALTHCHECK_INTERVAL")
+    network_quarantine_ttl_hours: int = Field(default=24, env="NETWORK_QUARANTINE_TTL")
 
     sqlalchemy_echo: bool = Field(default=False)
 
@@ -77,3 +88,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_settings() -> Settings:
+    return settings
