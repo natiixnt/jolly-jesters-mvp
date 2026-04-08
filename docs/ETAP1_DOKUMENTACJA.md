@@ -810,7 +810,7 @@ Użycie:
 make volume-test
 
 # Lub reczne
-python tools/volume_test.py --url http://localhost --file sample.xlsx --output raport_test_wolumenowy.txt
+python tools/volume_test.py --url https://<ADRES_SERWERA> --file sample.xlsx --output raport_test_wolumenowy.txt
 ```
 
 Raport zawiera:
@@ -849,7 +849,7 @@ Plik: `backend/.env.example`
 | `UI_BASIC_AUTH_PASSWORD` | (wymagane) | Hasło HTTP Basic Auth (legacy) |
 | `UI_SESSION_TTL_HOURS` | `24` | Czas życia sesji w godzinach |
 | `COOKIE_SECURE` | `false` | Flaga Secure na cookies (automatycznie true w produkcji) |
-| `CORS_ORIGINS` | `http://localhost,http://localhost:80` | Dozwolone originy CORS |
+| `CORS_ORIGINS` | `https://<ADRES_SERWERA>,https://<ADRES_SERWERA>:80` | Dozwolone originy CORS |
 | `REGISTRATION_KEY` | (opcjonalne) | Klucz rejestracyjny dla nowych użytkowników |
 
 ### Profil równoległości 3x3
@@ -963,7 +963,7 @@ make up
 docker compose up --build
 
 # 4. Dostep do interfejsu
-# Otworz przegladarke: http://localhost
+# Otwórz przeglądarkę: https://<ADRES_SERWERA>
 # Zaloguj sie haslem ustawionym w UI_PASSWORD
 ```
 
@@ -1034,7 +1034,7 @@ make test
 
 **Weryfikacja:**
 1. Uruchom system: `make up`
-2. Zaloguj się do interfejsu: http://localhost
+2. Zaloguj się do interfejsu: https://<ADRES_SERWERA>
 3. Utwórz kategorie w zakładce "Dane rynkowe"
 4. Wgraj plik Excel z kodami EAN w zakładce "Nowa analiza"
 5. Obserwuj postęp analizy - pozycje powinny przechodzić ze statusu `pending` -> `in_progress` -> `ok`/`not_found`
@@ -1111,10 +1111,10 @@ make test
 ### Kryterium 10.7: System zapewnia bezpieczeństwo autentykacji
 
 **Weryfikacja:**
-1. Wejdź na http://localhost - przekierowanie na /login
+1. Wejdź na https://<ADRES_SERWERA> - przekierowanie na /login
 2. Podaj błędne hasło 5 razy - blokada 10 minut (HTTP 429)
 3. Zaloguj się poprawnie - cookie `jj_session` z `httponly`, `samesite=strict`
-4. Wejdź na API bez cookie: `curl http://localhost/api/v1/analysis` - HTTP 401
+4. Wejdź na API bez cookie: `curl https://<ADRES_SERWERA>/api/v1/analysis` - HTTP 401
 5. Sprawdź audit log: `AUDIT: login_failure` i `AUDIT: login_success`
 
 **Dowód:** HTTP 429 po 5 próbach, HTTP 401 bez autentykacji, wpisy w logach audytu.
@@ -1125,7 +1125,7 @@ make test
 
 **Weryfikacja:**
 ```bash
-curl -I http://localhost/
+curl -I https://<ADRES_SERWERA>/
 ```
 Oczekiwane nagłówki:
 - `X-Content-Type-Options: nosniff`
@@ -1176,7 +1176,7 @@ make volume-test
 
 Lub ręcznie:
 ```bash
-python tools/volume_test.py --url http://localhost --file sample.xlsx --output raport.txt
+python tools/volume_test.py --url https://<ADRES_SERWERA> --file sample.xlsx --output raport.txt
 ```
 
 Oczekiwany wynik: raport z sekcjami "METRYKI KLUCZOWE", "METRYKI STABILNOŚCI", "KRYTERIA ODBIORU" i weryfikacja PASS/FAIL.
