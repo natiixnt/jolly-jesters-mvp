@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.network_proxy import NetworkProxy
+from app.utils.validators import validate_proxy_url
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,12 @@ def import_from_csv(db: Session, data: bytes) -> Dict:
         url = parts[0].strip()
         label = parts[1].strip() if len(parts) > 1 else None
 
-        if not url or not (url.startswith("http") or url.startswith("socks")):
+        if not url:
+            skipped += 1
+            continue
+        try:
+            url = validate_proxy_url(url)
+        except ValueError:
             skipped += 1
             continue
 

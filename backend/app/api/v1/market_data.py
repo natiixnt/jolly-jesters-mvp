@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -17,14 +17,14 @@ router = APIRouter(tags=["market-data"])
 @router.get("", response_model=MarketDataResponse)
 def list_market_data(
     category_id: Optional[str] = None,
-    ean: Optional[str] = None,
-    source: Optional[str] = None,
+    ean: Optional[str] = Query(None, max_length=20),
+    source: Optional[str] = Query(None, max_length=50),
     updated_since: Optional[datetime] = None,
     with_data: bool = False,
     profitable_only: bool = False,
     debug: bool = False,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):

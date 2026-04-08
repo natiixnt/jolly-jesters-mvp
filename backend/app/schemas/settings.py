@@ -32,8 +32,8 @@ class SettingsUpdate(BaseModel):
 
 
 class CurrencyRateEntry(BaseModel):
-    currency: str
-    rate_to_pln: float
+    currency: str = Field(..., min_length=1, max_length=10, pattern=r'^[A-Z]{2,10}$')
+    rate_to_pln: float = Field(..., gt=0, le=1000000)
     is_default: bool = False
 
 
@@ -42,11 +42,11 @@ class CurrencyRates(BaseModel):
 
 
 class ProxyMeta(BaseModel):
-    path: str
-    count: int
-    size_bytes: int
+    path: str = Field(..., max_length=500)
+    count: int = Field(..., ge=0)
+    size_bytes: int = Field(..., ge=0)
     updated_at: Optional[datetime] = None
-    sample: list[str] = []
+    sample: list[str] = Field(default_factory=list, max_length=100)
     saved: Optional[bool] = None
     reload: Optional[dict] = None
     uploaded_at: Optional[datetime] = None
@@ -62,14 +62,14 @@ class ProxyReloadResponse(BaseModel):
 
 class NetworkProxyOut(BaseModel):
     id: int
-    url: str
-    label: Optional[str] = None
+    url: str = Field(..., max_length=2048)
+    label: Optional[str] = Field(None, max_length=255)
     is_active: bool
-    success_count: int
-    fail_count: int
-    health_score: float
+    success_count: int = Field(..., ge=0)
+    fail_count: int = Field(..., ge=0)
+    health_score: float = Field(..., ge=0, le=1.0)
     quarantine_until: Optional[datetime] = None
-    quarantine_reason: Optional[str] = None
+    quarantine_reason: Optional[str] = Field(None, max_length=500)
     last_success_at: Optional[datetime] = None
     last_fail_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
@@ -79,22 +79,22 @@ class NetworkProxyOut(BaseModel):
 
 
 class NetworkProxyHealthSummary(BaseModel):
-    total: int
-    active: int
-    quarantined: int
+    total: int = Field(..., ge=0)
+    active: int = Field(..., ge=0)
+    quarantined: int = Field(..., ge=0)
     available: int
-    avg_health_score: Optional[float] = None
-    total_success: int
-    total_fail: int
-    success_rate: Optional[float] = None
+    avg_health_score: Optional[float] = Field(None, ge=0, le=1.0)
+    total_success: int = Field(..., ge=0)
+    total_fail: int = Field(..., ge=0)
+    success_rate: Optional[float] = Field(None, ge=0, le=1.0)
 
 
 class NetworkProxyImportResult(BaseModel):
-    imported: int
-    skipped: int
-    total_lines: int
+    imported: int = Field(..., ge=0)
+    skipped: int = Field(..., ge=0)
+    total_lines: int = Field(..., ge=0)
 
 
 class NetworkProxyQuarantineRequest(BaseModel):
     duration_minutes: int = Field(15, ge=1, le=1440)
-    reason: str = "manual"
+    reason: str = Field("manual", max_length=500)
