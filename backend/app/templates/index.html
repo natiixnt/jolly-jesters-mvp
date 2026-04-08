@@ -374,21 +374,21 @@
       <div style="display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:20px;">
         <div class="chart-wrap">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <div class="chart-title" style="margin:0;">Przepustowosc (EAN/run)</div>
+            <div class="chart-title" style="margin:0;">Przepustowość (EAN/run)</div>
             <div style="font-size:11px;color:var(--dim);" id="ds-chart-avg">avg: -</div>
           </div>
           <div class="chart" id="dash-chart" style="height:100px;"></div>
         </div>
         <div class="activity">
           <div class="activity-title">Ostatnie zdarzenia</div>
-          <div id="dash-activity"><div style="color:var(--dim);font-size:13px;">ladowanie...</div></div>
+          <div id="dash-activity"><div style="color:var(--dim);font-size:13px;">ładowanie...</div></div>
         </div>
       </div>
 
       <!-- admin sections - collapsible -->
       <div id="dash-empty" style="display:none;"></div>
       <div id="dash-active" style="display:none;"></div>
-      <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:24px 0 8px;">Zarzadzanie</div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:24px 0 8px;">Zarządzanie</div>
 
       <div class="acc" id="acc-runs">
         <div class="acc-head" onclick="toggleAcc('acc-runs')">
@@ -396,15 +396,15 @@
           <span class="acc-count" id="ga-runs-count">0</span>
           <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </div>
-        <div class="acc-body" id="ga-all-runs"><div class="hint">kliknij aby rozwinac</div></div>
+        <div class="acc-body" id="ga-all-runs"><div class="hint">kliknij aby rozwinąć</div></div>
       </div>
 
       <div class="acc" id="acc-tenants">
         <div class="acc-head" onclick="toggleAcc('acc-tenants')">
-          <span>Uzytkownicy i tenanci</span>
+          <span>Użytkownicy i tenanci</span>
           <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </div>
-        <div class="acc-body" id="ga-tenant-list"><div class="hint">kliknij aby rozwinac</div></div>
+        <div class="acc-body" id="ga-tenant-list"><div class="hint">kliknij aby rozwinąć</div></div>
       </div>
 
       <div class="acc" id="acc-metrics">
@@ -524,7 +524,7 @@
           </div>
           <!-- paste -->
           <div>
-            <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;">Wklej recznie</div>
+            <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;">Wklej ręcznie</div>
             <textarea class="inp" id="pp-paste" rows="5" placeholder="host:port:user:pass&#10;host:port:user:pass&#10;..." style="height:auto;resize:vertical;padding:10px;font-family:ui-monospace,monospace;font-size:11px;"></textarea>
             <div class="btn-row"><button class="btn primary" id="pp-paste-btn">Dodaj wklejone</button></div>
           </div>
@@ -534,7 +534,7 @@
       <!-- health -->
       <div class="card"><div class="card-label">Health</div><div class="mg" id="proxy-health"><div style="color:var(--dim);font-size:14px;padding:16px;">Brak danych - wgraj proxy w ustawieniach lub poniżej</div></div></div>
       <!-- list -->
-      <div class="card"><div class="card-label">Lista</div><div id="proxy-list" style="overflow:auto;"><div class="sbox" style="text-align:center;padding:24px;"><div style="font-weight:500;">Brak proxy</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Wgraj plik lub wklej proxy powyzej</div></div></div></div>
+      <div class="card"><div class="card-label">Lista</div><div id="proxy-list" style="overflow:auto;"><div class="sbox" style="text-align:center;padding:24px;"><div style="font-weight:500;">Brak proxy</div><div style="color:var(--dim);font-size:12px;margin-top:4px;">Wgraj plik lub wklej proxy powyżej</div></div></div></div>
     </div>
 
     <!-- USTAWIENIA -->
@@ -1016,7 +1016,7 @@
         const allScrapes=okScrapes+errScrapes;
         const rate=allScrapes>0?((okScrapes/allScrapes)*100).toFixed(1)+'%':'brak danych';
         setText($('ds-success-rate'),rate);
-        setText($('ds-success-detail'),`${okScrapes.toLocaleString()} udanych z ${allScrapes.toLocaleString()} zapytan`);
+        setText($('ds-success-detail'),`${okScrapes.toLocaleString()} udanych z ${allScrapes.toLocaleString()} zapytań`);
         const hd=$('dash-health-dot'),ht=$('dash-health-text');
         if(hd)hd.classList.add('ok');
         if(ht)ht.textContent='system online';
