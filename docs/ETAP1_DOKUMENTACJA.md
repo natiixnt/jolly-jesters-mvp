@@ -2,7 +2,9 @@
 
 **Projekt:** Jolly Jesters - Platforma analizy rynkowej e-commerce
 **Etap:** 1 (MVP + warstwa produkcyjna)
-**Budzet etapu:** 30 750 PLN
+**Budzet etapu:** 30 750,00 PLN brutto (ryczalt)
+**Laczna liczba roboczogodzin:** 164 RBH
+**Stawka przeliczeniowa:** 187,50 PLN/RBH
 **Data zamkniecia:** 2026-04-08
 
 ---
@@ -19,6 +21,7 @@
 8. [Parametry konfiguracyjne](#8-parametry-konfiguracyjne)
 9. [Instrukcja uruchomienia](#9-instrukcja-uruchomienia)
 10. [Kryteria odbioru - weryfikacja](#10-kryteria-odbioru---weryfikacja)
+11. [Kosztorys Etapu 1 - rozliczenie roboczogodzin](#11-kosztorys-etapu-1---rozliczenie-roboczogodzin)
 
 ---
 
@@ -1217,3 +1220,51 @@ Etap 1 projektu Jolly Jesters zostal zrealizowany w pelnym zakresie, obejmujac:
 - **Infrastruktura produkcyjna** - Docker Compose z 7 serwisami, nginx, migracje, CI/CD
 
 System jest gotowy do produkcyjnego wdrozenia i spelnia wszystkie kryteria odbioru zdefiniowane w specyfikacji Etapu 1.
+
+---
+
+## 11. Kosztorys Etapu 1 - rozliczenie roboczogodzin
+
+Rozliczenie Etapu 1 ma charakter ryczaltowy. Ponizsze rozbicie stanowi kosztorys informacyjny.
+
+- **Kwota ryczaltowa:** 30 750,00 PLN brutto
+- **Laczna liczba roboczogodzin:** 164 RBH
+- **Stawka przeliczeniowa (brutto):** 187,50 PLN/RBH
+
+| ID | Zadanie | Role (RBH) | RBH | Koszt brutto (PLN) |
+|----|---------|------------|-----|---------------------|
+| 1.1.1 | Analiza kodu i projekt metryk | PM 4h; Backend 4h | 8 | 1 500,00 |
+| 1.1.2 | Migracje DB: run_metrics, item_metrics | Backend 6h | 6 | 1 125,00 |
+| 1.2.1 | Instrumentacja worker: liczniki attempt/retry | Backend 10h; QA 3h | 13 | 2 437,50 |
+| 1.2.2 | Instrumentacja worker: weryfikacja dostepu/blocked/latency | Backend 8h; Modul danych 4h; QA 2h | 14 | 2 625,00 |
+| 1.2.3 | Agregacja metryk runu | Backend 6h; QA 2h | 8 | 1 500,00 |
+| 1.3.1 | API: /runs/{id}/metrics | Backend 6h; QA 2h | 8 | 1 500,00 |
+| 1.3.2 | UI: panel metryk + eksport CSV/Excel | Frontend 8h; Backend 6h; QA 2h | 16 | 3 000,00 |
+| 1.4.1 | Profil 3x3: semafory i limitery | Backend 8h; DevOps 4h; QA 4h | 16 | 3 000,00 |
+| 1.4.2 | Backpressure i stabilizacja | Backend 6h; Modul danych 4h; QA 2h | 12 | 2 250,00 |
+| 1.5.1 | Warstwa dostepu sieciowego - import CSV + walidacja | Backend 6h; QA 2h | 8 | 1 500,00 |
+| 1.5.2 | Healthcheck + scoring + auto-kwarantanna | Backend 2h; Modul danych 8h; QA 2h | 12 | 2 250,00 |
+| 1.6.1 | Mechanizm stop-loss: rolling window + progi | Backend 8h; QA 3h | 11 | 2 062,50 |
+| 1.6.2 | UI: raport przyczyny mechanizmu stop-loss | Frontend 4h; Backend 2h; QA 1h | 7 | 1 312,50 |
+| 1.7.1 | Naprawa kontraktow cache/offline | Backend 4h; Frontend 6h; QA 2h | 12 | 2 250,00 |
+| 1.8.1 | Test wolumenowy + protokol odbioru | QA 6h; PM 4h; DevOps 3h | 13 | 2 437,50 |
+| | **SUMA** | | **164** | **30 750,00** |
+
+### Struktura kosztow wedlug rol
+
+| Rola | Roboczogodziny | Udzial |
+|------|---------------|--------|
+| Backend developer | 78h | 47,6% |
+| Frontend developer | 18h | 11,0% |
+| Modul pozyskiwania danych | 16h | 9,8% |
+| QA / Tester | 27h | 16,5% |
+| DevOps | 11h | 6,7% |
+| PM / Analityk | 14h | 8,5% |
+| **Razem** | **164h** | **100%** |
+
+### Uwagi do kosztorysu
+
+1. Stawka 187,50 PLN/RBH (brutto) obejmuje pelny koszt realizacji wlacznie z narzutami.
+2. Rozliczenie ma charakter ryczaltowy - podane rozbicie sluzy celom informacyjnym.
+3. Prace obejmowaly projektowanie, implementacje, testy, code review i dokumentacje.
+4. Bezpieczenstwo systemu (autentykacja, walidacja, rate limiting, audit logging) zostalo zrealizowane jako element kazdego zadania, nie jako odrebna pozycja kosztowa.
