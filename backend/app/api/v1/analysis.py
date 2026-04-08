@@ -12,6 +12,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter
 from app.db.session import SessionLocal, get_db
 from app.models.category import Category
 from app.models.enums import AnalysisStatus, ScrapeStatus
@@ -31,6 +32,7 @@ from app.api.deps import CurrentUser, get_current_user_optional, tenant_filter
 from app.core.config import settings as app_settings
 from app.models.analysis_run import AnalysisRun
 from app.services import analysis_service
+from app.services.audit_service import log_event
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
 from app.utils.validators import validate_ean, sanitize_string
@@ -78,7 +80,9 @@ def _sse_event(event_type: str, payload: dict) -> str:
 
 
 @router.post("/upload", response_model=AnalysisUploadResponse)
+@limiter.limit("10/minute")
 async def upload_analysis(
+    request: Request,
     file: UploadFile = File(...),
     category_id: str = Form(...),
     db: Session = Depends(get_db),
@@ -87,7 +91,7 @@ async def upload_analysis(
     try:
         category_uuid = uuid.UUID(category_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid category id")
+        raise HTTPException(status_code=400, detail="Nieprawidlowy identyfikator kategorii")
 
     category = db.query(Category).filter(Category.id == category_uuid).first()
     if not category or not category.is_active:
@@ -135,6 +139,12 @@ async def upload_analysis(
     analysis_service.record_run_task(db, run, result.id, "run_analysis")
     db.commit()
 
+    log_event("file_upload",
+              user_id=str(current_user.user_id) if current_user else None,
+              tenant_id=str(current_user.tenant_id) if current_user else None,
+              ip=request.client.host if request.client else None,
+              details={"filename": file.filename, "run_id": run.id, "category_id": category_id})
+
     return AnalysisUploadResponse(analysis_run_id=run.id, status=run.status)
 
 
@@ -147,12 +157,18 @@ def run_from_db(
     return _start_cached_analysis(payload, db, current_user=current_user)
 
 
-from pydantic import BaseModel as PydanticBaseModel, Field
+from pydantic import BaseModel as PydanticBaseModel, validator as pydantic_validator
 
 
 class BulkEanRequest(PydanticBaseModel):
     category_id: UUID
-    items: list[dict] = Field(..., max_length=10000)
+    items: list[dict]
+
+    @pydantic_validator("items")
+    def validate_items_length(cls, v):
+        if len(v) > 10000:
+            raise ValueError("Items list must have at most 10000 entries")
+        return v
 
 
 @router.post("/bulk", response_model=AnalysisUploadResponse)
@@ -649,6 +665,11 @@ def cancel_analysis_run(run_id: int, db: Session = Depends(get_db), current_user
         task_ids.add(run.root_task_id)
     for task_id in task_ids:
         celery_app.control.revoke(task_id, terminate=True)
+
+    log_event("run_cancel",
+              user_id=str(current_user.user_id) if current_user else None,
+              tenant_id=str(current_user.tenant_id) if current_user else None,
+              details={"run_id": run_id})
 
     return run
 

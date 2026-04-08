@@ -90,8 +90,9 @@ def list_market_data(
     if category_id:
         base = base.filter(Product.category_id == category_id)
     if ean:
-        safe_ean = ean.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        base = base.filter(Product.ean.ilike(f"%{safe_ean}%"))
+        safe_ean = ean.strip().replace("%", "").replace("_", "").replace("\\", "")
+        if safe_ean:
+            base = base.filter(Product.ean.contains(safe_ean))
     if source:
         try:
             source_enum = MarketDataSource(source)

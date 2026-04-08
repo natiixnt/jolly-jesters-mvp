@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -25,7 +25,7 @@ class PricePoint(BaseModel):
 
 @router.get("/{ean}", response_model=List[PricePoint])
 def get_price_history(
-    ean: str,
+    ean: str = Path(..., min_length=1, max_length=20, pattern=r"^[0-9A-Za-z]+$"),
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),

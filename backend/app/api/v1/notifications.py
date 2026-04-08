@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -29,7 +29,7 @@ class NotificationOut(BaseModel):
 @router.get("/", response_model=List[NotificationOut])
 def list_notifications(
     unread_only: bool = False,
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):

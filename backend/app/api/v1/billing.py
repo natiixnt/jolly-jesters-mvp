@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -43,7 +45,7 @@ class UsagePeriod(BaseModel):
 
 @router.get("/usage", response_model=UsageSummary)
 def get_usage(
-    period: Optional[str] = None,
+    period: Optional[str] = Query(default=None, max_length=7, pattern=r"^\d{4}-\d{2}$"),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
@@ -65,7 +67,7 @@ def check_quota(
 
 @router.get("/usage/history", response_model=list[UsagePeriod])
 def usage_history(
-    limit: int = 12,
+    limit: int = Query(default=12, ge=1, le=120),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):

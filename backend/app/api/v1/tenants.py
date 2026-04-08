@@ -1,25 +1,22 @@
 from __future__ import annotations
 
+import logging
+import os
+import re
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.services import auth_service
 from app.services.audit_service import log_event
 
 router = APIRouter(tags=["tenants"])
-
-# Lazy import to avoid circular dependency - limiter lives on the app instance
-def _get_limiter():
-    from app.main import limiter
-    return limiter
-
-
-import os
-import re
 
 REGISTRATION_KEY = os.getenv("REGISTRATION_KEY", "")
 
@@ -49,11 +46,11 @@ def _validate_password_strength(password: str) -> None:
 class TenantCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     slug: str = Field(..., min_length=1, max_length=128, pattern=r"^[a-z0-9_-]+$")
-    plan: str = "free"
+    plan: str = Field("free", max_length=50)
     admin_email: str = Field(..., max_length=320)
-    admin_password: str = Field(..., min_length=12)
-    admin_name: Optional[str] = None
-    registration_key: Optional[str] = None
+    admin_password: str = Field(..., min_length=12, max_length=256)
+    admin_name: Optional[str] = Field(None, max_length=255)
+    registration_key: Optional[str] = Field(None, max_length=255)
 
 
 class TenantCreateResponse(BaseModel):
@@ -64,8 +61,8 @@ class TenantCreateResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., max_length=320)
+    password: str = Field(..., min_length=1, max_length=256)
 
 
 class LoginResponse(BaseModel):
@@ -76,8 +73,17 @@ class LoginResponse(BaseModel):
     role: str
 
 
+class RefreshRequest(BaseModel):
+    token: str
+
+
+class RefreshResponse(BaseModel):
+    token: str
+
+
 @router.post("/register", response_model=TenantCreateResponse)
-def register_tenant(body: TenantCreateRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/hour")
+def register_tenant(request: Request, body: TenantCreateRequest, db: Session = Depends(get_db)):
     """Register a new tenant with an admin user."""
     # require registration key if configured
     if REGISTRATION_KEY and body.registration_key != REGISTRATION_KEY:
@@ -101,7 +107,8 @@ def register_tenant(body: TenantCreateRequest, db: Session = Depends(get_db)):
         )
         db.commit()
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        logger.warning("Tenant registration conflict: %s", e)
+        raise HTTPException(status_code=409, detail="Nie mozna utworzyc konta. Sprawdz dane i sprobuj ponownie.")
 
     token = auth_service.issue_token(user)
     log_event("tenant_register", user_id=str(user.id), tenant_id=str(tenant.id),
@@ -115,7 +122,8 @@ def register_tenant(body: TenantCreateRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     auth_service.check_account_lock(body.email)
     user = auth_service.authenticate(db, body.email, body.password)
     if not user:
@@ -133,3 +141,18 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         email=user.email,
         role=user.role,
     )
+
+
+@router.post("/refresh", response_model=RefreshResponse)
+def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+    """Refresh a token that is close to expiry but still valid.
+
+    Tokens become eligible for refresh in the last 25% of their lifetime.
+    """
+    new_token = auth_service.refresh_token(db, body.token)
+    if not new_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Token nie kwalifikuje sie do odswiezenia",
+        )
+    return RefreshResponse(token=new_token)

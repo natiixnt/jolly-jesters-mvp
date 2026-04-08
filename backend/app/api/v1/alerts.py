@@ -3,8 +3,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, get_current_user_optional
@@ -16,15 +16,24 @@ router = APIRouter(tags=["alerts"])
 DEFAULT_TENANT = "00000000-0000-0000-0000-000000000000"
 
 
+VALID_CONDITION_TYPES = {"price_below", "price_above", "price_drop_pct", "out_of_stock"}
+
+
 class CreateRuleRequest(BaseModel):
-    name: str
-    condition_type: str  # price_below, price_above, price_drop_pct, out_of_stock
+    name: str = Field(..., min_length=1, max_length=255)
+    condition_type: str = Field(...)
     threshold_value: Optional[Decimal] = None
-    ean: Optional[str] = None
+    ean: Optional[str] = Field(None, max_length=20, pattern=r"^[0-9A-Za-z]*$")
     category_id: Optional[str] = None
     notify_email: bool = True
     notify_webhook: bool = False
-    webhook_url: Optional[str] = None
+    webhook_url: Optional[str] = Field(None, max_length=2048)
+
+    @validator("condition_type")
+    def validate_condition_type(cls, v):
+        if v not in VALID_CONDITION_TYPES:
+            raise ValueError(f"condition_type must be one of: {', '.join(sorted(VALID_CONDITION_TYPES))}")
+        return v
 
 
 class AlertRuleOut(BaseModel):
@@ -116,7 +125,7 @@ def delete_rule(
 
 @router.get("/events", response_model=List[AlertEventOut])
 def list_events(
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):

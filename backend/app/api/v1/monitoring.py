@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Path
+from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, get_current_user_optional
@@ -16,15 +16,28 @@ DEFAULT_TENANT = "00000000-0000-0000-0000-000000000000"
 
 
 class WatchRequest(BaseModel):
-    ean: str
-    label: Optional[str] = None
-    priority: int = 0
-    refresh_interval_minutes: int = 60
+    ean: str = Field(..., min_length=1, max_length=20, pattern=r"^[0-9A-Za-z]+$")
+    label: Optional[str] = Field(None, max_length=255)
+    priority: int = Field(0, ge=0, le=100)
+    refresh_interval_minutes: int = Field(60, ge=1, le=10080)
 
 
 class BulkWatchRequest(BaseModel):
     eans: List[str]
-    refresh_interval_minutes: int = 60
+    refresh_interval_minutes: int = Field(60, ge=1, le=10080)
+
+    @validator("eans")
+    def validate_eans_list(cls, v):
+        import re
+        if len(v) > 10000:
+            raise ValueError("At most 10000 EANs allowed")
+        cleaned = []
+        for item in v:
+            item = item.strip()
+            if not item or len(item) > 20 or not re.match(r"^[0-9A-Za-z]+$", item):
+                raise ValueError(f"Invalid EAN: {item!r} - must be 1-20 alphanumeric characters")
+            cleaned.append(item)
+        return cleaned
 
 
 class MonitoredEANOut(BaseModel):
@@ -90,7 +103,7 @@ def bulk_watch(
 
 @router.post("/unwatch/{ean}")
 def unwatch_ean(
-    ean: str,
+    ean: str = Path(..., min_length=1, max_length=20, pattern=r"^[0-9A-Za-z]+$"),
     db: Session = Depends(get_db),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):

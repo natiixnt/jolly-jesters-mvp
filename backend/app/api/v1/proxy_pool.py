@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, get_current_user_optional
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.schemas.settings import (
     NetworkProxyHealthSummary,
@@ -14,6 +18,7 @@ from app.schemas.settings import (
     NetworkProxyQuarantineRequest,
 )
 from app.services import proxy_pool_service
+from app.services.audit_service import log_event
 
 router = APIRouter(tags=["proxy-pool"])
 
@@ -49,7 +54,8 @@ def proxy_health(db: Session = Depends(get_db), current_user: Optional[CurrentUs
 
 
 @router.post("/import", response_model=NetworkProxyImportResult)
-async def import_proxies(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
+@limiter.limit("5/minute")
+async def import_proxies(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     if not file.filename or not file.filename.lower().endswith((".txt", ".csv", ".list")):
         raise HTTPException(status_code=400, detail="Plik musi byc .txt/.csv/.list")
 
@@ -76,7 +82,13 @@ async def import_proxies(file: UploadFile = File(...), db: Session = Depends(get
     try:
         result = proxy_pool_service.import_from_text(db, data)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        logger.warning("Proxy pool import validation error: %s", exc)
+        raise HTTPException(status_code=400, detail="Nieprawidlowy format listy proxy")
+    log_event("proxy_import",
+              user_id=str(current_user.user_id) if current_user else None,
+              tenant_id=str(current_user.tenant_id) if current_user else None,
+              ip=request.client.host if request.client else None,
+              details={"filename": file.filename, "added": result.added, "skipped": result.skipped})
     return result
 
 

@@ -13,15 +13,15 @@ def test_timing_safe_password_comparison():
     assert not hmac.compare_digest(a, b)
 
 
-def test_ilike_escaping():
-    """Verify ILIKE special characters are escaped."""
-    from app.services.analysis_service import build_cached_worklist
-    # The escaping happens inline; test the logic directly
+def test_ean_search_sanitization():
+    """Verify EAN search input is sanitized - SQL wildcards are stripped."""
+    # The sanitization strips %, _, and \ before passing to .contains()
     raw = "test%_value\\special"
-    safe = raw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    assert "\\%" in safe
-    assert "\\_" in safe
-    assert "\\\\" in safe
+    safe = raw.replace("%", "").replace("_", "").replace("\\", "")
+    assert "%" not in safe
+    assert "_" not in safe
+    assert "\\" not in safe
+    assert safe == "testvaluespecial"
 
 
 def test_jwt_secret_not_default():
