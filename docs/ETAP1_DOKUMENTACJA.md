@@ -40,13 +40,13 @@ W ramach Etapu 1 zrealizowano następujące główne komponenty:
 - **Interfejs użytkownika** - SPA z 13 zakładkami: dashboard, analiza, historia, rynek, warstwa sieciowa, ustawienia, monitoring, alerty, klucze API, konto, zużycie, administracja
 - **Warstwa SaaS** - multi-tenant, billing, klucze API z zakresami (scopes), limity quotowe, powiadomienia webhook
 - **153 testy automatyczne** - testy jednostkowe, integracyjne i bezpieczeństwa
-- **Infrastruktura** - Docker Compose z 7 serwisami (backend, worker, scraper, PostgreSQL, Redis, nginx, cloudflared), migracje Alembic, CI/CD
+- **Infrastruktura** - Docker Compose z 7 serwisami (backend, worker, moduł danych, PostgreSQL, Redis, nginx, cloudflared), migracje Alembic, CI/CD
 
 ### Mapowanie na wniosek grantowy
 
 | Element wniosku | Realizacja |
 |---|---|
-| Moduł pozyskiwania danych rynkowych | `backend/app/workers/tasks.py`, `backend/app/providers/`, `backend/app/utils/allegro_scraper_client.py` |
+| Moduł pozyskiwania danych rynkowych | `backend/app/workers/tasks.py`, `backend/app/providers/`, `backend/app/utils/allegro_data_client.py` |
 | Analiza opłacalności | `backend/app/services/profitability_service.py` |
 | System kosztowy z metrykami | `backend/app/services/analysis_service.py` (get_run_metrics) |
 | Mechanizmy bezpieczeństwa operacyjnego | `backend/app/services/stoploss_service.py`, `backend/app/services/circuit_breaker.py` |
@@ -66,9 +66,9 @@ Zaimplementowano kompletny moduł automatycznego pobierania danych cenowych i sp
 **Pliki implementacji:**
 - `backend/app/workers/tasks.py` - główny worker Celery przetwarzający analizy
 - `backend/app/providers/base.py` - abstrakcyjna klasa bazowa providera (wzorzec Strategy)
-- `backend/app/providers/allegro_scraper.py` - implementacja providera Allegro
+- `backend/app/providers/allegro_provider.py` - implementacja providera Allegro
 - `backend/app/providers/registry.py` - rejestr providerów z dynamiczną inicjalizacją
-- `backend/app/utils/allegro_scraper_client.py` - klient HTTP do komunikacji z modułem pobierania danych
+- `backend/app/utils/allegro_data_client.py` - klient HTTP do komunikacji z modułem analizy danych rynkowych
 - `backend/app/services/schemas.py` - schemat danych `AllegroResult`
 
 **Opis techniczny:**
@@ -80,7 +80,7 @@ Worker Celery (`run_analysis_task`) pobiera listę pozycji (EAN) z tabeli `analy
 5. Oblicza ocenę opłacalności według skonfigurowanych kryteriów
 6. Zapisuje metryki (latencja, captcha, retry, koszt) na poziomie pozycji
 
-Architektura providera jest oparta na wzorcu Strategy - abstrakcyjna klasa `ScraperProvider` definiuje interfejs `fetch(ean, run_id)`, a konkretne implementacje (aktualnie `AllegroScraperProvider`) są rejestrowane w `registry.py`. Umożliwia to łatwe dodanie nowych źródeł danych w przyszłości.
+Architektura providera jest oparta na wzorcu Strategy - abstrakcyjna klasa `MarketDataProvider` definiuje interfejs `fetch(ean, run_id)`, a konkretne implementacje (aktualnie `AllegroDataProvider`) są rejestrowane w `registry.py`. Umożliwia to łatwe dodanie nowych źródeł danych w przyszłości.
 
 ---
 
@@ -447,7 +447,7 @@ Parametry:
 - `failure_threshold` = 10 błędów
 - `recovery_timeout` = 60 sekund
 
-Integracja: `backend/app/workers/tasks.py` linia 58: `_scraper_breaker = CircuitBreaker(name="scraper", failure_threshold=10, recovery_timeout=60)`
+Integracja: `backend/app/workers/tasks.py` linia 58: `_data_breaker = CircuitBreaker(name="data_provider", failure_threshold=10, recovery_timeout=60)`
 
 ### 4.4 Warstwa dostępu sieciowego
 
@@ -610,7 +610,7 @@ Plik: `docker-compose.yml`
 
 - `security_opt: [no-new-privileges:true]` - backend i worker nie mogą eskalować uprawnień
 - `stop_signal: SIGTERM`, `stop_grace_period: 30s` - graceful shutdown workera
-- Healthchecki na wszystkich serwisach (postgres, redis, backend, worker, scraper)
+- Healthchecki na wszystkich serwisach (postgres, redis, backend, worker, moduł danych)
 - Dedykowane sieci Docker (izolacja)
 - Wolumeny tylko gdzie potrzebne (dane/workspace)
 
@@ -763,7 +763,7 @@ Dane są dostępne z `run_metadata` obiektu analizy oraz przez SSE event `stoppe
 | `test_circuit_breaker.py` | 10+ | Stany circuit breaker, recovery, failure threshold |
 | `test_validators.py` | 10+ | Walidacja EAN, proxy URL, sanityzacja |
 | `test_profitability_service.py` | 10+ | Algorytm opłacalności, różne scenariusze |
-| `test_allegro_scraper_client.py` | 10+ | Klient HTTP, obsługa błędów, timeout |
+| `test_allegro_data_client.py` | 10+ | Klient HTTP, obsługa błędów, timeout |
 | `test_integration.py` | 15+ | Endpointy API, upload, analiza, eksport |
 | `test_excel_reader.py` | 10+ | Import Excel/CSV, konwersja walut |
 | `test_excel_writer.py` | 5+ | Generowanie plików Excel |
@@ -890,19 +890,19 @@ Progi konfigurowane przez interfejs użytkownika, wartości domyślne:
 |---|---|---|
 | `NETWORK_HEALTHCHECK_INTERVAL` | `5` | Interwal healthchecków (minuty) |
 | `NETWORK_QUARANTINE_TTL` | `24` | Czas kwarantanny (godziny) |
-| `SCRAPER_PROXIES_FILE` | `/workspace/data/proxies.txt` | Ścieżka do pliku z listą proxy |
+| `PROXIES_FILE` | `/workspace/data/proxies.txt` | Ścieżka do pliku z listą proxy |
 
-### Moduł pobierania danych
+### Moduł analizy danych rynkowych
 
 | Parametr | Domyślna wartość | Opis |
 |---|---|---|
-| `ALLEGRO_SCRAPER_URL` | `http://allegro_scraper:3000` | URL modułu pobierania danych |
-| `ALLEGRO_SCRAPER_POLL_INTERVAL` | `2.0` | Interwal odpytywania (sekundy) |
-| `ALLEGRO_SCRAPER_TIMEOUT_SECONDS` | `90` | Timeout zapytania (sekundy) |
-| `SCRAPER_WORKER_COUNT` | `3` | Liczba workerów modułu |
-| `SCRAPER_CONCURRENCY_PER_WORKER` | `3` | Równoległość per worker |
-| `SCRAPER_MAX_TASK_RETRIES` | `2` | Max powtórzonych prób |
-| `SCRAPER_MAX_PENDING_TASKS` | `100` | Max oczekujących zadań |
+| `ALLEGRO_SCRAPER_URL` | `http://allegro_scraper:3000` | URL mikroserwisu analizy danych rynkowych |
+| `ALLEGRO_SCRAPER_POLL_INTERVAL` | `2.0` | Interwal odpytywania statusu zadania (sekundy) |
+| `ALLEGRO_SCRAPER_TIMEOUT_SECONDS` | `90` | Timeout pojedynczego zapytania (sekundy) |
+| `SCRAPER_WORKER_COUNT` | `3` | Liczba procesów roboczych modułu danych |
+| `SCRAPER_CONCURRENCY_PER_WORKER` | `3` | Równoległość per proces roboczy |
+| `SCRAPER_MAX_TASK_RETRIES` | `2` | Maksymalna liczba ponownych prób |
+| `SCRAPER_MAX_PENDING_TASKS` | `100` | Maksymalna liczba oczekujących zadań |
 | `ANYSOLVER_API_KEY` | (wymagane) | Klucz API do weryfikacji dostępu |
 
 ### Analiza opłacalności
@@ -974,7 +974,7 @@ docker compose up --build
 | `nginx` | 80 | Reverse proxy, terminacja SSL |
 | `backend` | 8000 (wewn.) | FastAPI - REST API + SPA |
 | `worker` | - | Celery worker - przetwarzanie analiz |
-| `allegro_scraper` | 3000 (wewn.) | Moduł pobierania danych |
+| `allegro_data` | 3000 (wewn.) | Mikroserwis analizy danych rynkowych Allegro |
 | `postgres` | 5432 (wewn.) | Baza danych PostgreSQL 15 |
 | `redis` | 6379 (wewn.) | Broker wiadomości i cache |
 | `cloudflared` | - | Tunel Cloudflare (opcjonalnie) |
@@ -982,8 +982,8 @@ docker compose up --build
 **Kolejność uruchomienia:**
 1. `postgres` i `redis` (healthcheck)
 2. `migrations` (czeka na postgres, uruchamia `alembic upgrade head`)
-3. `allegro_scraper` (healthcheck)
-4. `backend` i `worker` (czekają na migracje + scraper + postgres + redis)
+3. `allegro_data` (healthcheck)
+4. `backend` i `worker` (czekają na migracje + moduł danych + postgres + redis)
 5. `nginx` (czeka na backend)
 6. `cloudflared` (czeka na nginx)
 
@@ -1099,10 +1099,10 @@ make test
 ### Kryterium 10.6: Circuit breaker chroni przed kaskadowymi błędami
 
 **Weryfikacja:**
-1. Sprawdź w logach workera: `CIRCUIT_BREAKER scraper OPEN after 10 failures` po 10 kolejnych błędach modułu pobierania danych
+1. Sprawdź w logach workera: `CIRCUIT_BREAKER data_provider OPEN after 10 failures` po 10 kolejnych błędach modułu pobierania danych
 2. Kolejne pozycje otrzymują status `error` z komunikatem `circuit_breaker_open` (bez obciążania modułu)
-3. Po `recovery_timeout` (60s): `CIRCUIT_BREAKER scraper half-open (trying recovery)`
-4. Jeśli następne zapytanie jest sukcesem: `CIRCUIT_BREAKER scraper recovered`
+3. Po `recovery_timeout` (60s): `CIRCUIT_BREAKER data_provider half-open (trying recovery)`
+4. Jeśli następne zapytanie jest sukcesem: `CIRCUIT_BREAKER data_provider recovered`
 
 **Dowód:** Logi workera oraz `error_message=circuit_breaker_open` w pozycjach analizy.
 
@@ -1196,7 +1196,7 @@ docker compose ps
 Wszystkie 7 serwisów powinny mieć status `healthy` lub `running`:
 - `postgres` (healthy)
 - `redis` (healthy)
-- `allegro_scraper` (healthy)
+- `allegro_data` (healthy)
 - `backend` (healthy)
 - `worker` (healthy)
 - `nginx` (running)
