@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 import time
 
 from app.core.logging_config import setup_logging
@@ -106,6 +107,17 @@ def _validate_cookie(token: str) -> bool:
     return hmac.compare_digest(sig, expected)
 
 
+def _is_production() -> bool:
+    return os.getenv("ENVIRONMENT", "dev").lower() in ("production", "prod")
+
+
+def _cookie_secure() -> bool:
+    """Use Secure flag in production or when explicitly enabled."""
+    if _is_production():
+        return True
+    return os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
+
+
 def _is_api_path(path: str) -> bool:
     return path.startswith("/api")
 
@@ -186,11 +198,48 @@ def healthz():
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    csrf_token = secrets.token_hex(32)
+    response = templates.TemplateResponse(
+        "login.html", {"request": request, "error": None, "csrf_token": csrf_token}
+    )
+    response.set_cookie(
+        "csrf_token",
+        csrf_token,
+        httponly=True,
+        samesite="strict",
+        max_age=3600,
+        secure=_cookie_secure(),
+        path="/login",
+    )
+    return response
 
 
 @app.post("/login", response_class=HTMLResponse)
-def login_submit(request: Request, password: str = Form(...)):
+async def login_submit(request: Request):
+    form_data = await request.form()
+    password = form_data.get("password", "")
+
+    # --- CSRF validation ---
+    csrf_from_form = str(form_data.get("csrf_token", ""))
+    csrf_from_cookie = request.cookies.get("csrf_token", "")
+    if (
+        not csrf_from_form
+        or not csrf_from_cookie
+        or not hmac.compare_digest(csrf_from_form, csrf_from_cookie)
+    ):
+        csrf_token = secrets.token_hex(32)
+        resp = templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "CSRF validation failed", "csrf_token": csrf_token},
+            status_code=403,
+        )
+        resp.set_cookie(
+            "csrf_token", csrf_token, httponly=True, samesite="strict",
+            max_age=3600, secure=_cookie_secure(), path="/login",
+        )
+        return resp
+
+    # --- Brute-force guard ---
     client_ip = (
         request.headers.get("x-forwarded-for", "").split(",")[0].strip()
         or request.headers.get("x-real-ip", "")
@@ -201,13 +250,27 @@ def login_submit(request: Request, password: str = Form(...)):
     if client_ip in FAILED_AUTH:
         FAILED_AUTH[client_ip] = [ts for ts in FAILED_AUTH[client_ip] if time.time() - ts <= window_seconds]
         if len(FAILED_AUTH[client_ip]) >= fail_limit:
-            return templates.TemplateResponse("login.html", {"request": request, "error": "Too many attempts, try later."}, status_code=429)
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Too many attempts, try later.", "csrf_token": ""},
+                status_code=429,
+            )
     expected = settings.ui_password
     if not expected:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "UI_PASSWORD not configured on server"}, status_code=503)
-    if not hmac.compare_digest(password, expected):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "UI_PASSWORD not configured on server", "csrf_token": ""},
+            status_code=503,
+        )
+    if not hmac.compare_digest(str(password), expected):
         FAILED_AUTH.setdefault(client_ip, []).append(time.time())
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid password"}, status_code=401)
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Invalid password", "csrf_token": ""},
+            status_code=401,
+        )
+
+    # --- Issue session cookie and clear CSRF cookie (session fixation protection) ---
     token, ts = _issue_cookie()
     response = RedirectResponse(url="/", status_code=302)
     response.set_cookie(
@@ -216,9 +279,10 @@ def login_submit(request: Request, password: str = Form(...)):
         httponly=True,
         max_age=max(1, (settings.ui_session_ttl_hours or 24) * 3600),
         samesite="strict",
-        secure=os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes"),
+        secure=_cookie_secure(),
         path="/",
     )
+    response.delete_cookie("csrf_token", path="/login")
     return response
 
 
@@ -226,4 +290,5 @@ def login_submit(request: Request, password: str = Form(...)):
 def logout():
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("jj_session", path="/")
+    response.delete_cookie("csrf_token", path="/login")
     return response

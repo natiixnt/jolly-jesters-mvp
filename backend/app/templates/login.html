@@ -97,6 +97,7 @@
       <div class="panel active" id="panel-quick">
         <p class="panel-desc">Szybki dostęp jednym hasłem (tryb single-tenant)</p>
         <form method="post" action="/login">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <label>Hasło dostępu</label>
           <div class="pw-wrap">
             <input type="password" id="pw-quick" name="password" required autocomplete="current-password" placeholder="Wpisz hasło panelu" />
