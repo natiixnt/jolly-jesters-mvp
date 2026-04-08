@@ -82,4 +82,61 @@ def prometheus_metrics(db: Session = Depends(get_db)):
     lines.append("# TYPE jj_proxy_active gauge")
     lines.append(f"jj_proxy_active {proxy_active}")
 
+    # -- aggregated throughput & cost across recent completed runs --
+    from sqlalchemy import desc
+    recent_runs = (
+        db.query(AnalysisRun)
+        .filter(AnalysisRun.status == AnalysisStatus.completed)
+        .order_by(desc(AnalysisRun.finished_at))
+        .limit(20)
+        .all()
+    )
+
+    ean_per_min_values = []
+    cost_per_1000_values = []
+    for r in recent_runs:
+        if r.started_at and r.finished_at and r.processed_products and r.processed_products > 0:
+            elapsed = (r.finished_at - r.started_at).total_seconds()
+            if elapsed > 0:
+                ean_per_min_values.append(r.processed_products / (elapsed / 60))
+
+    lines.append("# HELP jj_ean_per_min_avg Average EAN/min across recent completed runs")
+    lines.append("# TYPE jj_ean_per_min_avg gauge")
+    avg_epm = round(sum(ean_per_min_values) / len(ean_per_min_values), 2) if ean_per_min_values else 0
+    lines.append(f"jj_ean_per_min_avg {avg_epm}")
+
+    # cost_per_1000_ean_avg - computed via analysis_service for accuracy
+    from app.services import analysis_service
+    for r in recent_runs:
+        m = analysis_service.get_run_metrics(db, r.id)
+        if m and m.cost_per_1000_ean is not None:
+            cost_per_1000_values.append(m.cost_per_1000_ean)
+
+    lines.append("# HELP jj_cost_per_1000_ean_avg Average cost per 1000 EAN across recent runs")
+    lines.append("# TYPE jj_cost_per_1000_ean_avg gauge")
+    avg_cost = round(sum(cost_per_1000_values) / len(cost_per_1000_values), 4) if cost_per_1000_values else 0
+    lines.append(f"jj_cost_per_1000_ean_avg {avg_cost}")
+
+    # stop-loss triggers
+    stoploss_count = (
+        db.query(func.count(AnalysisRun.id))
+        .filter(AnalysisRun.status == AnalysisStatus.stopped)
+        .scalar() or 0
+    )
+    lines.append("# HELP jj_stoploss_triggers_total Total runs stopped by guardrail")
+    lines.append("# TYPE jj_stoploss_triggers_total counter")
+    lines.append(f"jj_stoploss_triggers_total {stoploss_count}")
+
+    # quarantined proxies
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    proxy_quarantined = (
+        db.query(func.count(NetworkProxy.id))
+        .filter(NetworkProxy.quarantine_until.isnot(None), NetworkProxy.quarantine_until > now)
+        .scalar() or 0
+    )
+    lines.append("# HELP jj_proxy_quarantined Currently quarantined proxies")
+    lines.append("# TYPE jj_proxy_quarantined gauge")
+    lines.append(f"jj_proxy_quarantined {proxy_quarantined}")
+
     return "\n".join(lines) + "\n"

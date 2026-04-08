@@ -268,6 +268,64 @@ def export_metrics_csv(run_id: int, db: Session = Depends(get_db), current_user:
     )
 
 
+@router.get("/{run_id}/metrics/excel")
+def export_metrics_excel(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
+    """Export run metrics as XLSX file."""
+    run = analysis_service.get_run_status(db, run_id)
+    _verify_run_access(run, current_user)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    metrics = analysis_service.get_run_metrics(db, run_id)
+    if not metrics:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Metryki runu"
+
+    headers = ["Metryka", "Wartosc"]
+    ws.append(headers)
+
+    rows = [
+        ("ID runu", metrics.run_id),
+        ("Produkty ogolnie", metrics.total_items),
+        ("Zakonczone", metrics.completed_items),
+        ("Bledy", metrics.failed_items),
+        ("Nie znalezione", metrics.not_found_items),
+        ("Zablokowane", metrics.blocked_items),
+        ("EAN/min", metrics.ean_per_min),
+        ("Koszt/1000 EAN (est.)", metrics.cost_per_1000_ean),
+        ("Success rate", metrics.success_rate),
+        ("Retry rate", metrics.retry_rate),
+        ("CAPTCHA rate", metrics.captcha_rate),
+        ("Blocked rate", metrics.blocked_rate),
+        ("Network error rate", metrics.network_error_rate),
+        ("Srednia latencja (ms)", metrics.avg_latency_ms),
+        ("P50 latencja (ms)", metrics.p50_latency_ms),
+        ("P95 latencja (ms)", metrics.p95_latency_ms),
+        ("Czas trwania (s)", metrics.elapsed_seconds),
+    ]
+    for row in rows:
+        ws.append(row)
+
+    for col in ws.columns:
+        max_length = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = max_length + 2
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=metryki_run_{run_id}.xlsx"},
+    )
+
+
 @router.get("/compare/{run_a}/{run_b}")
 def compare_runs(
     run_a: int,
@@ -565,6 +623,12 @@ def cancel_analysis_run(run_id: int, db: Session = Depends(get_db), current_user
         celery_app.control.revoke(task_id, terminate=True)
 
     return run
+
+
+@router.post("/{run_id}/stop", response_model=AnalysisStatusResponse)
+def stop_analysis_run(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
+    """Stop a running analysis - spec-compliant alias for cancel."""
+    return cancel_analysis_run(run_id, db=db, current_user=current_user)
 
 
 def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session, current_user: Optional[CurrentUser] = None) -> AnalysisUploadResponse:
