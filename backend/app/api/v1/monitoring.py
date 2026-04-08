@@ -110,7 +110,7 @@ def unwatch_ean(
     tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
     ok = monitoring_service.unwatch_ean(db, tenant_id=tenant_id, ean=ean)
     if not ok:
-        raise HTTPException(404, "EAN not found in watchlist")
+        raise HTTPException(404, "Nie znaleziono EAN na liscie obserwowanych")
     return {"status": "ok"}
 
 

@@ -71,7 +71,7 @@ async def limit_request_size(request: Request, call_next):
     """Reject requests larger than 50 MB based on Content-Length header."""
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > 52_428_800:  # 50 MB
-        return JSONResponse(status_code=413, content={"detail": "Request too large"})
+        return JSONResponse(status_code=413, content={"detail": "Plik jest za duzy"})
     return await call_next(request)
 
 
@@ -214,6 +214,7 @@ def index(request: Request):
 def healthcheck(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     scraper = check_scraper_health()
+    scraper_status = scraper.get("status", "error")
     # redis check
     redis_ok = False
     try:
@@ -222,7 +223,7 @@ def healthcheck(db: Session = Depends(get_db)):
         redis_ok = r.ping()
     except Exception:
         pass
-    return {"status": "ok", "scraper": scraper, "redis": "ok" if redis_ok else "error"}
+    return {"status": "ok", "scraper": scraper_status, "redis": "ok" if redis_ok else "error"}
 
 
 @app.get("/healthz")

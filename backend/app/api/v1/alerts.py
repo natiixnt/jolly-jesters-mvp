@@ -119,7 +119,7 @@ def delete_rule(
     tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
     ok = alert_engine.delete_rule(db, tenant_id=tenant_id, rule_id=rule_id)
     if not ok:
-        raise HTTPException(404, "Rule not found")
+        raise HTTPException(404, "Nie znaleziono reguly")
     return {"status": "ok"}
 
 

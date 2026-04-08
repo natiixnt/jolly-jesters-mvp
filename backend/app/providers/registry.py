@@ -47,5 +47,6 @@ def health_all() -> Dict[str, dict]:
         try:
             results[name] = provider.health()
         except Exception as exc:
-            results[name] = {"status": "error", "error": repr(exc)}
+            logger.error("Provider %s health check failed: %s", name, repr(exc))
+            results[name] = {"status": "error", "error": "Health check failed"}
     return results

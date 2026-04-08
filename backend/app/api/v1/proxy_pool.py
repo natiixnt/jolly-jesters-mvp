@@ -100,7 +100,7 @@ def quarantine(proxy_id: int, body: NetworkProxyQuarantineRequest, db: Session =
         reason=body.reason,
     )
     if not proxy:
-        raise HTTPException(status_code=404, detail="Proxy not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono proxy")
     return proxy
 
 
@@ -108,5 +108,5 @@ def quarantine(proxy_id: int, body: NetworkProxyQuarantineRequest, db: Session =
 def unquarantine(proxy_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     proxy = proxy_pool_service.unquarantine_proxy(db, proxy_id)
     if not proxy:
-        raise HTTPException(status_code=404, detail="Proxy not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono proxy")
     return proxy

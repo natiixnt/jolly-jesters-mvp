@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+
+logger = logging.getLogger(__name__)
 
 from app.api.deps import CurrentUser, get_current_user_optional
 from app.schemas.settings import ProxyMeta, ProxyReloadResponse
@@ -44,7 +47,8 @@ async def upload_proxy_list(file: UploadFile = File(...), current_user: Optional
     try:
         meta = proxy_service.save_list(data, reload=True)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        logger.warning("Proxy list validation error: %s", exc)
+        raise HTTPException(status_code=400, detail="Nieprawidlowy format listy proxy")
     meta["uploaded_at"] = datetime.utcnow()
     return ProxyMeta(**meta)
 
@@ -54,7 +58,8 @@ def reload_proxies(current_user: Optional[CurrentUser] = Depends(get_current_use
     result = proxy_service.reload_proxies()
     status = result.get("status") or "error"
     if status != "ok":
-        raise HTTPException(status_code=503, detail=str(result))
+        logger.warning("Proxy reload failed: %s", result)
+        raise HTTPException(status_code=503, detail="Blad przeladowania listy proxy")
     return ProxyReloadResponse(
         status="ok",
         count=result.get("count"),

@@ -177,7 +177,7 @@ async def fetch_via_allegro_scraper(ean: str, run_id: str | None = None) -> Alle
                     sold_count=None,
                     is_not_found=False,
                     is_temporary_error=True,
-                    raw_payload={"error": "create_failed", "details": repr(exc)},
+                    raw_payload={"error": "create_failed"},
                     error="create_failed",
                     source="allegro_scraper",
                 )
@@ -258,7 +258,7 @@ async def fetch_via_allegro_scraper(ean: str, run_id: str | None = None) -> Alle
                     sold_count=None,
                     is_not_found=False,
                     is_temporary_error=True,
-                    raw_payload={"error": "poll_failed", "details": repr(exc), "task_id": task_id},
+                    raw_payload={"error": "poll_failed", "task_id": task_id},
                     error="poll_failed",
                     source="allegro_scraper",
                 )
@@ -335,7 +335,8 @@ def check_scraper_health(timeout_seconds: float = 2.0) -> dict:
                 return {"status": "ok", "details": details}
             return {"status": "degraded", "status_code": resp.status_code}
     except Exception as exc:
-        return {"status": "error", "error": repr(exc)}
+        logger.error("Scraper health check failed: %s", repr(exc))
+        return {"status": "error", "error": "Scraper niedostepny"}
 
 
 def fetch_scraper_logs(limit: int = 50, timeout_seconds: float = 2.0) -> dict:
@@ -351,9 +352,11 @@ def fetch_scraper_logs(limit: int = 50, timeout_seconds: float = 2.0) -> dict:
                 if limit and len(logs) > limit:
                     logs = logs[:limit]
                 return {"status": "ok", "logs": logs}
-            return {"status": "error", "status_code": resp.status_code, "body": resp.text}
+            logger.warning("Scraper logs returned status %s", resp.status_code)
+            return {"status": "error", "error": "Nie udalo sie pobrac logow"}
     except Exception as exc:
-        return {"status": "error", "error": repr(exc)}
+        logger.error("Scraper logs fetch failed: %s", repr(exc))
+        return {"status": "error", "error": "Scraper niedostepny"}
 
 
 def reload_scraper_proxies(timeout_seconds: float = 4.0) -> dict:
@@ -370,6 +373,8 @@ def reload_scraper_proxies(timeout_seconds: float = 4.0) -> dict:
                 except Exception:
                     body = {}
                 return {"status": "ok", **body}
-            return {"status": "error", "status_code": resp.status_code, "body": resp.text}
+            logger.warning("Scraper proxy reload returned status %s", resp.status_code)
+            return {"status": "error", "error": "Nie udalo sie przeladowac proxy"}
     except Exception as exc:
-        return {"status": "error", "error": repr(exc)}
+        logger.error("Scraper proxy reload failed: %s", repr(exc))
+        return {"status": "error", "error": "Scraper niedostepny"}

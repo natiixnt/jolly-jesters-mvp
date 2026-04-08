@@ -87,13 +87,13 @@ def register_tenant(request: Request, body: TenantCreateRequest, db: Session = D
     """Register a new tenant with an admin user."""
     # require registration key if configured
     if REGISTRATION_KEY and body.registration_key != REGISTRATION_KEY:
-        raise HTTPException(status_code=403, detail="Invalid registration key")
+        raise HTTPException(status_code=403, detail="Nieprawidlowy klucz rejestracji")
     _validate_password_strength(body.admin_password)
 
     from app.models.tenant import Tenant
     existing = db.query(Tenant).filter(Tenant.slug == body.slug).first()
     if existing:
-        raise HTTPException(status_code=409, detail="Tenant slug already taken")
+        raise HTTPException(status_code=409, detail="Ten identyfikator jest juz zajety")
 
     try:
         tenant = auth_service.create_tenant(db, name=body.name, slug=body.slug, plan=body.plan)
@@ -129,7 +129,7 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     if not user:
         auth_service.record_failed_login(body.email)
         log_event("api_login_failure", details={"email": body.email})
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Nieprawidlowe dane logowania")
     auth_service.record_successful_login(body.email)
     token = auth_service.issue_token(user)
     log_event("api_login_success", user_id=str(user.id), tenant_id=str(user.tenant_id),

@@ -23,7 +23,7 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db), curr
     try:
         return categories_service.create_category(db, payload, tenant_id=current_user.tenant_id if current_user else None)
     except IntegrityError:
-        raise HTTPException(status_code=400, detail="Category with this name already exists")
+        raise HTTPException(status_code=400, detail="Kategoria o tej nazwie juz istnieje")
 
 
 @router.patch("/{category_id}", response_model=CategoryRead)
@@ -31,15 +31,15 @@ def update_category(category_id: str, payload: CategoryUpdate, db: Session = Dep
     try:
         category_uuid = uuid.UUID(category_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid category id")
+        raise HTTPException(status_code=400, detail="Nieprawidlowy identyfikator kategorii")
 
     try:
         category = categories_service.update_category(db, str(category_uuid), payload)
     except IntegrityError:
-        raise HTTPException(status_code=400, detail="Category with this name already exists")
+        raise HTTPException(status_code=400, detail="Kategoria o tej nazwie juz istnieje")
 
     if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono kategorii")
     return category
 
 
@@ -48,9 +48,9 @@ def get_category(category_id: str, db: Session = Depends(get_db), current_user: 
     try:
         category_uuid = uuid.UUID(category_id)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid category id")
+        raise HTTPException(status_code=400, detail="Nieprawidlowy identyfikator kategorii")
 
     category = categories_service.get_category(db, str(category_uuid))
     if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono kategorii")
     return category

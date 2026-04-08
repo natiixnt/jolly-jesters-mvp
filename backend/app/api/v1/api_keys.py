@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -76,7 +79,8 @@ def create_key(
             db, tenant_id=tenant_id, name=req.name, scopes=req.scopes,
         )
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        logger.warning("API key creation validation error: %s", exc)
+        raise HTTPException(400, "Nieprawidlowe dane klucza API")
     log_event("api_key_create", tenant_id=str(tenant_id),
               ip=request.client.host if request.client else None,
               details={"key_name": req.name, "key_prefix": record.key_prefix,
@@ -101,7 +105,7 @@ def revoke_key(
     tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
     ok = api_key_service.revoke_key(db, tenant_id=tenant_id, key_id=key_id)
     if not ok:
-        raise HTTPException(404, "API key not found")
+        raise HTTPException(404, "Nie znaleziono klucza API")
     log_event("api_key_revoke", tenant_id=str(tenant_id),
               ip=request.client.host if request.client else None,
               details={"key_id": key_id})

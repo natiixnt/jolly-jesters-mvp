@@ -50,7 +50,7 @@ def get_usage(
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
     if not current_user:
-        raise HTTPException(status_code=401, detail="Multi-tenant auth required")
+        raise HTTPException(status_code=401, detail="Wymagana autoryzacja")
     return billing_service.get_period_usage(db, current_user.tenant_id, period)
 
 
@@ -61,7 +61,7 @@ def check_quota(
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
     if not current_user:
-        raise HTTPException(status_code=401, detail="Multi-tenant auth required")
+        raise HTTPException(status_code=401, detail="Wymagana autoryzacja")
     return billing_service.check_quota(db, current_user.tenant_id, ean_count)
 
 
@@ -72,5 +72,5 @@ def usage_history(
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
     if not current_user:
-        raise HTTPException(status_code=401, detail="Multi-tenant auth required")
+        raise HTTPException(status_code=401, detail="Wymagana autoryzacja")
     return billing_service.get_usage_history(db, current_user.tenant_id, limit)

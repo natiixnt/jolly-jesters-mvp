@@ -19,7 +19,7 @@ router = APIRouter(tags=["settings"])
 def get_settings(db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     record = settings_service.get_settings(db)
     if not record:
-        raise HTTPException(status_code=404, detail="Settings not found")
+        raise HTTPException(status_code=404, detail="Nie znaleziono ustawien")
     return record
 
 

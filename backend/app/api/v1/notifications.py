@@ -68,7 +68,7 @@ def mark_read(
     tenant_id = current_user.tenant_id if current_user else DEFAULT_TENANT
     ok = notification_service.mark_read(db, tenant_id=tenant_id, notification_id=notification_id)
     if not ok:
-        raise HTTPException(404, "Notification not found")
+        raise HTTPException(404, "Nie znaleziono powiadomienia")
     return {"status": "ok"}
 
 
