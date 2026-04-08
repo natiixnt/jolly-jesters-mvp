@@ -12,10 +12,49 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException
+
 from app.models.tenant import Tenant
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Account lockout tracking
+# ---------------------------------------------------------------------------
+_account_locks: dict[str, tuple[int, float]] = {}  # email -> (fail_count, locked_until)
+
+
+def check_account_lock(email: str) -> None:
+    """Check if account is locked due to too many failed attempts."""
+    lock = _account_locks.get(email)
+    if lock:
+        fail_count, locked_until = lock
+        if time.time() < locked_until:
+            remaining = int(locked_until - time.time())
+            raise HTTPException(
+                status_code=429,
+                detail=f"Konto zablokowane na {remaining}s po {fail_count} nieudanych probach",
+            )
+        elif time.time() >= locked_until:
+            del _account_locks[email]
+
+
+def record_failed_login(email: str) -> None:
+    """Record a failed login attempt and lock if threshold exceeded."""
+    lock = _account_locks.get(email, (0, 0))
+    count = lock[0] + 1
+    if count >= 5:
+        lockout_seconds = min(300 * (2 ** (count - 5)), 3600)  # 5min, 10min, ... max 1hr
+        _account_locks[email] = (count, time.time() + lockout_seconds)
+    else:
+        _account_locks[email] = (count, 0)
+
+
+def record_successful_login(email: str) -> None:
+    """Clear failed attempts on successful login."""
+    _account_locks.pop(email, None)
+
 
 _jwt_secret_raw = os.getenv("JWT_SECRET", "")
 if not _jwt_secret_raw:
@@ -83,10 +122,16 @@ def authenticate(db: Session, email: str, password: str) -> Optional[User]:
 
 
 def issue_token(user: User) -> str:
-    """HMAC-based token with base64-encoded payload to avoid leaking UUIDs."""
+    """HMAC-based token with base64-encoded payload to avoid leaking UUIDs.
+
+    Payload format: user_id:tenant_id:iat:jti
+    - iat = issued-at unix timestamp
+    - jti = unique token identifier for potential blacklisting
+    """
     import base64 as b64
-    ts = str(int(time.time()))
-    payload = f"{user.id}:{user.tenant_id}:{ts}"
+    iat = str(int(time.time()))
+    jti = secrets.token_hex(8)
+    payload = f"{user.id}:{user.tenant_id}:{iat}:{jti}"
     encoded = b64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{encoded}.{sig}"
@@ -108,15 +153,20 @@ def validate_token(db: Session, token: str) -> Optional[User]:
         return None
 
     parts = payload.split(":")
-    if len(parts) != 3:
+    # Support new 4-part (uid:tid:iat:jti) and legacy 3-part (uid:tid:ts)
+    if len(parts) == 4:
+        user_id_str, tenant_id_str, ts_str, _jti = parts
+    elif len(parts) == 3:
+        user_id_str, tenant_id_str, ts_str = parts
+    else:
         return None
-    user_id_str, tenant_id_str, ts_str = parts
 
     try:
         ts = int(ts_str)
     except ValueError:
         return None
 
+    # Enforce token expiry (exp = iat + TTL)
     if time.time() - ts > TOKEN_TTL_HOURS * 3600:
         return None
 
