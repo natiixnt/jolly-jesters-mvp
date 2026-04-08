@@ -33,6 +33,7 @@ from app.models.analysis_run import AnalysisRun
 from app.services import analysis_service
 from app.services.export_service import export_run_bytes
 from app.services.import_service import handle_upload
+from app.utils.validators import validate_ean, sanitize_string
 from app.workers.tasks import celery_app, run_analysis_task
 
 
@@ -92,16 +93,37 @@ async def upload_analysis(
     if not category or not category.is_active:
         raise HTTPException(status_code=404, detail="Category not found or inactive")
 
-    if not file.filename.lower().endswith((".xls", ".xlsx", ".csv")):
+    if not file.filename or not file.filename.lower().endswith((".xls", ".xlsx", ".csv")):
         raise HTTPException(status_code=400, detail="Plik musi byc .xls/.xlsx/.csv")
 
     _check_concurrent_limit(db, current_user)
 
-    # enforce max upload size (50 MB)
+    # enforce max upload size (50 MB) - read in chunks to avoid unbounded memory use
     MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-    content = await file.read()
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=f"Plik za duzy (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
+    chunks = []
+    total_size = 0
+    while True:
+        chunk = await file.read(1024 * 1024)  # 1 MB chunks
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail=f"Plik za duzy (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
+        chunks.append(chunk)
+    content = b"".join(chunks)
+
+    # Validate magic bytes match declared file type
+    fname_lower = file.filename.lower()
+    if fname_lower.endswith((".xlsx",)):
+        # XLSX files are ZIP archives - magic bytes PK\x03\x04
+        if not content[:4].startswith(b"PK"):
+            raise HTTPException(status_code=400, detail="Zawartosc pliku nie odpowiada formatowi XLSX")
+    elif fname_lower.endswith((".xls",)):
+        # XLS files - OLE2 magic bytes
+        if not content[:8].startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+            raise HTTPException(status_code=400, detail="Zawartosc pliku nie odpowiada formatowi XLS")
+    # CSV has no magic bytes - validated during parsing
+
     await file.seek(0)
 
     run = await handle_upload(db, category, file)
@@ -125,12 +147,12 @@ def run_from_db(
     return _start_cached_analysis(payload, db, current_user=current_user)
 
 
-from pydantic import BaseModel as PydanticBaseModel
+from pydantic import BaseModel as PydanticBaseModel, Field
 
 
 class BulkEanRequest(PydanticBaseModel):
     category_id: UUID
-    items: list[dict]
+    items: list[dict] = Field(..., max_length=10000)
 
 
 @router.post("/bulk", response_model=AnalysisUploadResponse)
@@ -169,12 +191,18 @@ def bulk_ean_analysis(
     db.add(run)
     db.flush()
 
+    invalid_eans = []
     for idx, entry in enumerate(body.items, start=1):
         ean = str(entry.get("ean", "")).strip()
         if not ean:
             continue
+        try:
+            ean = validate_ean(ean)
+        except ValueError:
+            invalid_eans.append(ean)
+            continue
         price = entry.get("purchase_price") or entry.get("price")
-        name = entry.get("name", "")
+        name = sanitize_string(str(entry.get("name", "")), max_length=500)
 
         product = db.query(Product).filter(Product.ean == ean, Product.category_id == cat.id).first()
         if not product:
@@ -223,7 +251,7 @@ def list_active_runs(
     limit: int = 20,
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
 ):
-    runs = analysis_service.list_active_runs(db, limit=limit, tenant_id=current_user.tenant_id if current_user else None)
+    runs = analysis_service.list_active_runs(db, limit=max(1, min(limit, 200)), tenant_id=current_user.tenant_id if current_user else None)
     return {"runs": runs}
 
 

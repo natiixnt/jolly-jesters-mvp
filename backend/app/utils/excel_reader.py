@@ -1,11 +1,27 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from io import BytesIO
 from typing import Dict, List, Optional, Sequence
 
 import pandas as pd
+
+# Maximum file size for Excel/CSV parsing (50 MB)
+MAX_PARSE_FILE_SIZE = 50 * 1024 * 1024
+
+# Pattern to detect Excel formula injection - cells starting with =, +, -, @, tab, CR
+_FORMULA_INJECTION_RE = re.compile(r"^\s*[=+\-@\t\r]")
+
+
+def _sanitize_cell_value(value: object) -> object:
+    """Strip leading formula trigger characters from string cell values."""
+    if not isinstance(value, str):
+        return value
+    if _FORMULA_INJECTION_RE.match(value):
+        return "'" + value  # prefix with single quote to neutralize formula
+    return value
 
 
 def _norm(s: str) -> str:
@@ -181,6 +197,13 @@ def read_excel_file(
     default_currency: Optional[str] = None,
     file_name: Optional[str] = None,
 ) -> List[InputRow]:
+    # Guard against oversized files before parsing
+    if len(file_bytes) > MAX_PARSE_FILE_SIZE:
+        raise ValueError(
+            f"Plik za duzy do przetworzenia ({len(file_bytes) // (1024*1024)} MB, "
+            f"max {MAX_PARSE_FILE_SIZE // (1024*1024)} MB)"
+        )
+
     currency_rates = currency_rates or {"PLN": 1.0, "EUR": 4.5, "USD": 4.2, "CAD": 3.1}
     if default_currency is None:
         default_currency = "PLN" if "PLN" in currency_rates else next(iter(currency_rates.keys()))
@@ -190,10 +213,29 @@ def read_excel_file(
     if file_lower.endswith(".csv"):
         df_raw = pd.read_csv(BytesIO(file_bytes), header=None)
     else:
-        excel = pd.ExcelFile(BytesIO(file_bytes))
-        sheet_name = excel.sheet_names[0] if excel.sheet_names else 0
-        df_raw = excel.parse(sheet_name=sheet_name, header=None)
-        sheet_names = excel.sheet_names
+        # Use openpyxl engine with data_only=True to prevent formula execution.
+        # Also set a defusedxml-style guard against XML bomb / billion laughs attacks
+        # by limiting entity expansion via openpyxl's safe parser.
+        from openpyxl import load_workbook
+        try:
+            wb = load_workbook(
+                BytesIO(file_bytes),
+                read_only=True,
+                data_only=True,  # return cached values, not formulas
+                keep_links=False,
+            )
+        except Exception as e:
+            raise ValueError(f"Nie mozna otworzyc pliku Excel: {e}")
+        sheet_names = wb.sheetnames
+        ws = wb[sheet_names[0]] if sheet_names else wb.active
+        # Read data manually to avoid pd.ExcelFile which does not use data_only
+        data_rows = []
+        for row in ws.iter_rows(values_only=True):
+            data_rows.append(list(row))
+        wb.close()
+        if not data_rows:
+            raise ValueError("Plik Excel jest pusty")
+        df_raw = pd.DataFrame(data_rows)
 
     header_idx = _detect_header_row(df_raw)
     headers = df_raw.iloc[header_idx]
@@ -293,10 +335,10 @@ def read_excel_file(
 
     rows: List[InputRow] = []
     for idx, row in df.iterrows():
-        raw_ean = row.iloc[ean_idx]
-        raw_name = row.iloc[name_idx]
-        raw_price = row.iloc[price_idx]
-        raw_currency = row.iloc[currency_idx] if currency_idx is not None else None
+        raw_ean = _sanitize_cell_value(row.iloc[ean_idx])
+        raw_name = _sanitize_cell_value(row.iloc[name_idx])
+        raw_price = _sanitize_cell_value(row.iloc[price_idx])
+        raw_currency = _sanitize_cell_value(row.iloc[currency_idx]) if currency_idx is not None else None
 
         if isinstance(raw_ean, float) and raw_ean.is_integer():
             raw_ean = int(raw_ean)

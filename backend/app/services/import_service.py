@@ -17,11 +17,33 @@ from app.services import settings_service
 from app.utils.excel_reader import InputRow, read_excel_file
 
 
+def _sanitize_filename(name: str) -> str:
+    """Strip path components and dangerous characters from user-supplied filename."""
+    import os
+    import re
+    # Extract only the base filename - strip any directory components
+    name = os.path.basename(name)
+    # Remove null bytes and path separators that survived basename
+    name = name.replace("\x00", "").replace("/", "").replace("\\", "")
+    # Keep only safe characters: alphanumeric, dots, hyphens, underscores
+    name = re.sub(r"[^\w.\-]", "_", name)
+    # Prevent hidden files
+    name = name.lstrip(".")
+    # Truncate to reasonable length
+    if len(name) > 200:
+        name = name[:200]
+    return name or "upload"
+
+
 def store_uploaded_file_bytes(data: bytes, original_name: str, upload_dir: Path | None = None) -> Path:
     target_dir = upload_dir or settings.upload_dir
     target_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid.uuid4().hex}_{original_name}"
+    safe_name = _sanitize_filename(original_name)
+    filename = f"{uuid.uuid4().hex}_{safe_name}"
     filepath = target_dir / filename
+    # Verify the resolved path is inside the target directory (defense in depth)
+    if not filepath.resolve().is_relative_to(target_dir.resolve()):
+        raise ValueError("Invalid filename - path traversal detected")
     filepath.write_bytes(data)
     return filepath
 

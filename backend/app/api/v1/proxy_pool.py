@@ -50,9 +50,29 @@ def proxy_health(db: Session = Depends(get_db), current_user: Optional[CurrentUs
 
 @router.post("/import", response_model=NetworkProxyImportResult)
 async def import_proxies(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
-    if not file.filename.lower().endswith((".txt", ".csv", ".list")):
+    if not file.filename or not file.filename.lower().endswith((".txt", ".csv", ".list")):
         raise HTTPException(status_code=400, detail="Plik musi byc .txt/.csv/.list")
-    data = await file.read()
+
+    # Enforce max upload size (5 MB) - read in chunks
+    MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+    chunks = []
+    total_size = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail=f"Plik za duzy (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
+        chunks.append(chunk)
+    data = b"".join(chunks)
+
+    # Validate content is valid UTF-8 text (not a binary file)
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Plik musi byc tekstowy (UTF-8)")
+
     try:
         result = proxy_pool_service.import_from_text(db, data)
     except ValueError as exc:
