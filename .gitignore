@@ -20,3 +20,4 @@ tools/cloudflared*
 *.sqlite3
 secrets/
 credentials/
+.claude/worktrees/
