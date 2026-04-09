@@ -38,15 +38,17 @@ def test_login_page_sets_csrf_cookie(client):
     assert token in resp.text  # embedded in hidden field
 
 
-def test_login_post_rejects_missing_csrf(client):
-    """POST /login without csrf_token should return 403."""
+def test_login_post_rejects_missing_csrf_in_prod(client, monkeypatch):
+    """POST /login without csrf_token should return 403 in production."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
     resp = client.post("/login", data={"password": "1234"})
     assert resp.status_code == 403
     assert "CSRF" in resp.text
 
 
-def test_login_post_rejects_wrong_csrf(client):
-    """POST /login with mismatched csrf_token should return 403."""
+def test_login_post_rejects_wrong_csrf_in_prod(client, monkeypatch):
+    """POST /login with mismatched csrf_token should return 403 in production."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
     # First get a valid CSRF cookie
     get_resp = client.get("/login")
     csrf_cookie = get_resp.cookies["csrf_token"]

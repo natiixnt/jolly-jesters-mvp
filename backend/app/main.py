@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import os
 import secrets
@@ -103,7 +101,7 @@ app.include_router(api_router)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
-def _unauthorized(retry_after: int | None = None, too_many: bool = False):
+def _unauthorized(retry_after: Optional[int] = None, too_many: bool = False):
     headers = {"WWW-Authenticate": 'Basic realm="Restricted"'}
     if retry_after:
         headers["Retry-After"] = str(retry_after)
