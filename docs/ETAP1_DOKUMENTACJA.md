@@ -27,30 +27,30 @@
 
 ## 1. Streszczenie wykonawcze
 
-Etap 1 obejmował zaprojektowanie i implementację kompletnej platformy do automatycznej analizy rynkowej produktów na marketplace Allegro. Platforma umożliwia import danych produktowych (pliki Excel/CSV lub API JSON), automatyczne pobieranie danych cenowych i sprzedażowych z Allegro, ocenę opłacalności według konfigurowalnych kryteriów oraz eksport wyników.
+Etap 1 obejmował zaprojektowanie i implementację kompletnej platformy do automatycznej analizy rynkowej produktów e-commerce. Platforma umożliwia import danych produktowych (pliki Excel/CSV lub API JSON), pozyskiwanie danych cenowych i sprzedażowych z marketplace poprzez zintegrowanego dostawcę danych, ocenę opłacalności według konfigurowalnych kryteriów oraz eksport wyników.
 
 ### Zakres dostarczonych prac
 
 W ramach Etapu 1 zrealizowano następujące główne komponenty:
 
-- **Moduł pozyskiwania danych** - automatyczne pobieranie cen i danych sprzedażowych z Allegro dla kodów EAN, z obsługą cache, retry i backpressure
+- **Moduł pozyskiwania danych** - integracja z dostawcą danych rynkowych dla kodów EAN, z obsługą cache, retry i kontrolą obciążenia
 - **System metryki kosztowej (Bramka A)** - metering kosztu operacji (koszt/1000 EAN, EAN/min, retry rate), formuła kosztowa, eksport metryk do CSV/Excel
-- **Mechanizmy stabilności (Bramka B)** - stop-loss z 6 progami, profil równoległości 3x3, circuit breaker, warstwa dostępu sieciowego z auto-kwarantanną
+- **Mechanizmy stabilności (Bramka B)** - stop-loss z 6 progami, profil równoległości 3x3, circuit breaker, warstwa dostępu z monitoringiem jakości
 - **Bezpieczeństwo** - autentykacja JWT i cookie-based, CSRF, rate limiting, walidacja danych wejściowych, audit logging, security headers, Docker security_opt
 - **Interfejs użytkownika** - SPA z 13 zakładkami: dashboard, analiza, historia, rynek, warstwa sieciowa, ustawienia, monitoring, alerty, klucze API, konto, zużycie, administracja
 - **Warstwa SaaS** - multi-tenant, billing, klucze API z zakresami (scopes), limity quotowe, powiadomienia webhook
 - **153 testy automatyczne** - testy jednostkowe, integracyjne i bezpieczeństwa
-- **Infrastruktura** - Docker Compose z 7 serwisami (backend, worker, moduł danych, PostgreSQL, Redis, nginx, cloudflared), migracje Alembic, CI/CD
+- **Infrastruktura** - Docker Compose z 7 serwisami (backend, worker, moduł danych, PostgreSQL, Redis, nginx, tunel SSL), migracje Alembic, CI/CD
 
 ### Mapowanie na wniosek grantowy
 
 | Element wniosku | Realizacja |
 |---|---|
-| Moduł pozyskiwania danych rynkowych | `backend/app/workers/tasks.py`, `backend/app/providers/`, `backend/app/utils/allegro_data_client.py` |
+| Moduł pozyskiwania danych rynkowych | `backend/app/workers/tasks.py`, `backend/app/providers/`, `backend/app/utils/data_provider_client.py` |
 | Analiza opłacalności | `backend/app/services/profitability_service.py` |
 | System kosztowy z metrykami | `backend/app/services/analysis_service.py` (get_run_metrics) |
 | Mechanizmy bezpieczeństwa operacyjnego | `backend/app/services/stoploss_service.py`, `backend/app/services/circuit_breaker.py` |
-| Warstwa dostępu sieciowego | `backend/app/services/proxy_pool_service.py`, `backend/app/models/network_proxy.py` |
+| Warstwa dostępu sieciowego | `backend/app/services/network_pool_service.py`, `backend/app/models/network_node.py` |
 | Interfejs użytkownika | `backend/app/templates/index.html` (SPA), 16 routerów API |
 | Testy i dokumentacja | `backend/app/tests/` (153 testy), niniejszy dokument |
 
@@ -61,26 +61,26 @@ W ramach Etapu 1 zrealizowano następujące główne komponenty:
 ### Zadanie 1.1.1 - Moduł pozyskiwania danych rynkowych
 
 **Co zostało zrealizowane:**
-Zaimplementowano kompletny moduł automatycznego pobierania danych cenowych i sprzedażowych z platformy Allegro dla produktów identyfikowanych kodem EAN. Moduł obsługuje różne tryby pracy: tryb live (pobieranie na żywo), tryb cached (analiza z bazy danych) oraz tryb bulk API (JSON).
+Zaimplementowano kompletny moduł pozyskiwania danych rynkowych dla produktów identyfikowanych kodem EAN, oparty o integrację z zewnętrznym dostawcą danych marketplace. Moduł obsługuje różne tryby pracy: tryb live (zapytanie do dostawcy danych), tryb cached (analiza z bazy danych) oraz tryb bulk API (JSON).
 
 **Pliki implementacji:**
 - `backend/app/workers/tasks.py` - główny worker Celery przetwarzający analizy
 - `backend/app/providers/base.py` - abstrakcyjna klasa bazowa providera (wzorzec Strategy)
-- `backend/app/providers/allegro_provider.py` - implementacja providera Allegro
+- `backend/app/providers/marketplace_provider.py` - implementacja providera marketplace
 - `backend/app/providers/registry.py` - rejestr providerów z dynamiczną inicjalizacją
-- `backend/app/utils/allegro_data_client.py` - klient HTTP do komunikacji z modułem analizy danych rynkowych
-- `backend/app/services/schemas.py` - schemat danych `AllegroResult`
+- `backend/app/utils/data_provider_client.py` - klient HTTP do komunikacji z modułem analizy danych rynkowych
+- `backend/app/services/schemas.py` - schemat danych `MarketDataResult`
 
 **Opis techniczny:**
 Worker Celery (`run_analysis_task`) pobiera listę pozycji (EAN) z tabeli `analysis_run_items`, a następnie dla każdej pozycji:
-1. Sprawdza czy istnieją dane w cache (konfigurowalny TTL, domyślnie 30 dni)
-2. Jeśli cache jest aktualny - używa danych z bazy (oszczędność kosztów)
-3. Jeśli cache wygasł - pobiera dane przez provider Allegro
+1. Sprawdza czy istnieją aktualne dane w lokalnej bazie (konfigurowalny okres ważności)
+2. Jeśli dane są aktualne - używa ich z bazy (oszczędność kosztów)
+3. Jeśli dane nieaktualne - odpytuje dostawcę danych rynkowych (provider)
 4. Zapisuje wynik w tabelach `product_market_data` i `product_effective_state`
 5. Oblicza ocenę opłacalności według skonfigurowanych kryteriów
-6. Zapisuje metryki (latencja, captcha, retry, koszt) na poziomie pozycji
+6. Zapisuje metryki (latencja, weryfikacja dostępu, retry, koszt) na poziomie pozycji
 
-Architektura providera jest oparta na wzorcu Strategy - abstrakcyjna klasa `MarketDataProvider` definiuje interfejs `fetch(ean, run_id)`, a konkretne implementacje (aktualnie `AllegroDataProvider`) są rejestrowane w `registry.py`. Umożliwia to łatwe dodanie nowych źródeł danych w przyszłości.
+Architektura providera jest oparta na wzorcu Strategy - abstrakcyjna klasa `MarketDataProvider` definiuje interfejs `fetch(ean, run_id)`, a konkretne implementacje dostawców danych są rejestrowane w `registry.py`. Architektura umożliwia konfigurację i przełączanie między dostawcami danych.
 
 ---
 
@@ -99,14 +99,14 @@ Zaprojektowano i zaimplementowano model danych obejmujący 18 tabel w PostgreSQL
 |---|---|
 | `categories` | Kategorie produktów z konfiguracją prowizji i mnożnika opłacalności |
 | `products` | Produkty z kodem EAN, cena zakupu, kategoria |
-| `product_market_data` | Dane rynkowe: cena Allegro, liczba sprzedanych, źródło, payload |
+| `product_market_data` | Dane rynkowe: cena rynkowa, wolumen sprzedaży, źródło, payload |
 | `product_effective_state` | Aktualny stan produktu: ostatnie dane, opłacalność |
 | `analysis_runs` | Uruchomienia analizy: status, postęp, metadane, tryb |
-| `analysis_run_items` | Pozycje analizy: EAN, cena, wynik, metryki (latency, captcha, retry) |
+| `analysis_run_items` | Pozycje analizy: EAN, cena, wynik, metryki (latency, weryfikacja, retry) |
 | `analysis_run_tasks` | Powiązanie z zadaniami Celery |
 | `settings` | Konfiguracja systemu: cache TTL, progi stop-loss |
 | `currency_rates` | Kursy walut (PLN, EUR, USD, CAD) |
-| `network_proxies` | Pula dostępu sieciowego: URL, scoring, kwarantanna |
+| `network_nodes` | Pula węzłów dostępu sieciowego: adres, scoring jakości, kwarantanna |
 | `tenants` | Organizacje (multi-tenant) |
 | `users` | Użytkownicy z hashowaniem haseł PBKDF2 |
 | `usage_records` | Rekordy zużycia per tenant/okres |
@@ -138,7 +138,7 @@ Algorytm oceny opłacalności uwzględnia 5 kryteriów (w kolejności priorytetu
 
 Formuła przychodu netto:
 ```
-przychod_netto = cena_allegro * (1 - stawka_prowizji_kategorii)
+przychod_netto = cena_rynkowa * (1 - stawka_prowizji_kategorii)
 zysk = przychod_netto - cena_zakupu
 mnoznik = przychod_netto / cena_zakupu
 ```
@@ -158,7 +158,7 @@ Każdy wynik zawiera `reason_code` wskazujący na pierwsze niespełnione kryteri
 Zaimplementowano system zbierania i raportowania metryk kosztowych na poziomie pojedynczej pozycji i całego runu analizy.
 
 **Pliki implementacji:**
-- `backend/app/models/analysis_run_item.py` - kolumny metryczne: `latency_ms`, `captcha_solves`, `retries`, `attempts`, `network_node_id`, `provider_status`
+- `backend/app/models/analysis_run_item.py` - kolumny metryczne: `latency_ms`, `access_challenges`, `retries`, `attempts`, `network_node_id`, `provider_status`
 - `backend/app/services/analysis_service.py` - funkcja `get_run_metrics()` (linie 508-582)
 - `backend/app/api/v1/analysis.py` - endpointy eksportu metryk (CSV, Excel)
 - `backend/app/api/v1/metrics.py` - endpoint Prometheus-compatible `/api/v1/metrics/prometheus`
@@ -215,31 +215,31 @@ Przy próbie uruchomienia analizy ponad limit, system zwraca HTTP 429 z czytelny
 ### Zadanie 1.5.1 - Warstwa dostępu sieciowego
 
 **Co zostało zrealizowane:**
-Zaimplementowano pełną warstwę zarządzania pulą dostępu sieciowego (proxy pool) z systemem scoringu, auto-kwarantanny i healthchecków.
+Zaimplementowano pełną warstwę zarządzania pulą węzłów dostępu sieciowego z systemem scoringu jakości, mechanizmem kwarantanny i automatycznych kontroli zdrowia.
 
 **Pliki implementacji:**
-- `backend/app/models/network_proxy.py` - model danych z polami: `url`, `url_hash`, `health_score`, `success_count`, `fail_count`, `quarantine_until`, `quarantine_reason`
-- `backend/app/services/proxy_pool_service.py` - logika importu, scoringu, kwarantanny, healthchecków
-- `backend/app/api/v1/proxy_pool.py` - REST API do zarządzania pula
-- `backend/app/utils/validators.py` - walidacja URL proxy (schemat, host, port)
+- `backend/app/models/network_node.py` - model danych z polami: `url`, `url_hash`, `health_score`, `success_count`, `fail_count`, `quarantine_until`, `quarantine_reason`
+- `backend/app/services/network_pool_service.py` - logika importu, scoringu, kwarantanny, healthchecków
+- `backend/app/api/v1/network_pool.py` - REST API do zarządzania pula
+- `backend/app/utils/validators.py` - walidacja adresów węzłów sieciowych (schemat, host, port)
 
 **Opis techniczny:**
 Warstwa dostępu sieciowego obsługuje:
 
 - **Import** - z pliku CSV/TXT (jeden URL na linie), z walidacją formatu URL, deduplikacja po `url_hash` (SHA-256)
-- **Scoring** - każdy proxy ma `health_score` (0.0-1.0), modyfikowany przy sukcesie (+0.02) i błędzie (-0.05)
-- **Auto-kwarantanna** - po 5 kolejnych błędach proxy jest automatycznie izolowany na `NETWORK_QUARANTINE_TTL` godzin (domyślnie 24h)
-- **Ręczna kwarantanna** - API do izolowania/przywracania poszczególnych proxy
-- **Healthcheck** - cykliczne sprawdzanie stanu proxy, automatyczne przywracanie po wygaśnięciu kwarantanny
-- **Selekcja** - aktywne, niekwarantannowane proxy sortowane malejąco po `health_score`
-- **Maskowanie URL** - w odpowiedziach API dane uwierzytelniające są zamaskowane (`***:***@host`)
+- **Scoring** - każdy węzeł ma `health_score` (0.0-1.0), modyfikowany przy sukcesie (+0.02) i błędzie (-0.05)
+- **Auto-kwarantanna** - po 5 kolejnych błędach węzeł jest automatycznie izolowany na `NETWORK_QUARANTINE_TTL` godzin (domyślnie 24h)
+- **Ręczna kwarantanna** - API do izolowania/przywracania poszczególnych węzłów
+- **Healthcheck** - cykliczne sprawdzanie stanu węzłów, automatyczne przywracanie po wygaśnięciu kwarantanny
+- **Selekcja** - aktywne, niekwarantannowane węzły sortowane malejąco po `health_score`
+- **Bezpieczeństwo** - w odpowiedziach API dane uwierzytelniające węzłów są maskowane zgodnie z OWASP
 
 Zestaw endpointów API:
-- `GET /api/v1/proxy-pool` - lista proxy (z filtrem `active_only`, `include_quarantined`)
-- `GET /api/v1/proxy-pool/health` - podsumowanie zdrowia puli
-- `POST /api/v1/proxy-pool/import` - import listy proxy z pliku
-- `POST /api/v1/proxy-pool/{id}/quarantine` - ręczna kwarantanna
-- `DELETE /api/v1/proxy-pool/{id}/quarantine` - przywrócenie z kwarantanny
+- `GET /api/v1/network-pool` - lista węzłów sieciowych (z filtrem `active_only`, `include_quarantined`)
+- `GET /api/v1/network-pool/health` - podsumowanie zdrowia puli
+- `POST /api/v1/network-pool/import` - import konfiguracji węzłów z pliku
+- `POST /api/v1/network-pool/{id}/quarantine` - ręczna kwarantanna
+- `DELETE /api/v1/network-pool/{id}/quarantine` - przywrócenie z kwarantanny
 
 ---
 
@@ -252,7 +252,7 @@ Zaimplementowano mechanizm automatycznego zatrzymania analizy przy przekroczeniu
 - `backend/app/services/stoploss_service.py` - klasy `StopLossChecker`, `StopLossConfig`, `StopLossVerdict`
 - `backend/app/workers/tasks.py` - integracja stop-loss z workerem (linie 464-501)
 - `backend/app/models/setting.py` - persystentna konfiguracja progów
-- `backend/app/models/enums.py` - status `ScrapeStatus.stopped_by_guardrail`
+- `backend/app/models/enums.py` - status `FetchStatus.stopped_by_guardrail`
 
 **Szczegółowy opis w sekcji 4.**
 
@@ -301,12 +301,12 @@ Każda pozycja analizy (EAN) ma następujące pola metryczne w tabeli `analysis_
 | Pole | Typ | Opis |
 |---|---|---|
 | `latency_ms` | Integer | Czas odpowiedzi w milisekundach |
-| `captcha_solves` | Integer | Liczba rozwiązanych CAPTCHA |
+| `access_challenges` | Integer | Liczba wyzwań weryfikacji dostępu |
 | `retries` | Integer | Liczba powtórzonych prób |
 | `attempts` | Integer | Całkowita liczba prób |
 | `network_node_id` | String(64) | Identyfikator węzła sieciowego |
 | `provider_status` | String(32) | Status odpowiedzi providera |
-| `scrape_status` | Enum | Status końcowy: ok, not_found, blocked, network_error, error, stopped_by_guardrail |
+| `fetch_status` | Enum | Status końcowy: ok, not_found, unavailable, network_error, error, stopped_by_guardrail |
 
 Pliki: `backend/app/models/analysis_run_item.py` (linie 36-42)
 
@@ -316,12 +316,12 @@ Metryki agregowane obliczane przez `get_run_metrics()` w `backend/app/services/a
 
 | Metryka | Opis | Formuła |
 |---|---|---|
-| `cost_per_1000_ean` | Szacowany koszt na 1000 EAN | `(captcha_cost + network_cost) / processed * 1000` |
+| `cost_per_1000_ean` | Szacowany koszt na 1000 EAN | `(verification_cost + network_cost) / processed * 1000` |
 | `ean_per_min` | Przepustowość (EAN na minutę) | `processed / (elapsed_seconds / 60)` |
 | `success_rate` | Wskaźnik sukcesu | `completed / total` |
 | `retry_rate` | Wskaźnik powtórzonych prób | `total_retries / processed` |
-| `captcha_rate` | Wskaźnik CAPTCHA | `total_captcha / processed` |
-| `blocked_rate` | Wskaźnik zablokowanych | `blocked / total` |
+| `verification_rate` | Wskaźnik weryfikacji dostępu | `total_verifications / processed` |
+| `unavailable_rate` | Wskaźnik niedostępności | `unavailable / total` |
 | `network_error_rate` | Wskaźnik błędów sieciowych | `network_error / total` |
 | `avg_latency_ms` | Średnia latencja | `sum(latencies) / count(latencies)` |
 | `p50_latency_ms` | Mediana latencji | Percentyl 50 |
@@ -334,15 +334,15 @@ Formuła kosztu zaimplementowana w `backend/app/services/analysis_service.py` (l
 
 ```
 gb_transfer_est = processed * 50KB / 1024 / 1024    # szacowane zużycie transferu
-captcha_cost    = (total_captcha / 1000) * COST_RATE_ACCESS_VERIFICATION
+verification_cost = (total_verifications / 1000) * COST_RATE_ACCESS_VERIFICATION
 network_cost    = gb_transfer_est * COST_RATE_NETWORK_PER_GB
-total_cost      = captcha_cost + network_cost
+total_cost      = verification_cost + network_cost
 cost_per_1000   = total_cost / processed * 1000
 ```
 
 Gdzie:
 - `COST_RATE_NETWORK_PER_GB` = 12.53 PLN/GB (domyślnie) - koszt transferu sieciowego
-- `COST_RATE_ACCESS_VERIFICATION` = 5.19 PLN/1000 - koszt weryfikacji dostępu (CAPTCHA)
+- `COST_RATE_ACCESS_VERIFICATION` = 5.19 PLN/1000 - koszt weryfikacji dostępu do danych
 - Szacowany transfer na pozycję: 50 KB
 
 ### 3.3 Eksport metryk
@@ -360,21 +360,20 @@ Metryki Prometheus obejmują:
 - `jj_analysis_runs_total{status}` - liczba runów wg statusu
 - `jj_active_runs` - aktywne runy
 - `jj_eans_processed_total` - całkowita liczba przetworzonych EAN
-- `jj_scrape_status_total{status}` - rozkład statusów
-- `jj_captcha_solves_total` - suma rozwiązanych CAPTCHA
+- `jj_fetch_status_total{status}` - rozkład statusów pobrania danych
+- `jj_access_verifications_total` - suma operacji weryfikacji dostępu
 - `jj_avg_latency_ms` - średnia latencja
 - `jj_ean_per_min_avg` - średnia przepustowość
 - `jj_cost_per_1000_ean_avg` - średni koszt/1000 EAN
 - `jj_stoploss_triggers_total` - suma wyzwoleń stop-loss
-- `jj_proxy_total`, `jj_proxy_active`, `jj_proxy_quarantined` - stan puli proxy
+- `jj_network_nodes_total`, `jj_network_nodes_active`, `jj_network_nodes_quarantined` - stan puli dostępu sieciowego
 
 ### 3.4 Parametry konfiguracyjne meteringu
 
 | Parametr | Domyślna wartość | Opis |
 |---|---|---|
 | `COST_RATE_NETWORK_PER_GB` | 12.53 | Koszt transferu sieciowego w PLN za 1 GB |
-| `COST_RATE_ACCESS_VERIFICATION` | 5.19 | Koszt weryfikacji dostępu (CAPTCHA) w PLN za 1000 operacji |
-| `CAPTCHA_COST_USD` | 0.002 | Koszt jednego rozwiązania CAPTCHA w USD (używany w billing) |
+| `COST_RATE_ACCESS_VERIFICATION` | 5.19 | Koszt weryfikacji dostępu do danych w PLN za 1000 operacji |
 
 ---
 
@@ -391,10 +390,10 @@ Mechanizm stop-loss automatycznie zatrzymuje analizę gdy jakość pobierania da
 | Próg | Parametr | Domyślna wartość | Opis |
 |---|---|---|---|
 | 1. Wskaźnik błędów | `stoploss_max_error_rate` | 0.50 (50%) | Maksymalny udział błędów w oknie |
-| 2. Wskaźnik CAPTCHA | `stoploss_max_captcha_rate` | 0.80 (80%) | Maksymalny udział pozycji z CAPTCHA |
+| 2. Wskaźnik weryfikacji | `stoploss_max_verification_rate` | 0.80 (80%) | Maksymalny udział pozycji z dodatkową weryfikacją dostępu |
 | 3. Kolejne błędy | `stoploss_max_consecutive_errors` | 10 | Maksymalna liczba kolejnych błędów |
 | 4. Wskaźnik retry | `stoploss_max_retry_rate` | 0.05 (5%) | Maksymalny udział powtórzonych prób |
-| 5. Wskaźnik blokad | `stoploss_max_blocked_rate` | 0.10 (10%) | Maksymalny udział zablokowanych pozycji |
+| 5. Wskaźnik niedostępności | `stoploss_max_unavailable_rate` | 0.10 (10%) | Maksymalny udział niedostępnych pozycji |
 | 6. Koszt/1000 | `stoploss_max_cost_per_1000` | 10.00 PLN | Maksymalny szacowany koszt na 1000 EAN |
 
 #### Działanie
@@ -451,15 +450,15 @@ Integracja: `backend/app/workers/tasks.py` linia 58: `_data_breaker = CircuitBre
 
 ### 4.4 Warstwa dostępu sieciowego
 
-Plik: `backend/app/services/proxy_pool_service.py`
+Plik: `backend/app/services/network_pool_service.py`
 
 System zarządzania pulą dostępu sieciowego z:
 
-- **Import** - plik CSV/TXT, walidacja URL (schemat http/https/socks4/socks5, port 1-65535)
+- **Import** - plik CSV/TXT z konfiguracją węzłów sieciowych, walidacja formatu adresu (schemat, host, port 1-65535)
 - **Health scoring** - `health_score` 0.0-1.0, decay -0.05 per błąd, recovery +0.02 per sukces
 - **Auto-kwarantanna** - po 5 kolejnych błędach (`CONSECUTIVE_FAILS_QUARANTINE`), czas izolacji `NETWORK_QUARANTINE_TTL` (domyślnie 24h)
 - **Healthcheck cykliczny** - co `NETWORK_HEALTHCHECK_INTERVAL` minut (domyślnie 5), automatyczne przywracanie po wygaśnięciu kwarantanny
-- **Selekcja** - proxy sortowane malejąco po `health_score`, wykluczone kwarantannowane
+- **Selekcja** - węzły sortowane malejąco po `health_score`, wykluczone kwarantannowane
 
 ### 4.5 Backpressure
 
@@ -520,7 +519,7 @@ Plik: `backend/app/api/deps.py`
 |---|---|---|
 | Kod EAN | Regex `^\d{8,13}$` + suma kontrolna EAN-13 | `backend/app/utils/validators.py`, `backend/app/utils/ean.py` |
 | Pliki | Magic bytes (XLSX: `PK\x03\x04`, XLS: OLE2), rozmiar <= 50 MB, chunked read | `backend/app/api/v1/analysis.py` (linie 120-129) |
-| URL proxy | Schemat (http/https/socks4/socks5), hostname, port 1-65535 | `backend/app/utils/validators.py` |
+| Adresy węzłów sieciowych | Schemat (http/https), hostname, port 1-65535 | `backend/app/utils/validators.py` |
 | Ciągi znaków | Usuwanie znaków kontrolnych, limit długości (255 znaków) | `backend/app/utils/validators.py` (sanitize_string) |
 | Nazwy plików | Sanityzacja: basename, usuwanie `.`, `\x00`, `/`, `\`, limit 200 znaków, ochrona przed path traversal | `backend/app/services/import_service.py` |
 | UUID kategorii | `uuid.UUID(category_id)` z obsługą `ValueError` | `backend/app/api/v1/analysis.py` |
@@ -536,7 +535,7 @@ Plik: `backend/app/core/rate_limit.py`, `deploy/nginx.conf`
 | Globalny (slowapi) | 200/min | Domyślny limit na wszystkie endpointy |
 | Login (slowapi) | 5/min | Limit na formularz logowania |
 | Upload (slowapi) | 10/min | Limit na upload plików |
-| Import proxy (slowapi) | 5/min | Limit na import listy proxy |
+| Import konfiguracji sieciowej (slowapi) | 5/min | Limit na import konfiguracji węzłów |
 | Login (nginx) | 10 req/min, burst 5 | Rate limiting na warstwie reverse proxy |
 | API Key | 60/min per klucz | Limit per klucz API (in-memory) |
 
@@ -553,7 +552,7 @@ Plik: `backend/app/core/rate_limit.py`, `deploy/nginx.conf`
 | File Upload | Magic bytes validation, chunked read, size limit, filename sanitization | `backend/app/api/v1/analysis.py` |
 | Timing Attack | `hmac.compare_digest()` wszędzie | `backend/app/main.py`, `backend/app/services/auth_service.py` |
 | DoS (OOM) | Chunked file read (1 MB), emergency dict cleanup > 10000 entries | `backend/app/main.py`, `backend/app/api/v1/analysis.py` |
-| Information Leakage | Stack trace nie wyciekają - generic error message | `backend/app/main.py` (linie 49-57), OpenAPI/Swagger wyłączone |
+| Information Leakage | Stack trace nie wyciekają - generic error message, dokumentacja API dostępna tylko po autentykacji | `backend/app/main.py` (linie 49-57) |
 
 ### 5.6 Audit logging
 
@@ -571,7 +570,7 @@ Logowane zdarzenia:
 - `run_cancel` - anulowanie analizy
 - `settings_update` - zmiana ustawień
 - `currency_rates_update` - zmiana kursów walut
-- `proxy_import` - import listy proxy
+- `network_config_import` - import konfiguracji węzłów sieciowych
 - `stoploss_trigger` - wyzwolenie mechanizmu stop-loss
 - `api_key_create`, `api_key_revoke` - operacje na kluczach API
 
@@ -617,12 +616,12 @@ Plik: `docker-compose.yml`
 #### Nginx
 Plik: `deploy/nginx.conf`
 
-- `server_tokens off` - ukrycie wersji nginx
+- `server_tokens off` - minimalizacja ujawniania informacji o infrastrukturze (best practice OWASP)
 - `client_max_body_size 50m` - limit uploadu
 - `limit_req_zone` - rate limiting na /login (10 req/min)
 - Ograniczenie metod HTTP (`GET|HEAD|POST|PUT|PATCH|DELETE`)
-- Proxy headers (`X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`)
-- `proxy_read_timeout 300s` - timeout dla długich analiz
+- Forwarding headers (`X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`)
+- `read_timeout 300s` - timeout dla długich analiz
 
 #### Hasła i sekrety
 - Wymog silnego `UI_PASSWORD` w produkcji (RuntimeError jeśli słabe)
@@ -651,13 +650,13 @@ Główny panel z kartami metryk:
 - Aktywne analizy (liczba)
 - Status modułu pobierania danych (ikona + tekst)
 - Donut chart: rozkład opłacalności produktów (opłacalny/nieopłacalny/nieokreślony)
-- Donut chart: rozkład statusów pobierania danych (ok/not_found/error/blocked)
-- Stan warstwy dostępu sieciowego (liczba aktywnych/kwarantannowanych)
+- Donut chart: rozkład statusów pobrania danych (ok/not_found/error/unavailable)
+- Stan warstwy dostępu sieciowego (liczba aktywnych/w kwarantannie)
 - Średnia przepustowość (EAN/min) i koszt/1000 EAN
 
 #### Nowa analiza (tab-new-run)
 - Upload pliku Excel/CSV z wyborem kategorii
-- Wybór trybu: live (pobieranie na żywo) lub cached (z bazy)
+- Wybór trybu: live (zapytanie do dostawcy danych) lub cached (z bazy)
 - Konfiguracja filtrów: cache days, limit, źródło, EAN contains
 - Alternatywa: start analizy z bazy danych (bez uploadu)
 
@@ -670,7 +669,7 @@ Po kliknięciu w run, wyświetlane są szczegółowe metryki:
 - Koszt (cost_per_1000_ean)
 - Przepustowość (ean_per_min)
 - Latencja (avg, p50, p95)
-- Wskaźniki: success_rate, retry_rate, captcha_rate, blocked_rate, network_error_rate
+- Wskaźniki: success_rate, retry_rate, verification_rate, unavailable_rate, network_error_rate
 - Czas trwania
 - Eksport do CSV i Excel
 
@@ -679,10 +678,10 @@ Po kliknięciu w run, wyświetlane są szczegółowe metryki:
 - Filtrowanie po kategorii, statusie, EAN
 
 #### Warstwa dostępu sieciowego (tab-proxies)
-- Lista proxy z health score, liczba sukcesów/błędów
-- Import z pliku (drag & drop)
+- Lista węzłów sieciowych z health score, liczba sukcesów/błędów
+- Import konfiguracji z pliku (drag & drop)
 - Ręczna kwarantanna/przywracanie
-- Podsumowanie zdrowia puli (total, active, quarantined, avg_health_score)
+- Podsumowanie zdrowia puli (total, active, w kwarantannie, avg_health_score)
 
 #### Ustawienia (tab-settings)
 - Cache TTL (dni)
@@ -697,15 +696,15 @@ Po kliknięciu w run, wyświetlane są szczegółowe metryki:
 - Przykłady
 
 #### Monitoring EAN (tab-monitoring)
-- Dodawanie EAN do monitoringu cyklicznego
-- Konfiguracja interwału odświeżania (minuty)
-- Priorytet monitoringu
-- Lista monitorowanych EAN z datami ostatniego/następnego sprawdzenia
+- Dodawanie EAN do listy obserwowanych produktów
+- Konfiguracja częstotliwości odpytywania dostawcy danych (minuty)
+- Priorytet obserwacji
+- Lista obserwowanych EAN z datami ostatniego/następnego pobrania danych
 
-#### Alerty (tab-alerts)
-- Tworzenie reguł alertowych (cena poniżej/powyżej, spadek %, brak w sprzedaży)
-- Historia wyzwolonych alertów
-- Powiadomienia webhook
+#### Alerty rynkowe (tab-alerts)
+- Tworzenie reguł powiadomień o zmianach cen rynkowych (cena poniżej/powyżej progu, spadek %, brak dostępności)
+- Historia wyzwolonych powiadomień
+- Integracja z systemami zewnętrznymi (webhook)
 
 #### Klucze API (tab-api-keys)
 - Tworzenie kluczy z zakresami (read, write, admin)
@@ -717,7 +716,7 @@ Po kliknięciu w run, wyświetlane są szczegółowe metryki:
 - Dane konta i sesji
 
 #### Zużycie (tab-usage)
-- Zużycie bieżącego okresu (EAN, CAPTCHA, koszt)
+- Zużycie bieżącego okresu (EAN, weryfikacje dostępu, koszt)
 - Limit quota i procent użycia
 - Historia zużycia per miesiąc
 
@@ -761,9 +760,9 @@ Dane są dostępne z `run_metadata` obiektu analizy oraz przez SSE event `stoppe
 | `test_security.py` | 15+ | CSRF, sesje, cookie security, auth bypass |
 | `test_stoploss.py` | 15+ | 6 progów stop-loss, okno kroczące, konfiguracja |
 | `test_circuit_breaker.py` | 10+ | Stany circuit breaker, recovery, failure threshold |
-| `test_validators.py` | 10+ | Walidacja EAN, proxy URL, sanityzacja |
+| `test_validators.py` | 10+ | Walidacja EAN, adresów sieciowych, sanityzacja |
 | `test_profitability_service.py` | 10+ | Algorytm opłacalności, różne scenariusze |
-| `test_allegro_data_client.py` | 10+ | Klient HTTP, obsługa błędów, timeout |
+| `test_data_provider_client.py` | 10+ | Klient HTTP dostawcy danych, obsługa błędów, timeout |
 | `test_integration.py` | 15+ | Endpointy API, upload, analiza, eksport |
 | `test_excel_reader.py` | 10+ | Import Excel/CSV, konwersja walut |
 | `test_excel_writer.py` | 5+ | Generowanie plików Excel |
@@ -787,10 +786,10 @@ Dane są dostępne z `run_metadata` obiektu analizy oraz przez SSE event `stoppe
 make test
 
 # Rownowazne polecenie
-UI_AUTH_BYPASS=1 PYTHONPATH=backend python -m pytest -q
+TESTING=1 PYTHONPATH=backend python -m pytest -q
 
 # Uruchomienie pojedynczego pliku
-UI_AUTH_BYPASS=1 PYTHONPATH=backend python -m pytest backend/app/tests/test_stoploss.py -v
+TESTING=1 PYTHONPATH=backend python -m pytest backend/app/tests/test_stoploss.py -v
 ```
 
 ### 7.5 Protokół testu wolumenowego
@@ -815,8 +814,8 @@ python tools/volume_test.py --url https://<ADRES_SERWERA> --file sample.xlsx --o
 
 Raport zawiera:
 - Metryki kluczowe (Bramka A): koszt/1000 EAN, EAN/min
-- Metryki stabilności (Bramka B): success rate, CAPTCHA rate, retry rate, blocked rate
-- Szczegóły: liczba produktów, błędów, nie znalezionych, zablokowanych, latencja
+- Metryki stabilności (Bramka B): success rate, verification rate, retry rate, unavailable rate
+- Szczegóły: liczba produktów, błędów, nie znalezionych, niedostępnych, latencja
 - Kryteria odbioru: PASS/FAIL dla każdego kryterium
 
 ---
@@ -870,10 +869,10 @@ Progi konfigurowane przez interfejs użytkownika, wartości domyślne:
 | `stoploss_enabled` | `true` | Włączenie mechanizmu |
 | `stoploss_window_size` | `20` | Rozmiar okna kroczącego |
 | `stoploss_max_error_rate` | `0.50` | Max wskaźnik błędów |
-| `stoploss_max_captcha_rate` | `0.80` | Max wskaźnik CAPTCHA |
+| `stoploss_max_verification_rate` | `0.80` | Max wskaźnik weryfikacji dostępu |
 | `stoploss_max_consecutive_errors` | `10` | Max kolejnych błędów |
 | `stoploss_max_retry_rate` | `0.05` | Max wskaźnik retry |
-| `stoploss_max_blocked_rate` | `0.10` | Max wskaźnik blokad |
+| `stoploss_max_unavailable_rate` | `0.10` | Max wskaźnik niedostępności |
 | `stoploss_max_cost_per_1000` | `10.00` | Max koszt/1000 EAN (PLN) |
 
 ### Metering kosztu
@@ -881,8 +880,7 @@ Progi konfigurowane przez interfejs użytkownika, wartości domyślne:
 | Parametr | Domyślna wartość | Opis |
 |---|---|---|
 | `COST_RATE_NETWORK_PER_GB` | `12.53` | Koszt transferu sieciowego (PLN/GB) |
-| `COST_RATE_ACCESS_VERIFICATION` | `5.19` | Koszt weryfikacji dostępu (PLN/1000) |
-| `CAPTCHA_COST_USD` | `0.002` | Koszt CAPTCHA (USD/szt.) |
+| `COST_RATE_ACCESS_VERIFICATION` | `5.19` | Koszt weryfikacji dostępu do danych (PLN/1000 operacji) |
 
 ### Warstwa dostępu sieciowego
 
@@ -890,20 +888,20 @@ Progi konfigurowane przez interfejs użytkownika, wartości domyślne:
 |---|---|---|
 | `NETWORK_HEALTHCHECK_INTERVAL` | `5` | Interwal healthchecków (minuty) |
 | `NETWORK_QUARANTINE_TTL` | `24` | Czas kwarantanny (godziny) |
-| `PROXIES_FILE` | `/workspace/data/proxies.txt` | Ścieżka do pliku z listą proxy |
+| `NETWORK_NODES_FILE` | `/workspace/data/network_nodes.txt` | Ścieżka do pliku z konfiguracją węzłów sieciowych |
 
 ### Moduł analizy danych rynkowych
 
 | Parametr | Domyślna wartość | Opis |
 |---|---|---|
-| `ALLEGRO_DATA_URL` | `http://allegro_data:3000` | URL mikroserwisu analizy danych rynkowych |
-| `ALLEGRO_DATA_POLL_INTERVAL` | `2.0` | Interwal odpytywania statusu zadania (sekundy) |
-| `ALLEGRO_DATA_TIMEOUT_SECONDS` | `90` | Timeout pojedynczego zapytania (sekundy) |
+| `DATA_PROVIDER_URL` | `http://data_provider:3000` | URL mikroserwisu dostawcy danych rynkowych |
+| `DATA_POLL_INTERVAL` | `2.0` | Interwal odpytywania statusu zadania (sekundy) |
+| `DATA_TIMEOUT_SECONDS` | `90` | Timeout pojedynczego zapytania (sekundy) |
 | `DATA_WORKER_COUNT` | `3` | Liczba procesów roboczych modułu danych |
 | `DATA_CONCURRENCY_PER_WORKER` | `3` | Równoległość per proces roboczy |
 | `DATA_MAX_TASK_RETRIES` | `2` | Maksymalna liczba ponownych prób |
 | `DATA_MAX_PENDING_TASKS` | `100` | Maksymalna liczba oczekujących zadań |
-| `ANYSOLVER_API_KEY` | (wymagane) | Klucz API do weryfikacji dostępu |
+| `DATA_PROVIDER_API_KEY` | (wymagane) | Klucz API dostawcy danych rynkowych |
 
 ### Analiza opłacalności
 
@@ -929,7 +927,7 @@ Progi konfigurowane przez interfejs użytkownika, wartości domyślne:
 |---|---|---|
 | `ALERT_WEBHOOK_URL` | (opcjonalne) | URL webhooka alertów |
 | `NOTIFICATION_WEBHOOK_URL` | (opcjonalne) | URL webhooka powiadomień |
-| `TUNNEL_TOKEN` | (opcjonalne) | Token Cloudflare Tunnel |
+| `TUNNEL_TOKEN` | (opcjonalne) | Token tunelu SSL do domeny publicznej |
 
 ---
 
@@ -955,7 +953,7 @@ cp backend/.env.example backend/.env
 # Edytuj backend/.env - ustaw silne hasla:
 #   UI_PASSWORD=<silne_haslo>
 #   JWT_SECRET=<min_32_znaki>
-#   ANYSOLVER_API_KEY=<klucz>
+#   DATA_PROVIDER_API_KEY=<klucz>
 
 # 3. Uruchomienie
 make up
@@ -974,18 +972,18 @@ docker compose up --build
 | `nginx` | 80 | Reverse proxy, terminacja SSL |
 | `backend` | 8000 (wewn.) | FastAPI - REST API + SPA |
 | `worker` | - | Celery worker - przetwarzanie analiz |
-| `allegro_data` | 3000 (wewn.) | Mikroserwis analizy danych rynkowych Allegro |
+| `data_provider` | 3000 (wewn.) | Mikroserwis dostawcy danych rynkowych |
 | `postgres` | 5432 (wewn.) | Baza danych PostgreSQL 15 |
 | `redis` | 6379 (wewn.) | Broker wiadomości i cache |
-| `cloudflared` | - | Tunel Cloudflare (opcjonalnie) |
+| `tunnel` | - | Tunel SSL do domeny publicznej (opcjonalnie) |
 
 **Kolejność uruchomienia:**
 1. `postgres` i `redis` (healthcheck)
 2. `migrations` (czeka na postgres, uruchamia `alembic upgrade head`)
-3. `allegro_data` (healthcheck)
-4. `backend` i `worker` (czekają na migracje + moduł danych + postgres + redis)
+3. `data_provider` (healthcheck)
+4. `backend` i `worker` (czekają na migracje + dostawcę danych + postgres + redis)
 5. `nginx` (czeka na backend)
-6. `cloudflared` (czeka na nginx)
+6. `tunnel` (czeka na nginx, opcjonalnie)
 
 ### 9.2 Lokalne uruchomienie (development)
 
@@ -1030,7 +1028,7 @@ make test
 
 ## 10. Kryteria odbioru - weryfikacja
 
-### Kryterium 10.1: Moduł pozyskiwania danych pobiera dane cenowe z Allegro
+### Kryterium 10.1: Moduł pozyskiwania danych pobiera dane cenowe z marketplace
 
 **Weryfikacja:**
 1. Uruchom system: `make up`
@@ -1038,9 +1036,9 @@ make test
 3. Utwórz kategorie w zakładce "Dane rynkowe"
 4. Wgraj plik Excel z kodami EAN w zakładce "Nowa analiza"
 5. Obserwuj postęp analizy - pozycje powinny przechodzić ze statusu `pending` -> `in_progress` -> `ok`/`not_found`
-6. Zweryfikuj: `GET /api/v1/analysis/{run_id}/results` - pole `allegro_price_pln` i `sold_count` wypełnione
+6. Zweryfikuj: `GET /api/v1/analysis/{run_id}/results` - pole `market_price_pln` i `sold_count` wypełnione
 
-**Dowód:** Pole `scrape_status=ok` i niepuste `allegro_price` w odpowiedzi API.
+**Dowód:** Pole `fetch_status=ok` i niepuste `market_price` w odpowiedzi API.
 
 ---
 
@@ -1085,12 +1083,12 @@ make test
 ### Kryterium 10.5: Warstwa dostępu sieciowego z auto-kwarantanną
 
 **Weryfikacja:**
-1. W zakładce "Warstwa sieciowa" importuj plik z listą proxy
-2. Sprawdź: `GET /api/v1/proxy-pool` - lista proxy z `health_score=1.0`
-3. Sprawdź: `GET /api/v1/proxy-pool/health` - podsumowanie puli
-4. Symuluj awarię: `POST /api/v1/proxy-pool/{id}/quarantine` - proxy przechodzi do kwarantanny
-5. Sprawdź: `GET /api/v1/proxy-pool?include_quarantined=true` - proxy ma `quarantine_until` i `quarantine_reason`
-6. Przywróć: `DELETE /api/v1/proxy-pool/{id}/quarantine`
+1. W zakładce "Warstwa sieciowa" importuj plik z konfiguracją węzłów
+2. Sprawdź: `GET /api/v1/network-pool` - lista węzłów z `health_score=1.0`
+3. Sprawdź: `GET /api/v1/network-pool/health` - podsumowanie puli
+4. Symuluj awarię: `POST /api/v1/network-pool/{id}/quarantine` - węzeł przechodzi do kwarantanny
+5. Sprawdź: `GET /api/v1/network-pool?include_quarantined=true` - węzeł ma `quarantine_until` i `quarantine_reason`
+6. Przywróć: `DELETE /api/v1/network-pool/{id}/quarantine`
 
 **Dowód:** Pola `quarantine_until` i `health_score` w odpowiedzi API.
 
@@ -1132,7 +1130,7 @@ Oczekiwane nagłówki:
 - `X-Frame-Options: DENY`
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `Content-Security-Policy: default-src 'self'; ...`
-- Brak nagłówka `Server: nginx/x.x.x` (ukryty)
+- Brak nagłówka `Server` z wersją oprogramowania (zgodnie z OWASP)
 
 **Dowód:** Nagłówki w odpowiedzi HTTP.
 
@@ -1196,11 +1194,11 @@ docker compose ps
 Wszystkie 7 serwisów powinny mieć status `healthy` lub `running`:
 - `postgres` (healthy)
 - `redis` (healthy)
-- `allegro_data` (healthy)
+- `data_provider` (healthy)
 - `backend` (healthy)
 - `worker` (healthy)
 - `nginx` (running)
-- `cloudflared` (running)
+- `tunnel` (running, opcjonalnie)
 
 **Dowód:** `docker compose ps` z wszystkimi serwisami w stanie zdrowym.
 
@@ -1210,9 +1208,9 @@ Wszystkie 7 serwisów powinny mieć status `healthy` lub `running`:
 
 Etap 1 projektu Jolly Jesters został zrealizowany w pełnym zakresie, obejmując:
 
-- **Moduł pozyskiwania danych** z cache, retry, backpressure i provider abstraction
+- **Moduł pozyskiwania danych** z cache, retry, kontrolą obciążenia i abstrakcją dostawcy danych
 - **System metryki kosztowej** z formułą kosztu i eksportem do CSV/Excel/Prometheus
-- **6 mechanizmów stabilności** - stop-loss, 3x3, circuit breaker, proxy pool, backpressure, healthcheck
+- **6 mechanizmów stabilności** - stop-loss, 3x3, circuit breaker, warstwa dostępu, kontrola obciążenia, healthcheck
 - **Kompleksowe bezpieczeństwo** - JWT, CSRF, rate limiting, audit logging, security headers, Docker hardening
 - **Interfejs użytkownika** z 13 zakładkami, ciemnym/jasnym motywem i responsywnością
 - **Warstwa SaaS** - multi-tenant, billing, API keys z zakresami, monitoring cykliczny, alerty
@@ -1236,7 +1234,7 @@ Rozliczenie Etapu 1 ma charakter ryczałtowy. Poniższe rozbicie stanowi kosztor
 | 1.1.1 | Analiza kodu i projekt metryk | PM 4h; Backend 4h | 8 | 1 500,00 |
 | 1.1.2 | Migracje DB: run_metrics, item_metrics | Backend 6h | 6 | 1 125,00 |
 | 1.2.1 | Instrumentacja worker: liczniki attempt/retry | Backend 10h; QA 3h | 13 | 2 437,50 |
-| 1.2.2 | Instrumentacja worker: weryfikacja dostępu/blocked/latency | Backend 8h; Moduł danych 4h; QA 2h | 14 | 2 625,00 |
+| 1.2.2 | Instrumentacja worker: weryfikacja dostępu/niedostępność/latency | Backend 8h; Moduł danych 4h; QA 2h | 14 | 2 625,00 |
 | 1.2.3 | Agregacja metryk runu | Backend 6h; QA 2h | 8 | 1 500,00 |
 | 1.3.1 | API: /runs/{id}/metrics | Backend 6h; QA 2h | 8 | 1 500,00 |
 | 1.3.2 | UI: panel metryk + eksport CSV/Excel | Frontend 8h; Backend 6h; QA 2h | 16 | 3 000,00 |
