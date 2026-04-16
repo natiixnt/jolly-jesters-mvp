@@ -4,6 +4,7 @@ import type { TaskQueue } from '@/queue/taskQueue';
 import type { CreateTaskBody, TaskResponse } from '@/types';
 import { proxiesMeta, reloadProxies } from '@/utils/proxy';
 import type { Stats } from '@/utils/stats';
+import { getConcurrencyStats, getActiveSessionCount, getFallbackChainStatus, robustConfig } from '@/robust';
 
 export function createRoutes(taskQueue: TaskQueue, startWorkers: () => void, stats: Stats): Hono {
     const app = new Hono();
@@ -57,6 +58,14 @@ export function createRoutes(taskQueue: TaskQueue, startWorkers: () => void, sta
             proxies: proxiesMeta(),
             queue: taskQueue.getQueueStats(),
             logs: stats.logs,
+            // Robust fallback system info
+            robust: {
+                enabled: robustConfig.ENABLE_ROBUST_FALLBACK,
+                fallbackChain: getFallbackChainStatus(),
+                concurrency: getConcurrencyStats(),
+                stickySessions: getActiveSessionCount(),
+                fallbackStats: stats.fallback,
+            },
         }),
     );
 

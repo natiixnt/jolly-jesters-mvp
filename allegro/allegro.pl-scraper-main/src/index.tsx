@@ -9,6 +9,7 @@ import { createRoutes } from '@/api/routes';
 import { Stats } from '@/utils/stats';
 import { Logger } from '@/utils/logger';
 import Dashboard from '@/utils/dashboard';
+import { robustConfig, initFallbackChain, destroyFallbackChain } from '@/robust';
 
 const proxiesFile = process.env.PROXIES_FILE ?? 'proxies.txt';
 const stats = new Stats();
@@ -39,6 +40,22 @@ try {
 } catch (err) {
     serverLog.log(`Proxy load failed: ${(err as Error).message}. Upload a file and POST /proxies/reload.`);
 }
+
+// Initialize the robust fallback chain (if enabled)
+if (robustConfig.ENABLE_ROBUST_FALLBACK) {
+    serverLog.log('Robust fallback system ENABLED - initializing strategies...');
+    initFallbackChain(logger.scoped('Robust'));
+    serverLog.log(`Fallback levels: ${robustConfig.FALLBACK_LEVELS.filter((l) => l.enabled).map((l) => l.name).join(' -> ')}`);
+} else {
+    serverLog.log('Robust fallback system disabled (set ENABLE_ROBUST_FALLBACK=true to enable)');
+}
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+    serverLog.log('SIGTERM received, shutting down...');
+    await destroyFallbackChain();
+    process.exit(0);
+});
 
 const app = createRoutes(taskQueue, () => startWorkers(), stats);
 

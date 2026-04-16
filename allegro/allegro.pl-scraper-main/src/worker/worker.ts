@@ -5,6 +5,16 @@ import { config } from '@/config';
 import type { TaskQueue } from '@/queue/taskQueue';
 import type { Stats } from '@/utils/stats';
 import type { Logger, ScopedLogger } from '@/utils/logger';
+import {
+    isSevereBlock,
+    executeWithFallback,
+    isFallbackAvailable,
+    calculateTaskCost,
+    robustConfig,
+    type RobustFetchResult,
+    type RobustMetadata,
+    defaultMetadata,
+} from '@/robust';
 
 const RETRYABLE_PATTERNS = [
     'IP is banned',
@@ -21,6 +31,34 @@ function isRetryableError(msg: string): boolean {
 
 function shouldThrottle(scrapeCount: number): boolean {
     return scrapeCount === 0 || (scrapeCount >= 4 && scrapeCount <= 6);
+}
+
+/**
+ * Attach default "raw" strategy metadata + cost to a result.
+ * Called after every successful raw fetch so the result format matches
+ * what the Python backend expects (same fields as fallback results).
+ */
+function attachRawMetadata(result: any, captchaSolves: number): void {
+    const meta: RobustMetadata = defaultMetadata('raw', 0);
+    meta.proxy_type = 'datacenter'; // raw strategy uses the loaded proxies (typically DC)
+
+    // Calculate cost for the raw strategy
+    const cost = calculateTaskCost({
+        strategy: 'raw',
+        fallback_level: 0,
+        proxy_type: 'datacenter',
+        antidetect_tool: null,
+        captcha_solves: captchaSolves,
+        datadome_solves: 0, // raw doesn't distinguish, counted as generic
+        browser_runtime_ms: 0,
+        estimated_kb: null,
+    });
+
+    // Merge metadata into result
+    Object.assign(result, meta, {
+        cost_breakdown: cost.cost_breakdown,
+        total_cost_usd: cost.total_cost_usd,
+    });
 }
 
 export class Worker {
@@ -126,18 +164,58 @@ export class Worker {
 
                 result.proxyUrlHash = proxyUrlHash(this.allegro.proxyUrl);
                 result.proxySuccess = true;
+
+                // Attach raw strategy metadata and cost to result
+                attachRawMetadata(result, result.captchaSolves ?? 0);
+
                 this.taskQueue.markCompleted(taskId, result);
                 this.scrapeCount++;
                 this.stats.recordTaskComplete(this.id, result.durationMs);
                 for (let i = 0; i < result.captchaSolves; i++) this.stats.recordCaptchaSolve();
-                this.logger.activity(`EAN ${task.ean} in ${String(result.durationMs)}ms`, 'success');
+                this.logger.activity(`EAN ${task.ean} in ${String(result.durationMs)}ms [raw]`, 'success');
             } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
-                this.logger.log(`Error EAN ${task.ean}: ${msg}`);
+                this.logger.log(`Raw error EAN ${task.ean}: ${msg}`);
+
+                // -------------------------------------------------------
+                // ROBUST FALLBACK: if raw failed with a severe block and
+                // the fallback chain is enabled, try browser strategies
+                // -------------------------------------------------------
+                if (isFallbackAvailable() && isSevereBlock(msg)) {
+                    this.logger.log(`Escalating EAN ${task.ean} to fallback chain`);
+                    try {
+                        const fallbackResult = await executeWithFallback({
+                            ean: task.ean,
+                            taskId: task.id,
+                            runId: task.runId,
+                            rawError: msg,
+                        });
+
+                        this.taskQueue.markCompleted(taskId, fallbackResult as any);
+                        this.stats.recordTaskComplete(this.id, fallbackResult.durationMs);
+                        this.stats.recordFallbackSuccess(fallbackResult.strategy, fallbackResult.fallback_level);
+                        for (let i = 0; i < fallbackResult.captchaSolves; i++) this.stats.recordCaptchaSolve();
+                        this.logger.activity(
+                            `EAN ${task.ean} rescued by ${fallbackResult.strategy} (L${fallbackResult.fallback_level}) in ${fallbackResult.durationMs}ms`,
+                            'success',
+                        );
+
+                        // Don't fall through to the error handling below
+                        this.stats.adjustActiveTasks(this.id, -1);
+                        this.gateRelease();
+                        this.updateGate();
+                        continue;
+                    } catch (fallbackErr) {
+                        const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+                        this.logger.log(`Fallback chain also failed for EAN ${task.ean}: ${fbMsg}`);
+                        this.stats.recordFallbackFailure();
+                        // Fall through to normal error handling
+                    }
+                }
 
                 // If Allegro returned HTML (unexpected token "<"), treat as no_results instead of hard fail.
                 if (msg.includes("Unexpected token '<'")) {
-                    this.taskQueue.markCompleted(taskId, {
+                    const noResult: any = {
                         status: 'no_results',
                         ean: task.ean,
                         totalOfferCount: 0,
@@ -146,7 +224,9 @@ export class Worker {
                         scrapedAt: new Date().toISOString(),
                         captchaSolves: 0,
                         html: '',
-                    } as any);
+                    };
+                    attachRawMetadata(noResult, 0);
+                    this.taskQueue.markCompleted(taskId, noResult);
                     this.logger.activity(`EAN ${task.ean} marked no_results (html response)`, 'info');
                     this.stats.recordTaskComplete(this.id, 0);
                     this.gateRelease();

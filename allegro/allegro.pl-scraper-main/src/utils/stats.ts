@@ -34,6 +34,14 @@ class RunningStats {
 export const LOG_RING_SIZE = 50;
 const THROUGHPUT_WINDOW_MS = 60_000;
 
+export interface FallbackStats {
+    totalFallbackAttempts: number;
+    totalFallbackSuccesses: number;
+    totalFallbackFailures: number;
+    successByStrategy: Record<string, number>;
+    successByLevel: Record<number, number>;
+}
+
 export class Stats {
     readonly taskDuration = new RunningStats();
     readonly sessionDuration = new RunningStats();
@@ -46,6 +54,15 @@ export class Stats {
     readonly logs: LogEntry[] = [];
     readonly startedAt = Date.now();
     taskQueue: TaskQueue | null = null;
+
+    // Robust fallback metrics
+    readonly fallback: FallbackStats = {
+        totalFallbackAttempts: 0,
+        totalFallbackSuccesses: 0,
+        totalFallbackFailures: 0,
+        successByStrategy: {},
+        successByLevel: {},
+    };
 
     private completionTimes: number[] = [];
 
@@ -118,5 +135,19 @@ export class Stats {
         const windowMs = now - this.completionTimes[0]!;
         if (windowMs < 1000) return 0;
         return Math.round((this.completionTimes.length / windowMs) * 3_600_000);
+    }
+
+    // ---- Robust fallback tracking ----
+
+    recordFallbackSuccess(strategy: string, level: number): void {
+        this.fallback.totalFallbackAttempts++;
+        this.fallback.totalFallbackSuccesses++;
+        this.fallback.successByStrategy[strategy] = (this.fallback.successByStrategy[strategy] ?? 0) + 1;
+        this.fallback.successByLevel[level] = (this.fallback.successByLevel[level] ?? 0) + 1;
+    }
+
+    recordFallbackFailure(): void {
+        this.fallback.totalFallbackAttempts++;
+        this.fallback.totalFallbackFailures++;
     }
 }
