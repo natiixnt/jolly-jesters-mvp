@@ -137,4 +137,61 @@ def prometheus_metrics(db: Session = Depends(get_db)):
     lines.append("# TYPE jj_proxy_quarantined gauge")
     lines.append(f"jj_proxy_quarantined {proxy_quarantined}")
 
+    # -- Robust fallback strategy metrics --
+    # Items by strategy
+    strategy_counts = (
+        db.query(AnalysisRunItem.strategy, func.count(AnalysisRunItem.id))
+        .filter(AnalysisRunItem.strategy.isnot(None))
+        .group_by(AnalysisRunItem.strategy)
+        .all()
+    )
+    lines.append("# HELP jj_items_by_strategy Items processed by scraping strategy")
+    lines.append("# TYPE jj_items_by_strategy counter")
+    for strategy, count in strategy_counts:
+        lines.append(f'jj_items_by_strategy{{strategy="{strategy}"}} {count}')
+
+    # Items by fallback level
+    level_counts = (
+        db.query(AnalysisRunItem.fallback_level, func.count(AnalysisRunItem.id))
+        .filter(AnalysisRunItem.fallback_level.isnot(None))
+        .group_by(AnalysisRunItem.fallback_level)
+        .all()
+    )
+    lines.append("# HELP jj_items_by_fallback_level Items processed by fallback level")
+    lines.append("# TYPE jj_items_by_fallback_level counter")
+    for level, count in level_counts:
+        lines.append(f'jj_items_by_fallback_level{{level="{level}"}} {count}')
+
+    # Items by proxy type
+    proxy_type_counts = (
+        db.query(AnalysisRunItem.proxy_type, func.count(AnalysisRunItem.id))
+        .filter(AnalysisRunItem.proxy_type.isnot(None))
+        .group_by(AnalysisRunItem.proxy_type)
+        .all()
+    )
+    lines.append("# HELP jj_items_by_proxy_type Items processed by proxy type")
+    lines.append("# TYPE jj_items_by_proxy_type counter")
+    for ptype, count in proxy_type_counts:
+        lines.append(f'jj_items_by_proxy_type{{proxy_type="{ptype}"}} {count}')
+
+    # Total cost (USD) from scraper-reported costs
+    total_cost_usd = (
+        db.query(func.coalesce(func.sum(AnalysisRunItem.total_cost_usd), 0))
+        .filter(AnalysisRunItem.total_cost_usd.isnot(None))
+        .scalar() or 0
+    )
+    lines.append("# HELP jj_total_cost_usd Total cost in USD from scraper-reported costs")
+    lines.append("# TYPE jj_total_cost_usd counter")
+    lines.append(f"jj_total_cost_usd {round(float(total_cost_usd), 6)}")
+
+    # Average browser runtime
+    avg_browser_ms = (
+        db.query(func.avg(AnalysisRunItem.browser_runtime_ms))
+        .filter(AnalysisRunItem.browser_runtime_ms.isnot(None), AnalysisRunItem.browser_runtime_ms > 0)
+        .scalar()
+    )
+    lines.append("# HELP jj_avg_browser_runtime_ms Average browser runtime in ms (fallback strategies)")
+    lines.append("# TYPE jj_avg_browser_runtime_ms gauge")
+    lines.append(f"jj_avg_browser_runtime_ms {round(float(avg_browser_ms), 1) if avg_browser_ms else 0}")
+
     return "\n".join(lines) + "\n"

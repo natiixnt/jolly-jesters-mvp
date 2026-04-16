@@ -24,3 +24,14 @@ class AllegroResult:
     attempts: Optional[int] = None
     proxy_url_hash: Optional[str] = None
     proxy_success: Optional[bool] = None
+    # Robust fallback metadata
+    strategy: Optional[str] = None  # 'raw' | 'stealthPlaywright' | 'antidetectBrowser' | 'mobileFallback'
+    fallback_level: Optional[int] = None  # 0-3
+    proxy_type: Optional[str] = None  # 'residential' | 'mobile' | 'sticky' | 'datacenter'
+    antidetect_tool: Optional[str] = None  # 'kameleo' | 'camoufox' | 'octo' | 'gologin' | None
+    session_id: Optional[str] = None  # sticky proxy session ID
+    cost_breakdown: Optional[Dict[str, Any]] = None  # itemized costs
+    total_cost_usd: Optional[float] = None  # precise per-task cost in USD
+    browser_runtime_ms: Optional[int] = None  # browser runtime (0 for raw)
+    attempted_levels: Optional[list] = None  # which fallback levels were tried
+    level_errors: Optional[Dict[str, str]] = None  # errors per level

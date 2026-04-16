@@ -116,6 +116,23 @@ def _to_result(payload: dict) -> AllegroResult:
             scraped_at = datetime.fromisoformat(scraped_at_raw.replace("Z", "+00:00"))
         except Exception:
             scraped_at = None
+    # Parse robust fallback metadata (present in all results since worker.ts
+    # now attaches metadata to raw results too)
+    cost_breakdown = payload.get("cost_breakdown")
+    total_cost_usd = payload.get("total_cost_usd")
+    if total_cost_usd is not None:
+        try:
+            total_cost_usd = float(total_cost_usd)
+        except (TypeError, ValueError):
+            total_cost_usd = None
+
+    browser_runtime_ms = payload.get("browser_runtime_ms")
+    if browser_runtime_ms is not None:
+        try:
+            browser_runtime_ms = int(browser_runtime_ms)
+        except (TypeError, ValueError):
+            browser_runtime_ms = None
+
     return AllegroResult(
         ean=payload.get("ean") or "",
         status=status,
@@ -135,6 +152,17 @@ def _to_result(payload: dict) -> AllegroResult:
         proxy_url_hash=payload.get("proxyUrlHash"),
         proxy_success=payload.get("proxySuccess"),
         error=None,
+        # Robust fallback metadata
+        strategy=payload.get("strategy"),
+        fallback_level=payload.get("fallback_level"),
+        proxy_type=payload.get("proxy_type"),
+        antidetect_tool=payload.get("antidetect_tool"),
+        session_id=payload.get("session_id"),
+        cost_breakdown=cost_breakdown,
+        total_cost_usd=total_cost_usd,
+        browser_runtime_ms=browser_runtime_ms,
+        attempted_levels=payload.get("attempted_levels"),
+        level_errors=payload.get("level_errors"),
     )
 
 

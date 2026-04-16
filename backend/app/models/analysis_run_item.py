@@ -1,5 +1,5 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -39,6 +39,16 @@ class AnalysisRunItem(Base):
     attempts = Column(Integer, nullable=True, default=0)
     network_node_id = Column(String(64), nullable=True)
     provider_status = Column(String(32), nullable=True)
+
+    # -- robust fallback strategy fields --
+    strategy = Column(String(32), nullable=True)  # raw | stealthPlaywright | antidetectBrowser | mobileFallback
+    fallback_level = Column(Integer, nullable=True)  # 0-3
+    proxy_type = Column(String(16), nullable=True)  # residential | mobile | sticky | datacenter
+    antidetect_tool = Column(String(16), nullable=True)  # kameleo | camoufox | octo | gologin
+    session_id = Column(String(64), nullable=True)  # sticky proxy session ID
+    cost_breakdown = Column(JSON, nullable=True)  # itemized cost details
+    total_cost_usd = Column(Float, nullable=True)  # precise per-task cost in USD
+    browser_runtime_ms = Column(Integer, nullable=True)  # browser runtime (0 for raw)
 
     updated_at = Column(
         DateTime(timezone=True),

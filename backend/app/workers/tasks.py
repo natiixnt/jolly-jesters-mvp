@@ -218,6 +218,15 @@ def _apply_scraped_result(
         item.captcha_solves = result.captcha_solves
         item.retries = result.retries
         item.attempts = result.attempts
+        # -- robust fallback metadata --
+        item.strategy = result.strategy
+        item.fallback_level = result.fallback_level
+        item.proxy_type = result.proxy_type
+        item.antidetect_tool = result.antidetect_tool
+        item.session_id = result.session_id
+        item.cost_breakdown = result.cost_breakdown
+        item.total_cost_usd = result.total_cost_usd
+        item.browser_runtime_ms = result.browser_runtime_ms
         return
 
     if result.is_not_found:
@@ -266,6 +275,15 @@ def _apply_scraped_result(
     item.captcha_solves = result.captcha_solves
     item.retries = result.retries
     item.attempts = result.attempts
+    # -- robust fallback metadata --
+    item.strategy = result.strategy
+    item.fallback_level = result.fallback_level
+    item.proxy_type = result.proxy_type
+    item.antidetect_tool = result.antidetect_tool
+    item.session_id = result.session_id
+    item.cost_breakdown = result.cost_breakdown
+    item.total_cost_usd = result.total_cost_usd
+    item.browser_runtime_ms = result.browser_runtime_ms
 
 
 def _update_run_metadata(

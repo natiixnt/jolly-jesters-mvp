@@ -550,12 +550,26 @@ def get_run_metrics(db: Session, run_id: int) -> AnalysisRunMetrics | None:
     from app.core.config import get_settings
     settings = get_settings()
 
-    # Estimate GB transfer (rough: ~50KB per EAN request average)
-    gb_transfer_est = (processed * 50 / 1024 / 1024) if processed > 0 else 0
-    captcha_cost = (total_captcha / 1000) * settings.cost_rate_access_verification
-    network_cost = gb_transfer_est * settings.cost_rate_network_per_gb
-    total_cost = captcha_cost + network_cost
-    cost_per_1000 = round(total_cost / processed * 1000, 4) if processed > 0 else None
+    # Use scraper-reported per-task costs if available (robust fallback system),
+    # otherwise fall back to the legacy estimation formula.
+    scraper_reported_costs = [
+        i.total_cost_usd for i in items
+        if i.total_cost_usd is not None and i.total_cost_usd > 0
+    ]
+
+    if scraper_reported_costs:
+        # Convert USD to PLN (rough rate, or use settings if available)
+        usd_to_pln = getattr(settings, 'usd_to_pln_rate', 4.0)
+        total_cost_usd = sum(scraper_reported_costs)
+        total_cost = total_cost_usd * usd_to_pln
+        cost_per_1000 = round(total_cost / processed * 1000, 4) if processed > 0 else None
+    else:
+        # Legacy estimation: GB transfer + CAPTCHA
+        gb_transfer_est = (processed * 50 / 1024 / 1024) if processed > 0 else 0
+        captcha_cost = (total_captcha / 1000) * settings.cost_rate_access_verification
+        network_cost = gb_transfer_est * settings.cost_rate_network_per_gb
+        total_cost = captcha_cost + network_cost
+        cost_per_1000 = round(total_cost / processed * 1000, 4) if processed > 0 else None
 
     success_rate = round(completed / total, 4) if total > 0 else None
 
