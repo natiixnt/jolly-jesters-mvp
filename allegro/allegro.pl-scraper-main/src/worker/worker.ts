@@ -137,9 +137,9 @@ export class Worker {
                 const proxyTries = Math.min(Math.max(proxyCount(), 1), 50);
                 let result = null;
                 const tried = new Set<string>();
+                let rawCaptchaFailed = false;
 
                 for (let attempt = 0; attempt < proxyTries; attempt++) {
-                    // pick proxy (first: current instance, else next)
                     const proxy =
                         attempt === 0 ? getRandomProxy() : nextProxy(tried);
                     tried.add(proxy.toString());
@@ -157,9 +157,44 @@ export class Worker {
                     } catch (err) {
                         const msg = err instanceof Error ? err.message : String(err);
                         this.logger.log(`Proxy attempt ${attempt + 1}/${proxyTries} failed: ${msg}`);
+
+                        // If CAPTCHA solver fails, don't waste time on more proxy retries
+                        // Escalate to Playwright fallback immediately
+                        if (msg.includes('CAPTCHA_UNSOLVABLE') || msg.includes('INVALID_TASK_DATA') || msg.includes('CAPTCHA_SOLVE_FAILED')) {
+                            this.logger.log(`CAPTCHA solver failed, escalating to fallback`);
+                            rawCaptchaFailed = true;
+                            break;
+                        }
+
                         if (attempt === proxyTries - 1) throw err;
                         if (!isRetryableError(msg)) throw err;
                     }
+                }
+
+                // If CAPTCHA failed on raw, try Playwright fallback inline
+                if (rawCaptchaFailed && isFallbackAvailable()) {
+                    this.logger.log(`Trying Playwright fallback for EAN ${task.ean}`);
+                    const fallbackResult = await executeWithFallback({
+                        ean: task.ean,
+                        taskId: task.id,
+                        runId: task.runId,
+                        rawError: 'CAPTCHA solver failed on raw strategy',
+                    });
+                    this.taskQueue.markCompleted(taskId, fallbackResult as any);
+                    this.stats.recordTaskComplete(this.id, fallbackResult.durationMs);
+                    this.stats.recordFallbackSuccess(fallbackResult.strategy, fallbackResult.fallback_level);
+                    this.logger.activity(
+                        `EAN ${task.ean} rescued by ${fallbackResult.strategy} (L${fallbackResult.fallback_level}) in ${fallbackResult.durationMs}ms`,
+                        'success',
+                    );
+                    this.stats.adjustActiveTasks(this.id, -1);
+                    this.gateRelease();
+                    this.updateGate();
+                    continue;
+                }
+
+                if (rawCaptchaFailed) {
+                    throw new Error('CAPTCHA solver failed and no fallback available');
                 }
 
                 result.proxyUrlHash = proxyUrlHash(this.allegro.proxyUrl);
