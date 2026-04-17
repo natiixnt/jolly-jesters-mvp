@@ -20,24 +20,49 @@ _HOST_PORT_USER_PASS = re.compile(r'^([^:\s]+):(\d+):([^:\s]+):([^:\s]+)$')
 
 
 def _normalize_proxy_line(line: str) -> str:
-    """Convert host:port:user:pass to http://user:pass@host:port if needed.
-    Lines already in URL format (http://, socks5://, etc.) are returned as-is.
-    Plain host:port (no auth) gets http:// prefix."""
+    """Convert various proxy formats to proper URL format.
+
+    Supported input formats:
+      host:port:user:pass           -> http://user:pass@host:port
+      protocol://host:port:user:pass -> protocol://user:pass@host:port
+      protocol://user:pass@host:port -> as-is (already correct)
+      host:port                      -> http://host:port
+    """
     line = line.strip()
     if not line:
         return line
-    # Already a URL
-    if re.match(r'^(https?|socks[45])://', line):
-        return line
-    # host:port:user:pass
-    m = _HOST_PORT_USER_PASS.match(line)
-    if m:
-        host, port, user, passwd = m.groups()
-        return f'http://{user}:{passwd}@{host}:{port}'
-    # host:port (no auth)
-    if re.match(r'^[^:\s]+:\d+$', line):
-        return f'http://{line}'
-    return line
+
+    # Extract protocol prefix if present
+    protocol = 'http'
+    rest = line
+    proto_match = re.match(r'^(https?|socks[45])://(.*)', line)
+    if proto_match:
+        protocol = proto_match.group(1)
+        rest = proto_match.group(2)
+
+    # If rest already has @ sign, it's user:pass@host:port - already correct
+    if '@' in rest:
+        return f'{protocol}://{rest}'
+
+    # Try to parse as host:port:user:pass
+    # Split on : and figure out what we have
+    parts = rest.split(':')
+    if len(parts) == 4:
+        # host:port:user:pass
+        host, port, user, passwd = parts
+        return f'{protocol}://{user}:{passwd}@{host}:{port}'
+    if len(parts) == 2:
+        # host:port (no auth)
+        return f'{protocol}://{rest}'
+    if len(parts) > 4:
+        # host:port:user:pass_with_colons (password may contain colons)
+        host = parts[0]
+        port = parts[1]
+        user = parts[2]
+        passwd = ':'.join(parts[3:])  # rejoin remaining as password
+        return f'{protocol}://{user}:{passwd}@{host}:{port}'
+
+    return f'{protocol}://{rest}'
 
 
 def _normalize_proxy_data(data: bytes) -> bytes:
