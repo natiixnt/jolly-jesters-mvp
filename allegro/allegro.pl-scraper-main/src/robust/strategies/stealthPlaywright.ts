@@ -18,10 +18,9 @@
  */
 
 import { robustConfig } from '../config';
-import { getStickyProxy, stickyProxyHash, invalidateStickySession } from '../stickyProxy';
 import { attachCost } from '../costCalculator';
-import { AnySolver } from '@/utils/anysolver';
 import { config } from '@/config';
+import { getRandomProxy, proxyUrlHash } from '@/utils/proxy';
 import { parseAllegroListing } from '@/utils/parser';
 import type { ScopedLogger } from '@/utils/logger';
 import type { FetchStrategy, RobustFetchResult, RobustMetadata } from '../types';
@@ -44,7 +43,7 @@ async function loadPlaywright(): Promise<typeof import('playwright')> {
 }
 
 const USER_AGENT =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36';
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
 
 const ALLEGRO_LISTING_URL = 'https://allegro.pl/listing';
 
@@ -60,13 +59,11 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
     readonly level = 1 as const;
 
     private browser: any = null;
-    private anysolver: AnySolver;
     private logger: ScopedLogger;
     private cfg = robustConfig.STEALTH_PLAYWRIGHT;
 
     constructor(logger: ScopedLogger) {
         this.logger = logger.scoped('StealthPW');
-        this.anysolver = new AnySolver(config.ANYSOLVER_API_KEY, this.logger.scoped('AnySolver'));
     }
 
     async isAvailable(): Promise<boolean> {
@@ -79,155 +76,71 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
         }
     }
 
-    async fetch(ean: string, sessionHint?: string): Promise<RobustFetchResult> {
+    async fetch(ean: string, _sessionHint?: string): Promise<RobustFetchResult> {
         const start = performance.now();
         const meta: RobustMetadata = defaultMetadata('stealthPlaywright', 1);
-
-        // Get sticky residential proxy for this EAN
-        const { proxyUrl, sessionId, proxyType } = getStickyProxy(ean, 'sticky', sessionHint);
-        meta.proxy_type = proxyType;
-        meta.session_id = sessionId;
-
-        this.logger.log(`EAN ${ean} using sticky proxy session=${sessionId}`);
+        meta.proxy_type = 'residential';
 
         let lastError: Error | null = null;
-        let captchaSolves = 0;
-        let datadomeSolves = 0;
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-            const context = await this.createContext(proxyUrl);
+            // Pick a random proxy from the loaded pool (same as raw strategy)
+            const proxy = getRandomProxy();
+            const proxyStr = proxy.toString();
+            this.logger.log(`EAN ${ean} attempt ${attempt + 1} via Playwright`);
+
+            const context = await this.createContext(proxyStr);
             const page = await context.newPage();
 
             try {
-                // Inject canvas/WebGL noise before navigation
+                // Inject stealth patches before navigation
                 if (this.cfg.canvas_noise) {
                     await this.injectCanvasNoise(page);
                 }
 
-                // Navigate to Allegro listing
                 const url = `${ALLEGRO_LISTING_URL}?string=${ean}&order=p`;
-                this.logger.log(`Navigating to ${url} (attempt ${attempt + 1})`);
-
                 const response = await page.goto(url, {
                     waitUntil: 'domcontentloaded',
-                    timeout: 30_000,
+                    timeout: 40_000,
                 });
 
-                const status = response?.status() ?? 0;
                 const body = await page.content();
 
-                // Check for DataDome
-                if (body.includes('captcha-delivery.com')) {
-                    this.logger.log('DataDome detected, solving with proxy...');
-                    captchaSolves++;
-                    datadomeSolves++;
-
-                    const proxyParsed = new URL(proxyUrl);
-                    const solution = await this.anysolver.solve({
-                        type: 'DataDomeSliderToken',
-                        websiteURL: url,
-                        captchaUrl: this.extractDatadomeCaptchaUrl(body, url),
-                        userAgent: USER_AGENT,
-                        proxy: {
-                            type: proxyParsed.protocol.replace(':', ''),
-                            host: proxyParsed.hostname,
-                            port: Number(proxyParsed.port),
-                            username: decodeURIComponent(proxyParsed.username),
-                            password: decodeURIComponent(proxyParsed.password),
-                        },
-                    });
-
-                    // Set the DataDome cookie and reload
-                    const ddCookie = String(solution.datadome);
-                    const cookieParts = ddCookie.split(';')[0].split('=');
-                    await context.addCookies([{
-                        name: cookieParts[0] ?? 'datadome',
-                        value: cookieParts.slice(1).join('='),
-                        domain: '.allegro.pl',
-                        path: '/',
-                    }]);
-
-                    // Simulate human delay before retry
-                    await this.humanDelay();
-                    const retryResponse = await page.goto(url, {
-                        waitUntil: 'domcontentloaded',
-                        timeout: 30_000,
-                    });
-
-                    if (retryResponse?.status() !== 200) {
-                        throw new Error(`DataDome failed after solve, status=${retryResponse?.status()}`);
-                    }
+                // If DataDome or rate limiter detected, try different proxy
+                if (body.includes('captcha-delivery.com') || body.includes('allegrocaptcha.com')) {
+                    this.logger.log(`CAPTCHA detected on attempt ${attempt + 1}, rotating proxy`);
+                    throw new Error('CAPTCHA detected - rotating proxy');
                 }
 
-                // Check for Allegro rate limiter
-                const finalBody = await page.content();
-                if (finalBody.includes('allegrocaptcha.com')) {
-                    this.logger.log('Allegro rate limiter detected, solving ReCAPTCHA...');
-                    captchaSolves++;
-
-                    // Extract trace ID and solve
-                    const traceMatch = finalBody.match(
-                        /allegrocaptcha\.com\/captcha-frontend\/allegro\.pl\/([a-f0-9-]+)/,
-                    );
-                    if (!traceMatch) throw new Error('Could not extract trace ID from rate limiter');
-                    const traceId = traceMatch[1];
-
-                    // Use page to interact with the captcha (more natural)
-                    const siteKey = await this.extractSiteKeyFromPage(page, traceId);
-                    const proxyParsed = new URL(proxyUrl);
-                    const solution = await this.anysolver.solve({
-                        type: 'ReCaptchaV2EnterpriseToken',
-                        websiteURL: `https://allegrocaptcha.com/captcha-frontend/allegro.pl/${traceId}`,
-                        websiteKey: siteKey,
-                        proxy: {
-                            type: proxyParsed.protocol.replace(':', ''),
-                            host: proxyParsed.hostname,
-                            port: Number(proxyParsed.port),
-                            username: decodeURIComponent(proxyParsed.username),
-                            password: decodeURIComponent(proxyParsed.password),
-                        },
-                    });
-
-                    const token = String(solution.token ?? solution.gRecaptchaResponse ?? '');
-                    if (!token) throw new Error('No token in CAPTCHA solution');
-
-                    // Submit the solution via page navigation
-                    const responseToken = `recaptchaEnterprise-${token}`;
-                    await page.goto(
-                        `https://allegrocaptcha.com/captcha-frontend?responseToken=${encodeURIComponent(responseToken)}`,
-                        { waitUntil: 'domcontentloaded', timeout: 15_000 },
-                    );
-
-                    await this.humanDelay();
-                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+                // Check we got a real page (not error)
+                if ((response?.status() ?? 0) !== 200) {
+                    throw new Error(`Unexpected status: ${response?.status()}`);
                 }
 
-                // Human-like behavior: scroll and wait
+                // Human-like behavior
                 await this.simulateHumanBehavior(page);
 
-                // Extract final HTML and parse
+                // Extract and parse
                 const html = await page.content();
                 const parsed = parseAllegroListing(html, ean);
                 const durationMs = Math.round(performance.now() - start);
 
-                // Build result
                 const result: RobustFetchResult = {
                     ...parsed,
                     html,
                     durationMs,
                     scrapedAt: new Date().toISOString(),
-                    captchaSolves,
+                    captchaSolves: 0,
                     proxyAttempts: attempt + 1,
-                    proxyUrlHash: stickyProxyHash(proxyUrl),
+                    proxyUrlHash: proxyUrlHash(proxy),
                     proxySuccess: true,
                     ...meta,
                     browser_runtime_ms: durationMs,
                 };
 
-                // Calculate cost
                 attachCost(result, {
-                    captcha_solves: captchaSolves,
-                    datadome_solves: datadomeSolves,
+                    captcha_solves: 0,
+                    datadome_solves: 0,
                     browser_runtime_ms: durationMs,
                     estimated_kb: null,
                 });
@@ -236,15 +149,15 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
                 return result;
             } catch (err) {
                 lastError = err instanceof Error ? err : new Error(String(err));
-                this.logger.log(`Attempt ${attempt + 1} failed: ${lastError.message}`);
-
-                // If IP banned, invalidate the sticky session
-                if (lastError.message.includes('IP is banned') || lastError.message.includes('t=bv')) {
-                    invalidateStickySession(ean, 'sticky', sessionHint);
-                }
+                this.logger.log(`Playwright attempt ${attempt + 1} failed: ${lastError.message}`);
             } finally {
                 await page.close().catch(() => {});
                 await context.close().catch(() => {});
+            }
+
+            // Wait before retry with new proxy
+            if (attempt < MAX_RETRIES) {
+                await this.humanDelay(0.5);
             }
         }
 
@@ -375,7 +288,7 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
      * Simulate human-like page interaction.
      * Scrolls, moves mouse, waits random durations.
      */
-    private async simulateHumanBehavior(page: Page): Promise<void> {
+    private async simulateHumanBehavior(page: any): Promise<void> {
         const steps = this.cfg.scroll_steps;
 
         for (let i = 0; i < steps; i++) {
@@ -409,61 +322,4 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
         await new Promise((r) => setTimeout(r, delay));
     }
 
-    /**
-     * Extract the DataDome captcha URL from the response body.
-     */
-    private extractDatadomeCaptchaUrl(body: string, pageUrl: string): string {
-        const match = body.match(/var\s+dd\s*=\s*(\{[^}]+\})/);
-        if (!match) throw new Error('Could not extract dd config');
-        const dd = JSON.parse(match[1].replace(/'/g, '"'));
-
-        if (dd.t === 'bv') {
-            throw new Error('IP is banned by DataDome (t=bv)');
-        }
-
-        const isCaptcha = dd.rt === 'c';
-        const url = new URL(`https://${dd.host}${isCaptcha ? '/captcha/' : '/interstitial/'}`);
-        url.searchParams.set('initialCid', dd.cid);
-        url.searchParams.set('hash', dd.hsh);
-        url.searchParams.set('cid', dd.cookie);
-        url.searchParams.set('referer', pageUrl);
-        url.searchParams.set('s', String(dd.s));
-        url.searchParams.set('dm', 'cd');
-        if (dd.e) url.searchParams.set('e', dd.e);
-        if (isCaptcha && dd.t) url.searchParams.set('t', dd.t);
-        if (!isCaptcha && dd.b) url.searchParams.set('b', String(dd.b));
-
-        return url.toString();
-    }
-
-    /**
-     * Extract ReCAPTCHA site key by fetching the ticket from Allegro's edge API.
-     */
-    private async extractSiteKeyFromPage(page: Page, _traceId: string): Promise<string> {
-        // Fetch the ticket via the page's context (uses same cookies/proxy)
-        const ticketResponse = await page.evaluate(async () => {
-            const res = await fetch('https://edge.allegro.pl/captcha/tickets?clientName=rate-limiter', {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                    accept: 'application/vnd.allegro.public.v2+json',
-                    'accept-language': 'pl-PL',
-                },
-                body: '',
-            });
-            return res.text();
-        });
-
-        // Parse JWT to extract siteKey
-        const parts = ticketResponse.split('.');
-        if (parts.length !== 3) throw new Error('Invalid ticket JWT');
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-        const tt = JSON.parse(payload.tt);
-
-        if (tt.type !== 'RECAPTCHA_ENTERPRISE' || !tt.config?.siteKey) {
-            throw new Error(`Unsupported captcha type: ${tt.type}`);
-        }
-
-        return tt.config.siteKey;
-    }
 }

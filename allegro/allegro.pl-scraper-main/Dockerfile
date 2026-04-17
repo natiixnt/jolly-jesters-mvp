@@ -2,12 +2,22 @@ FROM node:20-bullseye-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
+# System deps for Playwright Chromium
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+    libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
+    libpango-1.0-0 libcairo2 libasound2 libxshmfence1 \
+    fonts-liberation xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml tsconfig.json tsdown.config.ts oxlint.json ./
 
 RUN npm install -g pnpm@10.28.2 \
     && pnpm install --frozen-lockfile
+
+# Install Playwright Chromium browser binary
+RUN npx playwright install chromium 2>/dev/null || true
 
 COPY src ./src
 
