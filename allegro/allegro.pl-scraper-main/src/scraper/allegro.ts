@@ -48,7 +48,7 @@ const moduleClient = new ModuleClient({
 const ANYSOLVER_API_KEY = config.ANYSOLVER_API_KEY;
 
 const USER_AGENT =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36';
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
 
 const MAX_DATADOME_RETRIES = 1;
 const HTML_DUMP_DIR = path.join(process.cwd(), 'html_dumps');
@@ -83,7 +83,7 @@ export default class Allegro {
         this.logger = logger;
         this.anysolver = new AnySolver(ANYSOLVER_API_KEY, logger.scoped('AnySolver'));
         this.client = new SessionClient(moduleClient, {
-            tlsClientIdentifier: 'chrome_133',
+            tlsClientIdentifier: 'chrome_131',
             retryIsEnabled: true,
             retryStatusCodes: [0],
             retryMaxCount: 2,
@@ -172,7 +172,7 @@ export default class Allegro {
         const res = await this.client.get(url, {
             headers: {
                 accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'sec-ch-ua': '"Google Chrome";v="133", "Chromium";v="133", "Not=A?Brand";v="24"',
+                'sec-ch-ua': '"Google Chrome";v="146", "Chromium";v="146", "Not=A?Brand";v="24"',
                 'sec-ch-ua-mobile': '?0',
                 'sec-ch-ua-platform': '"Windows"',
                 'sec-fetch-dest': 'document',
@@ -228,19 +228,20 @@ export default class Allegro {
         const dd = this.parseDatadomeConfig(body);
         const captchaUrl = this.buildDatadomeUrl(dd, pageUrl);
 
+        // Build proxy string: host:port:username:password (no protocol prefix)
+        const proxyString = [
+            this.proxy.hostname,
+            this.proxy.port,
+            decodeURIComponent(this.proxy.username),
+            decodeURIComponent(this.proxy.password),
+        ].join(':');
+
         this.logger.log('Solving DataDome:', dd.rt === 'c' ? 'captcha' : 'interstitial');
         const solution = await this.anysolver.solve({
-            type: 'DataDomeSliderToken',
-            websiteURL: pageUrl,
+            type: 'DatadomeSliderTask',
             captchaUrl,
             userAgent: USER_AGENT,
-            proxy: {
-                type: this.proxy.protocol.replace(':', ''),
-                host: this.proxy.hostname,
-                port: Number(this.proxy.port),
-                username: decodeURIComponent(this.proxy.username),
-                password: decodeURIComponent(this.proxy.password),
-            },
+            proxy: proxyString,
         });
 
         return this.parseCookie(String(solution.datadome));
