@@ -1768,31 +1768,32 @@
     ppInp?.addEventListener('change',()=>{setText($('pp-file-name'),ppInp?.files?.[0]?.name||'1 proxy na linie');});
     $('pp-upload-btn')?.addEventListener('click',async()=>{
       const f=ppInp?.files?.[0];if(!f){setText($('pp-upload-status'),'wybierz plik');return;}
-      // read and validate file contents before upload
-      const txt=await f.text();
-      const v=validateProxyLines(txt);
-      if(!v.ok){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),v.msg);return;}
       $('pp-upload-status').style.color='';
+      setText($('pp-upload-status'),'wysylanie...');
       const fd=new FormData();fd.append('file',f);
       try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
-        if(!r.ok)throw new Error(r.status);
-        const d=await r.json();
-        setText($('pp-upload-status'),`wgrano ${d.count||d.imported||v.lines.length} proxy`);
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok)throw new Error(d.detail||r.status);
+        $('pp-upload-status').style.color='rgb(var(--green))';
+        setText($('pp-upload-status'),`wgrano ${d.count||0} proxy (DB: +${d.db_imported||0})`);
         setText($('pp-file-name'),'1 proxy na linie');
         ppInp.value='';
-        loadProxyPool();
-      }catch(e){setText($('pp-upload-status'),'błąd uploadu');}
+        loadProxyPool();loadProxyList();
+      }catch(e){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),'blad: '+e.message);}
     });
-    // proxy format validation: host:port, host:port:user:pass, http://..., socks5://...
+    // proxy format validation: accepts most common formats
+    // host:port, host:port:user:pass, protocol://user:pass@host:port, protocol://host:port
     function validateProxyLines(txt){
       const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);
       if(!lines.length)return{ok:false,msg:'wklej przynajmniej 1 proxy'};
+      // Accept anything that looks like it has a host and port - backend does the real validation
       const bad=[];
-      const proxyRe=/^(https?:\/\/|socks[45]:\/\/)?([^:\s]+):(\d+)(:[^:\s]+:[^:\s]+)?$/;
       for(let i=0;i<lines.length;i++){
-        if(!proxyRe.test(lines[i]))bad.push(i+1);
+        const l=lines[i];
+        // Must contain at least host:port pattern somewhere
+        if(!/\d+/.test(l)||!/:/.test(l))bad.push(i+1);
       }
-      if(bad.length)return{ok:false,msg:`błędny format w liniach: ${bad.slice(0,5).join(', ')}${bad.length>5?' (+'+(bad.length-5)+')':''}. Poprawny: host:port lub host:port:user:pass`,lines};
+      if(bad.length)return{ok:false,msg:`błędny format w liniach: ${bad.slice(0,5).join(', ')}${bad.length>5?' (+'+(bad.length-5)+')':''}`,lines};
       return{ok:true,lines};
     }
     $('pp-paste-btn')?.addEventListener('click',async()=>{
@@ -1801,15 +1802,17 @@
       const v=validateProxyLines(txt);
       if(!v.ok){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),v.msg);return;}
       $('pp-upload-status').style.color='';
+      setText($('pp-upload-status'),'wysylanie...');
       const blob=new Blob([txt],{type:'text/plain'});
       const fd=new FormData();fd.append('file',new File([blob],'pasted.txt',{type:'text/plain'}));
       try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
-        if(!r.ok)throw new Error(r.status);
-        const d=await r.json();
-        setText($('pp-upload-status'),`dodano ${d.count||d.imported||v.lines.length} proxy`);
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok)throw new Error(d.detail||r.status);
+        $('pp-upload-status').style.color='rgb(var(--green))';
+        setText($('pp-upload-status'),`dodano ${d.count||0} proxy (DB: +${d.db_imported||0})`);
         $('pp-paste').value='';
-        loadProxyPool();
-      }catch(e){setText($('pp-upload-status'),'błąd uploadu');}
+        loadProxyPool();loadProxyList();
+      }catch(e){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),'blad: '+e.message);}
     });
 
     async function loadSettings(){try{const s=await apiGet('/api/v1/settings/');if($('cache-ttl-input'))$('cache-ttl-input').value=s.cache_ttl_days;if($('sl-error-rate'))$('sl-error-rate').value=Math.round((s.stoploss_max_error_rate||.5)*100);if($('sl-captcha-rate'))$('sl-captcha-rate').value=Math.round((s.stoploss_max_captcha_rate||.8)*100);if($('sl-window'))$('sl-window').value=s.stoploss_window_size||20;if($('sl-consec'))$('sl-consec').value=s.stoploss_max_consecutive_errors||10;if($('sl-retry-rate'))$('sl-retry-rate').value=Math.round((s.stoploss_max_retry_rate||.3)*100);if($('sl-blocked-rate'))$('sl-blocked-rate').value=Math.round((s.stoploss_max_blocked_rate||.2)*100);if($('sl-cost-per-1000'))$('sl-cost-per-1000').value=s.stoploss_max_cost_per_1000||5;}catch(e){}loadCategories();loadProxyStatus();loadCurrencies();}
