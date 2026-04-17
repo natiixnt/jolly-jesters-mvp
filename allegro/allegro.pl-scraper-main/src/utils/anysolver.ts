@@ -67,11 +67,13 @@ export class AnySolver {
     }
 
     async solve(task: Record<string, unknown>, interval = 3000, maxRetries = 3): Promise<Record<string, unknown>> {
+        const SOLVE_TIMEOUT_MS = 30_000; // 30s max per attempt
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 const taskId = await this.createTask(task);
-                this.logger.log('Polling every', interval, 'ms (attempt', attempt, 'of', maxRetries + ')');
-                while (true) {
+                this.logger.log('Polling every', interval, 'ms (attempt', attempt, 'of', maxRetries, ') timeout', SOLVE_TIMEOUT_MS, 'ms');
+                const deadline = Date.now() + SOLVE_TIMEOUT_MS;
+                while (Date.now() < deadline) {
                     await new Promise((r) => setTimeout(r, interval));
                     const result = await this.getTaskResult(taskId);
                     if (result.status === 'ready') {
@@ -82,6 +84,7 @@ export class AnySolver {
                         throw new Error(`Task failed: ${result.errorCode ?? 'unknown'}`);
                     }
                 }
+                throw new Error('CAPTCHA_UNSOLVABLE: solver timeout after ' + SOLVE_TIMEOUT_MS + 'ms');
             } catch (error) {
                 this.logger.log('Attempt', attempt, 'failed:', error);
                 if (attempt === maxRetries) {
