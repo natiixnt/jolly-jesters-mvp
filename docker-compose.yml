@@ -49,6 +49,9 @@ services:
       - MAX_PENDING_TASKS=${SCRAPER_MAX_PENDING_TASKS:-100}
       - PROXIES_FILE=${SCRAPER_PROXIES_FILE:-/workspace/data/proxies.txt}
       - ANYSOLVER_API_KEY=${ANYSOLVER_API_KEY:-dummy}
+      - DEBUG=${SCRAPER_DEBUG:-false}
+      - ENABLE_ROBUST_FALLBACK=${ENABLE_ROBUST_FALLBACK:-false}
+      - CAPTCHA_PROVIDER=${CAPTCHA_PROVIDER:-TwoCaptcha}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
       interval: 15s
