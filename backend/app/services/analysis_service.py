@@ -552,10 +552,14 @@ def get_run_metrics(db: Session, run_id: int) -> AnalysisRunMetrics | None:
 
     # Use scraper-reported per-task costs if available (robust fallback system),
     # otherwise fall back to the legacy estimation formula.
-    scraper_reported_costs = [
-        i.total_cost_usd for i in items
-        if i.total_cost_usd is not None and i.total_cost_usd > 0
-    ]
+    scraper_reported_costs = []
+    for i in items:
+        try:
+            cost = getattr(i, 'total_cost_usd', None)
+            if cost is not None and isinstance(cost, (int, float)) and cost > 0:
+                scraper_reported_costs.append(cost)
+        except (TypeError, AttributeError):
+            pass
 
     if scraper_reported_costs:
         # Convert USD to PLN (rough rate, or use settings if available)
