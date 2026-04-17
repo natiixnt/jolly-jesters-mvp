@@ -238,8 +238,8 @@ export default class Allegro {
                 type: this.proxy.protocol.replace(':', ''),
                 host: this.proxy.hostname,
                 port: Number(this.proxy.port),
-                username: this.proxy.username,
-                password: this.proxy.password,
+                username: decodeURIComponent(this.proxy.username),
+                password: decodeURIComponent(this.proxy.password),
             },
         });
 
