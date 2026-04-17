@@ -32,8 +32,9 @@ export class AnySolver {
         this.clientKey = clientKey;
         this.logger = logger;
         this.client = new Pool('https://api.anysolver.io');
-        // 2Captcha has better DataDome support on Allegro as of April 2026
-        this.provider = process.env.CAPTCHA_PROVIDER || '2Captcha';
+        // TwoCaptcha has better DataDome support on Allegro as of April 2026
+        // AnySolver provider names: 'CapSolver' | 'TwoCaptcha'
+        this.provider = process.env.CAPTCHA_PROVIDER || 'TwoCaptcha';
     }
 
     private async post<T>(path: string, body: Record<string, unknown>): Promise<T> {
