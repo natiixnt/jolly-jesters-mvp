@@ -26,9 +26,6 @@
 import { robustConfig } from './config';
 import { classifyError } from './errorClassifier';
 import { withSlot } from './concurrencyLimiter';
-import { StealthPlaywrightStrategy } from './strategies/stealthPlaywright';
-import { AntidetectBrowserStrategy } from './strategies/antidetectBrowser';
-import { MobileFallbackStrategy } from './strategies/mobileFallback';
 import type { FetchStrategy, RobustFetchResult, FallbackLevel, RobustMetadata } from './types';
 import { defaultMetadata } from './types';
 import type { ScopedLogger } from '@/utils/logger';
@@ -42,8 +39,10 @@ let chainLogger: ScopedLogger | null = null;
 
 /**
  * Initialize the fallback chain. Call once at startup.
+ * Uses dynamic imports so that playwright/camoufox are only loaded
+ * when the fallback is actually enabled (avoids bundler errors).
  */
-export function initFallbackChain(logger: ScopedLogger): void {
+export async function initFallbackChain(logger: ScopedLogger): Promise<void> {
     chainLogger = logger.scoped('FallbackChain');
 
     const levels = robustConfig.FALLBACK_LEVELS;
@@ -55,17 +54,27 @@ export function initFallbackChain(logger: ScopedLogger): void {
     for (const level of levels) {
         if (!level.enabled) continue;
 
-        switch (level.name) {
-            case 'stealthPlaywright':
-                strategies.push(new StealthPlaywrightStrategy(chainLogger));
-                break;
-            case 'antidetectBrowser':
-                strategies.push(new AntidetectBrowserStrategy(chainLogger));
-                break;
-            case 'mobileFallback':
-                strategies.push(new MobileFallbackStrategy(chainLogger));
-                break;
-            // 'raw' is skipped - handled by worker
+        try {
+            switch (level.name) {
+                case 'stealthPlaywright': {
+                    const { StealthPlaywrightStrategy } = await import('./strategies/stealthPlaywright');
+                    strategies.push(new StealthPlaywrightStrategy(chainLogger));
+                    break;
+                }
+                case 'antidetectBrowser': {
+                    const { AntidetectBrowserStrategy } = await import('./strategies/antidetectBrowser');
+                    strategies.push(new AntidetectBrowserStrategy(chainLogger));
+                    break;
+                }
+                case 'mobileFallback': {
+                    const { MobileFallbackStrategy } = await import('./strategies/mobileFallback');
+                    strategies.push(new MobileFallbackStrategy(chainLogger));
+                    break;
+                }
+                // 'raw' is skipped - handled by worker
+            }
+        } catch (err) {
+            chainLogger.log(`Skipping ${level.name}: failed to load - ${(err as Error).message}`);
         }
     }
 

@@ -17,7 +17,6 @@
  *   - playwright (chromium)
  */
 
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { robustConfig } from '../config';
 import { getStickyProxy, stickyProxyHash, invalidateStickySession } from '../stickyProxy';
 import { attachCost } from '../costCalculator';
@@ -31,6 +30,18 @@ import { defaultMetadata } from '../types';
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
+
+// Lazy-load playwright to avoid bundler errors when it's not installed
+let pw: typeof import('playwright') | null = null;
+async function loadPlaywright(): Promise<typeof import('playwright')> {
+    if (pw) return pw;
+    try {
+        pw = await import('playwright');
+        return pw;
+    } catch {
+        throw new Error('playwright package not installed. Run: pnpm add playwright');
+    }
+}
 
 const USER_AGENT =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36';
@@ -48,7 +59,7 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
     readonly name = 'stealthPlaywright' as const;
     readonly level = 1 as const;
 
-    private browser: Browser | null = null;
+    private browser: any = null;
     private anysolver: AnySolver;
     private logger: ScopedLogger;
     private cfg = robustConfig.STEALTH_PLAYWRIGHT;
@@ -60,7 +71,7 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
 
     async isAvailable(): Promise<boolean> {
         try {
-            // Check that playwright chromium binary exists
+            const { chromium } = await loadPlaywright();
             const execPath = chromium.executablePath();
             return !!execPath;
         } catch {
@@ -251,7 +262,7 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
     // Private helpers
     // -----------------------------------------------------------------------
 
-    private async createContext(proxyUrl: string): Promise<BrowserContext> {
+    private async createContext(proxyUrl: string): Promise<any> {
         const proxy = new URL(proxyUrl);
         const browser = await this.ensureBrowser();
 
@@ -278,9 +289,10 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
         });
     }
 
-    private async ensureBrowser(): Promise<Browser> {
+    private async ensureBrowser(): Promise<any> {
         if (!this.browser || !this.browser.isConnected()) {
             this.logger.log('Launching Chromium (stealth mode)...');
+            const { chromium } = await loadPlaywright();
             this.browser = await chromium.launch({
                 headless: this.cfg.headless,
                 args: [
@@ -303,7 +315,7 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
      * Inject canvas/WebGL fingerprint noise into the page.
      * Adds subtle random offsets to canvas operations to break fingerprinting.
      */
-    private async injectCanvasNoise(page: Page): Promise<void> {
+    private async injectCanvasNoise(page: any): Promise<void> {
         await page.addInitScript(() => {
             // Randomize canvas toDataURL output
             const origToDataURL = HTMLCanvasElement.prototype.toDataURL;

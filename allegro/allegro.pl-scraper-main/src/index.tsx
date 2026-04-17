@@ -44,8 +44,11 @@ try {
 // Initialize the robust fallback chain (if enabled)
 if (robustConfig.ENABLE_ROBUST_FALLBACK) {
     serverLog.log('Robust fallback system ENABLED - initializing strategies...');
-    initFallbackChain(logger.scoped('Robust'));
-    serverLog.log(`Fallback levels: ${robustConfig.FALLBACK_LEVELS.filter((l) => l.enabled).map((l) => l.name).join(' -> ')}`);
+    initFallbackChain(logger.scoped('Robust')).then(() => {
+        serverLog.log(`Fallback levels: ${robustConfig.FALLBACK_LEVELS.filter((l) => l.enabled).map((l) => l.name).join(' -> ')}`);
+    }).catch((err) => {
+        serverLog.log(`Fallback init failed: ${(err as Error).message}`);
+    });
 } else {
     serverLog.log('Robust fallback system disabled (set ENABLE_ROBUST_FALLBACK=true to enable)');
 }
