@@ -35,8 +35,10 @@ const SEVERE_BLOCK_PATTERNS = [
     'blocked_rate exceeded',
     'Access denied',
     'Forbidden',
-    // Multiple consecutive CAPTCHA failures indicate fingerprint detection
+    // CAPTCHA solver failures - must escalate to browser-based fallback
     'CAPTCHA_SOLVE_FAILED',
+    'CAPTCHA_UNSOLVABLE',
+    'INVALID_TASK_DATA',
     'max_soft_retries',
 ];
 

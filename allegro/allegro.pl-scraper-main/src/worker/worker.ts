@@ -178,10 +178,12 @@ export class Worker {
                 this.logger.log(`Raw error EAN ${task.ean}: ${msg}`);
 
                 // -------------------------------------------------------
-                // ROBUST FALLBACK: if raw failed with a severe block and
-                // the fallback chain is enabled, try browser strategies
+                // ROBUST FALLBACK: if raw failed with a severe block or
+                // CAPTCHA failure, try browser strategies immediately
+                // (don't waste time on retries that will also fail)
                 // -------------------------------------------------------
-                if (isFallbackAvailable() && isSevereBlock(msg)) {
+                const isCaptchaFailure = msg.includes('CAPTCHA_UNSOLVABLE') || msg.includes('INVALID_TASK_DATA') || msg.includes('CAPTCHA_SOLVE_FAILED');
+                if (isFallbackAvailable() && (isSevereBlock(msg) || isCaptchaFailure)) {
                     this.logger.log(`Escalating EAN ${task.ean} to fallback chain`);
                     try {
                         const fallbackResult = await executeWithFallback({
