@@ -228,20 +228,19 @@ export default class Allegro {
         const dd = this.parseDatadomeConfig(body);
         const captchaUrl = this.buildDatadomeUrl(dd, pageUrl);
 
-        // Build proxy string: host:port:username:password (no protocol prefix)
-        const proxyString = [
-            this.proxy.hostname,
-            this.proxy.port,
-            decodeURIComponent(this.proxy.username),
-            decodeURIComponent(this.proxy.password),
-        ].join(':');
-
         this.logger.log('Solving DataDome:', dd.rt === 'c' ? 'captcha' : 'interstitial');
         const solution = await this.anysolver.solve({
-            type: 'DatadomeSliderTask',
+            type: 'DataDomeSliderToken',
+            websiteURL: pageUrl,
             captchaUrl,
             userAgent: USER_AGENT,
-            proxy: proxyString,
+            proxy: {
+                type: this.proxy.protocol.replace(':', ''),
+                host: this.proxy.hostname,
+                port: Number(this.proxy.port),
+                username: decodeURIComponent(this.proxy.username),
+                password: decodeURIComponent(this.proxy.password),
+            },
         });
 
         return this.parseCookie(String(solution.datadome));
