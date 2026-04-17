@@ -58,9 +58,15 @@ def import_from_csv(db: Session, data: bytes) -> Dict:
     skipped = 0
     for line in lines:
         # support CSV with columns: url,label or just url per line
-        parts = line.split(",", 1)
-        url = parts[0].strip()
-        label = parts[1].strip() if len(parts) > 1 else None
+        # but don't split URLs that contain commas (e.g. in proxy credentials)
+        if '://' in line and '@' in line:
+            # Looks like a full proxy URL - don't split on comma
+            url = line.strip()
+            label = None
+        else:
+            parts = line.split(",", 1)
+            url = parts[0].strip()
+            label = parts[1].strip() if len(parts) > 1 else None
 
         if not url:
             skipped += 1
