@@ -26,21 +26,24 @@ export class AnySolver {
     private client: Pool;
     private clientKey: string;
     private logger: ScopedLogger;
+    private provider: string;
 
     constructor(clientKey: string, logger: ScopedLogger) {
         this.clientKey = clientKey;
         this.logger = logger;
         this.client = new Pool('https://api.anysolver.io');
+        // 2Captcha has better DataDome support on Allegro as of April 2026
+        this.provider = process.env.CAPTCHA_PROVIDER || '2Captcha';
     }
 
     private async post<T>(path: string, body: Record<string, unknown>): Promise<T> {
-        this.logger.log('POST', path);
+        this.logger.log('POST', path, `[${this.provider}]`);
 
         const res = await this.client.request({
             method: 'POST',
             path,
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ clientKey: this.clientKey, ...body, provider: 'CapSolver' }),
+            body: JSON.stringify({ clientKey: this.clientKey, ...body, provider: this.provider }),
         });
         const data = (await res.body.json()) as T & AnySolverError;
         if (data.errorId !== 0) {
