@@ -229,6 +229,7 @@ export default class Allegro {
         const captchaUrl = this.buildDatadomeUrl(dd, pageUrl);
 
         this.logger.log('Solving DataDome:', dd.rt === 'c' ? 'captcha' : 'interstitial');
+        // Single attempt with 30s timeout - if it fails, fallback chain takes over
         const solution = await this.anysolver.solve({
             type: 'DataDomeSliderToken',
             websiteURL: pageUrl,
@@ -241,7 +242,7 @@ export default class Allegro {
                 username: decodeURIComponent(this.proxy.username),
                 password: decodeURIComponent(this.proxy.password),
             },
-        });
+        }, 3000, 1);
 
         return this.parseCookie(String(solution.datadome));
     }
@@ -324,7 +325,7 @@ export default class Allegro {
             websiteKey: siteKey,
             pageTitle: 'Captcha',
             enterprisePayload: {},
-        });
+        }, 3000, 1);
         const token = solution.token ?? solution.gRecaptchaResponse;
         if (!token) throw new Error('No token in solution');
         return String(token);
