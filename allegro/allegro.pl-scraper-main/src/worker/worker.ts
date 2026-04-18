@@ -160,7 +160,7 @@ export class Worker {
 
                         // If CAPTCHA solver fails, don't waste time on more proxy retries
                         // Escalate to Playwright fallback immediately
-                        if (msg.includes('CAPTCHA_UNSOLVABLE') || msg.includes('INVALID_TASK_DATA') || msg.includes('CAPTCHA_SOLVE_FAILED')) {
+                        if (msg.includes('CAPTCHA_UNSOLVABLE') || msg.includes('INVALID_TASK_DATA') || msg.includes('CAPTCHA_SOLVE_FAILED') || msg.includes('DataDome failed')) {
                             this.logger.log(`CAPTCHA solver failed, escalating to fallback`);
                             rawCaptchaFailed = true;
                             break;
@@ -217,7 +217,7 @@ export class Worker {
                 // CAPTCHA failure, try browser strategies immediately
                 // (don't waste time on retries that will also fail)
                 // -------------------------------------------------------
-                const isCaptchaFailure = msg.includes('CAPTCHA_UNSOLVABLE') || msg.includes('INVALID_TASK_DATA') || msg.includes('CAPTCHA_SOLVE_FAILED');
+                const isCaptchaFailure = msg.includes('CAPTCHA_UNSOLVABLE') || msg.includes('INVALID_TASK_DATA') || msg.includes('CAPTCHA_SOLVE_FAILED') || msg.includes('DataDome failed');
                 if (isFallbackAvailable() && (isSevereBlock(msg) || isCaptchaFailure)) {
                     this.logger.log(`Escalating EAN ${task.ean} to fallback chain`);
                     try {
