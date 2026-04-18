@@ -50,7 +50,9 @@ const ANYSOLVER_API_KEY = config.ANYSOLVER_API_KEY;
 const USER_AGENT =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
 
-const MAX_DATADOME_RETRIES = 1;
+// When fallback chain is enabled, don't waste time on CAPTCHA solving in raw
+// strategy - let the fallback handle it with a real browser instead
+const MAX_DATADOME_RETRIES = (process.env.ENABLE_ROBUST_FALLBACK === 'true') ? 0 : 1;
 const HTML_DUMP_DIR = path.join(process.cwd(), 'html_dumps');
 fs.mkdirSync(HTML_DUMP_DIR, { recursive: true });
 
