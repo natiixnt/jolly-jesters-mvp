@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { AnySolver } from '@/utils/anysolver';
+import { curlGet, isCurlAvailable } from '@/utils/curlClient';
 import setCookieParser from 'set-cookie-parser';
 import { parseAllegroListing, type AllegroSearchResult } from '@/utils/parser';
 import type { ScopedLogger } from '@/utils/logger';
@@ -124,6 +125,24 @@ export default class Allegro {
         const start = performance.now();
         const pageUrl = `https://allegro.pl/listing?string=${ean}&order=p`;
 
+        // Strategy 1: curl-impersonate (Chrome 146 TLS fingerprint)
+        // This bypasses DataDome without needing to solve CAPTCHA
+        if (isCurlAvailable()) {
+            try {
+                const curlRes = await curlGet(pageUrl, this.proxy.toString());
+                if (curlRes.status === 200 && !curlRes.body.includes('captcha-delivery.com') && !curlRes.body.includes('allegrocaptcha.com')) {
+                    this.logger.log('Page loaded via curl-impersonate');
+                    const scrapedAt = new Date().toISOString();
+                    dumpHtml(ean, `curl_ok_${curlRes.status}`, curlRes.body);
+                    return this.buildResult(curlRes.body, ean, scrapedAt, start, 0);
+                }
+                this.logger.log(`curl-impersonate got status=${curlRes.status}, falling back to TLS client`);
+            } catch (err) {
+                this.logger.log(`curl-impersonate failed: ${(err as Error).message}, falling back`);
+            }
+        }
+
+        // Strategy 2: TLS client (original method with CAPTCHA solving)
         let res = await this.request(pageUrl);
         let cookies = this.extractCookies(res);
         let datadomeAttempts = 0;
@@ -134,7 +153,6 @@ export default class Allegro {
 
             const isDatadome = res.body.includes('captcha-delivery.com');
             const isAllegroCaptcha = res.body.includes('allegrocaptcha.com');
-            // dump every non-200 response for debugging
             dumpHtml(ean, `resp_${res.status}_${datadomeAttempts}`, res.body);
 
             if ((res.status === 403 || res.status === 200) && isDatadome) {
@@ -165,7 +183,6 @@ export default class Allegro {
 
         this.logger.log('Page loaded');
         const scrapedAt = new Date().toISOString();
-        // dump first successful response for debugging
         dumpHtml(ean, `ok_${res.status}`, res.body);
         return this.buildResult(res.body, ean, scrapedAt, start, captchaSolves);
     }
