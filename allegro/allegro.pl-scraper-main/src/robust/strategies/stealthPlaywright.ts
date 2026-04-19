@@ -207,16 +207,18 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
             this.logger.log('Launching Chromium (stealth mode)...');
             const { chromium } = await loadPlaywright();
             this.browser = await chromium.launch({
-                headless: this.cfg.headless,
+                // 'shell' headless mode has a more realistic TLS fingerprint
+                // than the default 'new' headless which DataDome detects
+                headless: true,
                 args: [
+                    '--headless=old',
                     '--disable-blink-features=AutomationControlled',
                     '--disable-features=IsolateOrigins,site-per-process',
-                    '--disable-web-security',
                     '--no-first-run',
                     '--no-default-browser-check',
                     '--disable-extensions',
                     '--disable-dev-shm-usage',
-                    // Realistic window size
+                    '--disable-gpu',
                     `--window-size=${this.cfg.viewport_width},${this.cfg.viewport_height}`,
                 ],
             });
