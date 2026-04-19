@@ -52,12 +52,18 @@ services:
       - DEBUG=${SCRAPER_DEBUG:-false}
       - ENABLE_ROBUST_FALLBACK=${ENABLE_ROBUST_FALLBACK:-false}
       - CAPTCHA_PROVIDER=${CAPTCHA_PROVIDER:-TwoCaptcha}
+      - LD_LIBRARY_PATH=/opt/curl-impersonate
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
       interval: 15s
       timeout: 7s
       retries: 5
       start_period: 20s
+    # Use host networking so curl-impersonate goes through same IP as host
+    # (Docker bridge NAT changes source IP which triggers DataDome)
+    network_mode: "host"
+    extra_hosts:
+      - "allegro_scraper:127.0.0.1"
     volumes:
       - ./workspace_data:/workspace
 
