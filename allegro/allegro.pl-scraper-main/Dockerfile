@@ -16,8 +16,8 @@ COPY package.json pnpm-lock.yaml tsconfig.json tsdown.config.ts oxlint.json ./
 RUN npm install -g pnpm@10.28.2 \
     && pnpm install --frozen-lockfile
 
-# Install Playwright Chromium with system dependencies
-RUN npx playwright install --with-deps chromium 2>/dev/null || true
+# Install Playwright Firefox (better TLS fingerprint, harder for DataDome to detect)
+RUN npx playwright install --with-deps firefox 2>/dev/null || true
 
 COPY src ./src
 

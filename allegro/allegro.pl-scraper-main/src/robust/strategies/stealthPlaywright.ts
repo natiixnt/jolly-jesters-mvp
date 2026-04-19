@@ -204,23 +204,15 @@ export class StealthPlaywrightStrategy implements FetchStrategy {
 
     private async ensureBrowser(): Promise<any> {
         if (!this.browser || !this.browser.isConnected()) {
-            this.logger.log('Launching Chromium (stealth mode)...');
-            const { chromium } = await loadPlaywright();
-            this.browser = await chromium.launch({
-                // 'shell' headless mode has a more realistic TLS fingerprint
-                // than the default 'new' headless which DataDome detects
+            // Firefox has a completely different TLS fingerprint than Chromium
+            // and is much harder for DataDome to detect in headless mode
+            this.logger.log('Launching Firefox (stealth mode)...');
+            const { firefox } = await loadPlaywright();
+            this.browser = await firefox.launch({
                 headless: true,
-                args: [
-                    '--headless=old',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-features=IsolateOrigins,site-per-process',
-                    '--no-first-run',
-                    '--no-default-browser-check',
-                    '--disable-extensions',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    `--window-size=${this.cfg.viewport_width},${this.cfg.viewport_height}`,
-                ],
+                firefoxUserPrefs: {
+                    'general.useragent.override': USER_AGENT,
+                },
             });
         }
         return this.browser;
