@@ -40,8 +40,15 @@ def _normalize_proxy_line(line: str) -> str:
         protocol = proto_match.group(1)
         rest = proto_match.group(2)
 
-    # If rest already has @ sign, it's user:pass@host:port - already correct
+    # If rest already has @ sign, it's user:pass@host:port
+    # URL-encode commas in password (tlsclientwrapper can't parse raw commas)
     if '@' in rest:
+        from urllib.parse import quote
+        auth_part, host_part = rest.rsplit('@', 1)
+        if ':' in auth_part:
+            user, passwd = auth_part.split(':', 1)
+            passwd = quote(passwd, safe='')
+            return f'{protocol}://{user}:{passwd}@{host_part}'
         return f'{protocol}://{rest}'
 
     # Try to parse as host:port:user:pass
