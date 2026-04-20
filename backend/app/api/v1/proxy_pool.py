@@ -102,6 +102,30 @@ def quarantine(proxy_id: int, body: NetworkProxyQuarantineRequest, db: Session =
     return proxy
 
 
+@router.delete("/clear")
+def clear_all_proxies(db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
+    """Delete all proxies from DB and clear the proxy file."""
+    from app.models.network_proxy import NetworkProxy
+    count = db.query(NetworkProxy).count()
+    db.query(NetworkProxy).delete()
+    db.commit()
+    # Clear proxy file
+    try:
+        from app.services import proxy_service
+        from pathlib import Path
+        path = proxy_service._target_path()
+        path.write_text("", encoding="utf-8")
+    except Exception:
+        pass
+    # Reload scraper (will have 0 proxies)
+    try:
+        from app.utils.allegro_scraper_client import reload_scraper_proxies
+        reload_scraper_proxies()
+    except Exception:
+        pass
+    return {"status": "ok", "deleted": count}
+
+
 @router.delete("/{proxy_id}/quarantine", response_model=NetworkProxyOut)
 def unquarantine(proxy_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     proxy = proxy_pool_service.unquarantine_proxy(db, proxy_id)
