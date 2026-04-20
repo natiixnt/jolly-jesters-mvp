@@ -142,6 +142,15 @@ def quarantine_proxy(
         duration_minutes = _quarantine_minutes()
     proxy.quarantine_until = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
     proxy.quarantine_reason = reason
+
+    # Auto-deactivate proxy after too many failures (3+ quarantines worth)
+    # 15 fails = 3 quarantines (5 consecutive fails each) + very low health
+    if proxy.fail_count >= 15 and proxy.health_score < Decimal("0.3"):
+        proxy.is_active = False
+        proxy.quarantine_reason = f"dead: {proxy.fail_count} fails, health={proxy.health_score}"
+        logger.warning("PROXY_DEAD id=%s url_hash=%s fails=%s health=%s",
+                       proxy.id, proxy.url_hash, proxy.fail_count, proxy.health_score)
+
     db.commit()
     return proxy
 
@@ -173,9 +182,12 @@ def get_health_summary(db: Session) -> Dict:
     total_success = db.query(func.sum(NetworkProxy.success_count)).scalar() or 0
     total_fail = db.query(func.sum(NetworkProxy.fail_count)).scalar() or 0
 
+    dead = db.query(func.count(NetworkProxy.id)).filter(NetworkProxy.is_active.is_(False)).scalar() or 0
+
     return {
         "total": total,
         "active": active,
+        "dead": dead,
         "quarantined": quarantined,
         "available": active - quarantined,
         "avg_health_score": round(float(avg_health), 4) if avg_health else None,

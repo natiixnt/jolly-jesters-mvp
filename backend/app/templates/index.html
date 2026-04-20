@@ -1553,7 +1553,7 @@
           setText($('ds-cost-detail'),`z ${costData.length} analiz, ${costData.reduce((a,d)=>a+d.eans,0)} EAN`);
         }else{
           setText($('ds-cost-1k'),'-');
-          setText($('ds-cost-detail'),'brak danych');
+          setText($('ds-cost-detail'),'brak danych - uruchom analizę');
         }
 
         // Cost chart
@@ -1603,11 +1603,14 @@
         const q=h.quarantined||0;
         setText($('ds-proxy'),active);
         const avgH=h.avg_health_score??1;
+        const dead=h.dead||0;
         const qPct=h.total>0?Math.round(q/h.total*100):0;
+        const deadPct=h.total>0?Math.round(dead/h.total*100):0;
         let proxyMsg=`health: ${typeof avgH==='number'?avgH.toFixed(2):avgH}`;
-        if(q>0)proxyMsg+=` | ${q} kwarantanna (${qPct}%)`;
-        if(avgH<0.5){proxyMsg='WYMIEN PROXY - health: '+avgH.toFixed(2);$('ds-proxy-health').style.color='rgb(var(--red))';}
-        else if(avgH<0.8||qPct>20){proxyMsg='Uwaga: '+proxyMsg;$('ds-proxy-health').style.color='rgb(var(--amber))';}
+        if(dead>0)proxyMsg+=` | ${dead} martwych (${deadPct}%)`;
+        if(q>0)proxyMsg+=` | ${q} kwarantanna`;
+        if(avgH<0.5||deadPct>30){proxyMsg='⚠ WYMIEŃ PROXY! health: '+avgH.toFixed(2)+(dead>0?`, ${dead} martwych`:'');$('ds-proxy-health').style.color='rgb(var(--red))';}
+        else if(avgH<0.8||qPct>20||deadPct>10){proxyMsg='Uwaga: '+proxyMsg;$('ds-proxy-health').style.color='rgb(var(--amber))';}
         else{$('ds-proxy-health').style.color='';}
         setText($('ds-proxy-health'),proxyMsg);
       }catch(e){setText($('ds-proxy'),'0');}
@@ -1773,9 +1776,9 @@
     ppDz?.addEventListener('drop',e=>{e.preventDefault();ppDz.style.borderColor='';if(e.dataTransfer.files[0]){ppInp.files=e.dataTransfer.files;setText($('pp-file-name'),ppInp.files[0].name);}});
     ppInp?.addEventListener('change',()=>{setText($('pp-file-name'),ppInp?.files?.[0]?.name||'1 proxy na linie');});
     $('pp-upload-btn')?.addEventListener('click',async()=>{
-      const f=ppInp?.files?.[0];if(!f){setText($('pp-upload-status'),'wybierz plik');return;}
+      const f=ppInp?.files?.[0];if(!f){setText($('pp-upload-status'),'wybierz plik!');return;}
       $('pp-upload-status').style.color='';
-      setText($('pp-upload-status'),'wysylanie...');
+      setText($('pp-upload-status'),'wysyłanie...');
       const fd=new FormData();fd.append('file',f);
       try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
         const d=await r.json().catch(()=>({}));
@@ -1785,7 +1788,7 @@
         setText($('pp-file-name'),'1 proxy na linie');
         ppInp.value='';
         loadProxyPool();loadProxyList();
-      }catch(e){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),'blad: '+e.message);}
+      }catch(e){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),'błąd: '+e.message);}
     });
     // proxy format validation: accepts most common formats
     // host:port, host:port:user:pass, protocol://user:pass@host:port, protocol://host:port
@@ -1804,11 +1807,11 @@
     }
     $('pp-paste-btn')?.addEventListener('click',async()=>{
       const txt=$('pp-paste')?.value?.trim();
-      if(!txt){setText($('pp-upload-status'),'wklej proxy');return;}
+      if(!txt){setText($('pp-upload-status'),'wklej proxy!');return;}
       const v=validateProxyLines(txt);
       if(!v.ok){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),v.msg);return;}
       $('pp-upload-status').style.color='';
-      setText($('pp-upload-status'),'wysylanie...');
+      setText($('pp-upload-status'),'wysyłanie...');
       const blob=new Blob([txt],{type:'text/plain'});
       const fd=new FormData();fd.append('file',new File([blob],'pasted.txt',{type:'text/plain'}));
       try{const r=await fetch('/api/v1/proxies',{method:'POST',credentials:'include',body:fd});
@@ -1818,14 +1821,14 @@
         setText($('pp-upload-status'),`dodano ${d.count||0} proxy (DB: +${d.db_imported||0})`);
         $('pp-paste').value='';
         loadProxyPool();loadProxyList();
-      }catch(e){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),'blad: '+e.message);}
+      }catch(e){$('pp-upload-status').style.color='rgb(var(--red))';setText($('pp-upload-status'),'błąd: '+e.message);}
     });
     $('pp-clear-btn')?.addEventListener('click',async()=>{
       if(!confirm('Na pewno wyczyścić WSZYSTKIE proxy z puli?'))return;
       try{const r=await fetch('/api/v1/proxy-pool/clear',{method:'DELETE',credentials:'include'});
         if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||r.status);
         loadProxyPool();loadProxyList();
-        setText($('pp-upload-status'),'wyczyszczono wszystkie proxy');$('pp-upload-status').style.color='rgb(var(--green))';
+        setText($('pp-upload-status'),'wyczyszczono wszystkie proxy!');$('pp-upload-status').style.color='rgb(var(--green))';
       }catch(e){alert('Blad: '+e.message);}
     });
 
