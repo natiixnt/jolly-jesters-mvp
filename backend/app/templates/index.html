@@ -391,7 +391,7 @@
       <div style="display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:20px;">
         <div class="chart-wrap">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <div class="chart-title" style="margin:0;">Przepustowość (EAN/run)</div>
+            <div class="chart-title" style="margin:0;">Koszt / 1000 EAN (PLN)</div>
             <div style="font-size:11px;color:var(--dim);" id="ds-chart-avg">avg: -</div>
           </div>
           <div class="chart" id="dash-chart" style="height:100px;"></div>
@@ -1558,16 +1558,22 @@
         // bar chart - last 24 runs
         const chart=$('dash-chart');
         if(chart){
-          const sizes=runs.slice(0,24).map(r=>r.processed_products||0).reverse();
-          if(sizes.length){
-            const max=Math.max(...sizes,1);
-            const avg=Math.round(sizes.reduce((a,b)=>a+b,0)/sizes.length);
-            setText($('ds-chart-avg'),`avg: ${avg} EAN`);
-            setText($('ds-ean-rate'),`~${avg} EAN/run`);
-            chart.innerHTML=sizes.map((v,i)=>{
+          // Fetch cost metrics for recent runs
+          const costData=[];
+          let totalEans=0;
+          for(const r of runs.slice(0,24)){
+            try{const m=await apiGet(`/api/v1/analysis/${r.id}/metrics`);if(m?.cost_per_1000_ean!=null)costData.push({cost:m.cost_per_1000_ean,eans:m.total_items});totalEans+=m?.total_items||0;}catch(e){}
+          }
+          const costs=costData.map(d=>d.cost).reverse();
+          if(costs.length){
+            const max=Math.max(...costs,0.01);
+            const avg=(costs.reduce((a,b)=>a+b,0)/costs.length).toFixed(3);
+            setText($('ds-chart-avg'),`avg: ${avg} PLN`);
+            setText($('ds-ean-rate'),`${totalEans} EAN`);
+            chart.innerHTML=costs.map((v,i)=>{
               const h=Math.max(6,Math.round(v/max*80));
-              const hue=260+i*4;
-              return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${parseInt(v)||0} EAN"></div>`;
+              const hue=v<0.5?120:v<2?60:0; // green/yellow/red
+              return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${v.toFixed(3)} PLN/1k EAN"></div>`;
             }).join('');
           }else{
             chart.innerHTML='<div style="color:var(--dim);font-size:14px;padding:20px;text-align:center;">Brak danych do wyświetlenia</div>';
@@ -1603,7 +1609,14 @@
         const active=h.active??h.total??0;
         const q=h.quarantined||0;
         setText($('ds-proxy'),active);
-        setText($('ds-proxy-health'),q>0?`${q} w kwarantannie, health: ${h.avg_health_score??'-'}`:`health score: ${h.avg_health_score??'-'}`);
+        const avgH=h.avg_health_score??1;
+        const qPct=h.total>0?Math.round(q/h.total*100):0;
+        let proxyMsg=`health: ${typeof avgH==='number'?avgH.toFixed(2):avgH}`;
+        if(q>0)proxyMsg+=` | ${q} kwarantanna (${qPct}%)`;
+        if(avgH<0.5){proxyMsg='WYMIEN PROXY - health: '+avgH.toFixed(2);$('ds-proxy-health').style.color='rgb(var(--red))';}
+        else if(avgH<0.8||qPct>20){proxyMsg='Uwaga: '+proxyMsg;$('ds-proxy-health').style.color='rgb(var(--amber))';}
+        else{$('ds-proxy-health').style.color='';}
+        setText($('ds-proxy-health'),proxyMsg);
       }catch(e){setText($('ds-proxy'),'0');}
 
       // prometheus stats for top cards
