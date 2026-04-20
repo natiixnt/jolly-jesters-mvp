@@ -332,13 +332,7 @@
       <button data-tab="alerts"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alerty <span class="badge info" id="alert-badge" style="display:none;margin-left:auto;">0</span></button>
       <button data-tab="api-keys"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Klucze API</button>
       <button data-tab="help"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>Pomoc</button>
-      <!-- multi-tenant account section (hidden in single-tenant) -->
-      <div id="nav-account-section" style="display:none;">
-        <div style="height:8px;border-bottom:1px solid var(--border);margin:4px 8px;"></div>
-        <button data-tab="account"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Konto</button>
-        <button data-tab="usage" id="nav-usage-btn" style="display:none;"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Zużycie</button>
-        <button data-tab="admin" id="nav-admin-btn" style="display:none;"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Admin</button>
-      </div>
+      <!-- multi-tenant section removed (single admin mode) -->
     </div>
     <div class="side-foot">
       <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">łączenie...</span></div>
@@ -371,9 +365,9 @@
           <div class="stat-sub" id="ds-active-sub">0 trwa, 0 ukończonych</div>
         </div>
         <div class="stat green">
-          <div class="stat-label">Sprawdzonych produktów (EAN)</div>
-          <div class="stat-val" id="ds-eans">0</div>
-          <div class="stat-sub" id="ds-ean-rate">ze wszystkich analiz łącznie</div>
+          <div class="stat-label">Avg koszt / 1000 EAN</div>
+          <div class="stat-val" id="ds-cost-1k">-</div>
+          <div class="stat-sub" id="ds-cost-detail">z ostatnich analiz</div>
         </div>
         <div class="stat amber">
           <div class="stat-label">Success rate</div>
@@ -414,14 +408,6 @@
           <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </div>
         <div class="acc-body" id="ga-all-runs"><div class="hint">kliknij aby rozwinąć</div></div>
-      </div>
-
-      <div class="acc" id="acc-tenants">
-        <div class="acc-head" onclick="toggleAcc('acc-tenants')">
-          <span>Użytkownicy i tenanci</span>
-          <svg class="acc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-        <div class="acc-body" id="ga-tenant-list"><div class="hint">kliknij aby rozwinąć</div></div>
       </div>
 
       <div class="acc" id="acc-metrics">
@@ -1322,8 +1308,8 @@
       </div>
     </div>
 
-    <!-- KONTO -->
-    <div class="tab" id="tab-account">
+    <!-- KONTO/ZUZYCIE/ADMIN removed (single admin mode) -->
+    <div class="tab" id="tab-account" style="display:none!important;">
       <div class="page-title">Konto</div>
 
       <!-- no account -->
@@ -1355,8 +1341,7 @@
       </div>
     </div>
 
-    <!-- ZUZYCIE -->
-    <div class="tab" id="tab-usage">
+    <div class="tab" id="tab-usage" style="display:none!important;">
       <div class="page-title">Zużycie i billing</div>
 
       <div class="card" id="usage-noauth">
@@ -1401,8 +1386,7 @@
       </div>
     </div>
 
-    <!-- ADMIN -->
-    <div class="tab" id="tab-admin">
+    <div class="tab" id="tab-admin" style="display:none!important;">
       <div class="page-title">Panel administracyjny</div>
 
       <div class="card" id="admin-noauth">
@@ -1553,30 +1537,39 @@
         for(const r of runs)totalEans+=r.processed_products||0;
         setText($('ds-total'),totalRuns);
         setText($('ds-active-sub'),`${activeRuns} trwa, ${completedRuns} ukończonych`);
-        setText($('ds-eans'),totalEans.toLocaleString('pl-PL'));
 
-        // bar chart - last 24 runs
+        // Fetch cost metrics for recent completed runs
         const chart=$('dash-chart');
+        const costData=[];
+        const completedRunsList=runs.filter(r=>r.status==='completed').slice(0,24);
+        for(const r of completedRunsList){
+          try{const m=await apiGet(`/api/v1/analysis/${r.id}/metrics`);if(m?.cost_per_1000_ean!=null)costData.push({cost:m.cost_per_1000_ean,eans:m.total_items,id:r.id});}catch(e){}
+        }
+
+        // Avg cost card
+        if(costData.length){
+          const avgCost=(costData.reduce((a,d)=>a+d.cost,0)/costData.length).toFixed(3);
+          setText($('ds-cost-1k'),`${avgCost} PLN`);
+          setText($('ds-cost-detail'),`z ${costData.length} analiz, ${costData.reduce((a,d)=>a+d.eans,0)} EAN`);
+        }else{
+          setText($('ds-cost-1k'),'-');
+          setText($('ds-cost-detail'),'brak danych');
+        }
+
+        // Cost chart
         if(chart){
-          // Fetch cost metrics for recent runs
-          const costData=[];
-          let totalEans=0;
-          for(const r of runs.slice(0,24)){
-            try{const m=await apiGet(`/api/v1/analysis/${r.id}/metrics`);if(m?.cost_per_1000_ean!=null)costData.push({cost:m.cost_per_1000_ean,eans:m.total_items});totalEans+=m?.total_items||0;}catch(e){}
-          }
           const costs=costData.map(d=>d.cost).reverse();
           if(costs.length){
             const max=Math.max(...costs,0.01);
             const avg=(costs.reduce((a,b)=>a+b,0)/costs.length).toFixed(3);
             setText($('ds-chart-avg'),`avg: ${avg} PLN`);
-            setText($('ds-ean-rate'),`${totalEans} EAN`);
             chart.innerHTML=costs.map((v,i)=>{
               const h=Math.max(6,Math.round(v/max*80));
-              const hue=v<0.5?120:v<2?60:0; // green/yellow/red
+              const hue=v<0.5?120:v<2?60:0;
               return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${v.toFixed(3)} PLN/1k EAN"></div>`;
             }).join('');
           }else{
-            chart.innerHTML='<div style="color:var(--dim);font-size:14px;padding:20px;text-align:center;">Brak danych do wyświetlenia</div>';
+            chart.innerHTML='<div style="color:var(--dim);font-size:14px;padding:20px;text-align:center;">Brak danych</div>';
           }
         }
 
