@@ -127,8 +127,10 @@ export default class Allegro {
 
         // Strategy 1: curl-impersonate (Chrome 146 TLS fingerprint)
         // This bypasses DataDome without needing to solve CAPTCHA
+        this.logger.log(`curl available: ${isCurlAvailable()}, proxy: ${this.proxy.toString().substring(0, 60)}`);
         if (isCurlAvailable()) {
             try {
+                this.logger.log('Trying curl-impersonate...');
                 const curlRes = await curlGet(pageUrl, this.proxy.toString());
                 if (curlRes.status === 200 && !curlRes.body.includes('captcha-delivery.com') && !curlRes.body.includes('allegrocaptcha.com')) {
                     this.logger.log('Page loaded via curl-impersonate');
