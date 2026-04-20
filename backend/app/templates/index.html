@@ -1526,17 +1526,9 @@
     }
 
     // DASHBOARD STATS
-    // Navigate to History tab and open run detail preview
+    // Open run detail as modal (stays on dashboard)
     function openRunDetail(runId){
-      // Switch to history tab
-      document.querySelector('#nav button[data-tab="history"]')?.click();
-      // Open preview modal after short delay (let tab render)
-      setTimeout(()=>{
-        const previewBtn=document.querySelector(`[data-preview-run="${runId}"]`);
-        if(previewBtn){previewBtn.click();return;}
-        // If button not found, try opening preview directly
-        if(typeof openPreview==='function')openPreview(runId);
-      },300);
+      if(typeof openPreview==='function')openPreview(runId);
     }
 
     async function loadDashStats(){
@@ -1578,8 +1570,8 @@
             setText($('ds-chart-avg'),`avg: ${avg} PLN`);
             chart.innerHTML=costs.map((v,i)=>{
               const h=Math.max(6,Math.round(v/max*80));
-              const hue=v<0.5?120:v<2?60:0;
-              return `<div class="chart-bar" style="height:${h}px;background:hsla(${hue},60%,60%,.5);" title="${v.toFixed(3)} PLN/1k EAN"></div>`;
+              const rid=costData[costData.length-1-i]?.id||'';
+              return `<div class="chart-bar" style="height:${h}px;background:hsla(265,60%,60%,.6);position:relative;" onmouseenter="this.querySelector('.tip').style.display='block'" onmouseleave="this.querySelector('.tip').style.display='none'"><div class="tip" style="display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;white-space:nowrap;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.3);pointer-events:none;"><strong>${v.toFixed(3)} PLN</strong>/1k EAN<br>run #${rid}</div></div>`;
             }).join('');
           }else{
             chart.innerHTML='<div style="color:var(--dim);font-size:14px;padding:20px;text-align:center;">Brak danych</div>';
