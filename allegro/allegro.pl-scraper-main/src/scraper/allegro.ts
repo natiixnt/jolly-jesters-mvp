@@ -6,6 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { AnySolver } from '@/utils/anysolver';
 import { curlGet, isCurlAvailable } from '@/utils/curlClient';
+import { proxyUrlHash } from '@/utils/proxy';
 import setCookieParser from 'set-cookie-parser';
 import { parseAllegroListing, type AllegroSearchResult } from '@/utils/parser';
 import type { ScopedLogger } from '@/utils/logger';
@@ -144,7 +145,11 @@ export default class Allegro {
                         this.logger.log(`Page loaded via curl-impersonate (${curlRes.body.length} bytes)`);
                         const scrapedAt = new Date().toISOString();
                         dumpHtml(ean, `curl_ok_${curlRes.status}`, curlRes.body);
-                        return this.buildResult(curlRes.body, ean, scrapedAt, start, 0);
+                        const result = this.buildResult(curlRes.body, ean, scrapedAt, start, 0);
+                        result.proxyAttempts = curlAttempt + 1;
+                        result.proxyUrlHash = proxyUrlHash(this.proxy);
+                        result.proxySuccess = true;
+                        return result;
                     }
 
                     // Got challenge page - try different proxy
