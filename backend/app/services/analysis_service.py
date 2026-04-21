@@ -430,10 +430,12 @@ def serialize_analysis_item(
     price = item.allegro_price
     if purchase is not None and price is not None:
         try:
-            margin_pln = float(price) - float(purchase)
-            result.margin_pln = margin_pln
-            if purchase:
-                result.margin_percent = (margin_pln / float(purchase)) * 100
+            commission = float(category.commission_rate) if category and category.commission_rate else 0.1
+            net_revenue = float(price) * (1 - commission)
+            margin_pln = net_revenue - float(purchase)
+            result.margin_pln = round(margin_pln, 2)
+            if purchase and float(purchase) > 0:
+                result.margin_percent = round((margin_pln / float(purchase)) * 100, 1)
         except Exception:
             pass
 
