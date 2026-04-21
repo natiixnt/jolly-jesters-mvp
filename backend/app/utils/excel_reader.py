@@ -363,8 +363,8 @@ def read_excel_file(
         error = None
 
         if not ean_digits:
-            is_valid = False
-            error = "Brak EAN"
+            # Skip rows without EAN (category headers, empty rows)
+            continue
         elif not (8 <= len(ean_digits) <= 13):
             is_valid = False
             error = "EAN musi mieć 8-13 cyfr"

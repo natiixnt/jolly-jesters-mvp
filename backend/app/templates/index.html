@@ -1139,7 +1139,7 @@
         mgg.innerHTML=[mc('EAN/min',metrics.ean_per_min,'rgb(var(--blue))'),mc('Koszt/1k',metrics.cost_per_1000_ean!=null?`${metrics.cost_per_1000_ean} PLN`:null,'rgb(var(--amber))'),mc('Avg lat.',metrics.avg_latency_ms!=null?`${metrics.avg_latency_ms}ms`:null),mc('P95',metrics.p95_latency_ms!=null?`${metrics.p95_latency_ms}ms`:null),mc('Retry',metrics.retry_rate!=null?`${(metrics.retry_rate*100).toFixed(1)}%`:null),mc('CAPTCHA',metrics.captcha_rate!=null?`${(metrics.captcha_rate*100).toFixed(1)}%`:null,metrics.captcha_rate>.5?'rgb(var(--red))':null),mc('OK',`${metrics.completed_items}/${metrics.total_items}`,'rgb(var(--green))'),mc('Blocked',metrics.blocked_items,'rgb(var(--red))'),mc('Czas',metrics.elapsed_seconds!=null?`${Math.round(metrics.elapsed_seconds)}s`:null)].join('');show(mg);
       }
       if(info?.status==='stopped'&&sl){const m=info.run_metadata||{};const d=m.stop_details||{};setText($('sl-reason'),m.stop_reason||'nieznany');setText($('sl-threshold'),d.threshold!=null?d.threshold_type==='rate'?`${(d.threshold*100).toFixed(1)}%`:d.threshold:d.metric||'-');setText($('sl-value'),d.rate!=null?`${(d.rate*100).toFixed(1)}%`:d.value!=null?d.value:'-');setText($('sl-item'),m.stopped_at_item?`pozycja #${m.stopped_at_item}`:'-');setText($('sl-timestamp'),m.stopped_at?new Date(m.stopped_at).toLocaleString('pl-PL'):info.updated_at?new Date(info.updated_at).toLocaleString('pl-PL'):'-');show(sl);}
-      const allRows=data?.items||[];
+      const allRows=(data?.items||[]).filter(r=>r.ean&&r.ean.trim());
       if(!allRows.length){setHtml(body,'<div class="hint">Brak wyników</div>');return;}
       const PAGE_SIZE=50;
       let currentPage=0;
