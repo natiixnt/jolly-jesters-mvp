@@ -893,7 +893,7 @@
   <!-- PREVIEW MODAL -->
   <div class="modal-bg" id="preview-modal">
     <div class="modal">
-      <div class="modal-hd"><h3 id="preview-title">Podgląd</h3><div style="display:flex;gap:8px;"><a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a><a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV</a><button class="btn sm" id="preview-refresh">Odśwież</button><button class="btn sm" id="preview-close">Zamknij</button></div></div>
+      <div class="modal-hd"><h3 id="preview-title">Podgląd</h3><div style="display:flex;gap:8px;"><button class="btn sm" id="preview-cancel" style="display:none;background:rgb(var(--red));color:#fff;">Anuluj run</button><a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a><a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV</a><button class="btn sm" id="preview-refresh">Odśwież</button><button class="btn sm" id="preview-close">Zamknij</button></div></div>
       <div class="modal-bd">
         <div id="preview-metrics" style="display:none;"><div class="card-label">Metryki</div><div class="mg" id="preview-mg"></div></div>
         <div id="preview-stoploss" style="display:none;background:#2d1b1b;border:1px solid #c0392b;border-radius:8px;padding:16px;margin:12px 0;">
@@ -1014,9 +1014,16 @@
 
         // Avg cost card
         if(costData.length){
-          const avgCost=(costData.reduce((a,d)=>a+d.cost,0)/costData.length).toFixed(3);
-          setText($('ds-cost-1k'),`${avgCost} PLN`);
-          setText($('ds-cost-detail'),`z ${costData.length} analiz, ${costData.reduce((a,d)=>a+d.eans,0)} EAN`);
+          const totalEansAll=costData.reduce((a,d)=>a+d.eans,0);
+          const proxyCost=(costData.reduce((a,d)=>a+d.cost,0)/costData.length);
+          // Pełny koszt: proxy transfer + stałe (serwer ~23 PLN + Evomi ~189 PLN = ~212 PLN/mies)
+          // Rozłożone na szacowane EAN/mies (zakładamy aktualne tempo)
+          const fixedMonthlyCost=212; // PLN (serwer + proxy subskrypcja)
+          const estEansPerMonth=Math.max(totalEansAll*4,1000); // ekstrapolacja
+          const fixedPer1k=(fixedMonthlyCost/estEansPerMonth)*1000;
+          const fullCost=proxyCost+fixedPer1k;
+          setText($('ds-cost-1k'),`${fullCost.toFixed(2)} PLN`);
+          setText($('ds-cost-detail'),`proxy: ${proxyCost.toFixed(3)} + stałe: ${fixedPer1k.toFixed(2)} PLN | ${totalEansAll} EAN`);
         }else{
           setText($('ds-cost-1k'),'-');
           setText($('ds-cost-detail'),'brak danych - uruchom analizę');
@@ -1127,12 +1134,16 @@
 
     async function openPreview(id){
       openModal(previewModal);
-      const body=$('preview-body'),mg=$('preview-metrics'),mgg=$('preview-mg'),sl=$('preview-stoploss'),dx=$('preview-dl-xlsx'),dc=$('preview-dl-csv');
-      setHtml(body,'<div class="hint">ładowanie...</div>');hide(mg);hide(sl);hide(dx);hide(dc);
+      const body=$('preview-body'),mg=$('preview-metrics'),mgg=$('preview-mg'),sl=$('preview-stoploss'),dx=$('preview-dl-xlsx'),dc=$('preview-dl-csv'),cancelBtn=$('preview-cancel');
+      setHtml(body,'<div class="hint">ładowanie...</div>');hide(mg);hide(sl);hide(dx);hide(dc);hide(cancelBtn);
       $('preview-refresh')?.setAttribute('data-id',id);
       const refreshBtn=$('preview-refresh');
       if(refreshBtn){const newBtn=refreshBtn.cloneNode(true);refreshBtn.parentNode.replaceChild(newBtn,refreshBtn);newBtn.addEventListener('click',()=>openPreview(newBtn.getAttribute('data-id')));}
       const [data,metrics,info]=await Promise.all([apiGet(`/api/v1/analysis/${id}/results?limit=5000`).catch(()=>null),apiGet(`/api/v1/analysis/${id}/metrics`).catch(()=>null),apiGet(`/api/v1/analysis/${id}`).catch(()=>null)]);
+      if(info&&['running','pending'].includes(info.status)&&cancelBtn){
+        show(cancelBtn);
+        cancelBtn.onclick=async()=>{if(!confirm('Na pewno anulować ten run?'))return;try{await apiPost(`/api/v1/analysis/${id}/cancel`,{});cancelBtn.textContent='Anulowano!';cancelBtn.disabled=true;setTimeout(()=>openPreview(id),1000);}catch(e){alert('Błąd: '+e.message);}};
+      }
       if(info&&['completed','stopped'].includes(info.status)&&dx){dx.href=`/api/v1/analysis/${id}/download`;show(dx);}
       if(metrics&&dc){dc.href=`/api/v1/analysis/${id}/metrics/csv`;show(dc);}
       if(metrics&&mgg){
