@@ -327,7 +327,7 @@ def _release_run_lock(run_id: int) -> None:
         pass
 
 
-@celery_app.task(acks_late=True, bind=True, time_limit=7200, soft_time_limit=6900)
+@celery_app.task(acks_late=True, bind=True, time_limit=86400, soft_time_limit=82800)
 def run_analysis_task(self, run_id: int):
     if not _acquire_run_lock(run_id):
         logger.warning("RUN_TASK run_id=%s already locked, skipping", run_id)
