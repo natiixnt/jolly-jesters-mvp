@@ -31,14 +31,15 @@ def test_read_excel_file_valid_and_invalid_rows():
     )
 
     rows = read_excel_file(data)
-    assert len(rows) == 3
+    # Rows without EAN are skipped (not counted as errors)
+    assert len(rows) == 2
     valid_rows = [r for r in rows if r.is_valid]
     invalid_rows = [r for r in rows if not r.is_valid]
 
     assert len(valid_rows) == 1
     assert valid_rows[0].ean == "1234567890123"
     assert valid_rows[0].purchase_currency == "PLN"
-    assert len(invalid_rows) == 2
+    assert len(invalid_rows) == 1  # only bad price, not missing EAN
 
 
 def test_eu_stock_like_headers_are_detected():
