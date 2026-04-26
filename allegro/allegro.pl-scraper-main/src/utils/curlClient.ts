@@ -79,7 +79,7 @@ export async function curlGet(
         '-s',           // silent
         '-D', '-',      // dump headers to stdout (we'll parse them)
         '-L',           // follow redirects
-        '--max-time', '30',
+        '--max-time', '15',
         '-H', 'Accept-Language: pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
     ];
 
@@ -98,7 +98,7 @@ export async function curlGet(
     const { stdout } = await execFileAsync(curl.binary, args, {
         env: { ...process.env, LD_LIBRARY_PATH: curl.lib },
         maxBuffer: 20 * 1024 * 1024, // 20MB
-        timeout: 35_000,
+        timeout: 20_000,
     });
 
     // Parse response: headers are before \r\n\r\n, body after
@@ -127,6 +127,38 @@ export async function curlGet(
     }
 
     return { status, body, headers };
+}
+
+/**
+ * Run multiple curl requests in parallel.
+ * Each request gets a different proxy from the provided list.
+ *
+ * @param requests - Array of {url, proxy} pairs
+ * @param maxConcurrent - Max parallel curl processes (default 10)
+ * @returns Array of results (same order as requests)
+ */
+export async function curlGetParallel(
+    requests: Array<{ url: string; proxy: string }>,
+    maxConcurrent = 10,
+): Promise<CurlResponse[]> {
+    const results: CurlResponse[] = [];
+
+    // Process in chunks of maxConcurrent
+    for (let i = 0; i < requests.length; i += maxConcurrent) {
+        const chunk = requests.slice(i, i + maxConcurrent);
+        const chunkResults = await Promise.allSettled(
+            chunk.map(({ url, proxy }) => curlGet(url, proxy))
+        );
+        for (const r of chunkResults) {
+            if (r.status === 'fulfilled') {
+                results.push(r.value);
+            } else {
+                results.push({ status: 0, body: '', headers: {} });
+            }
+        }
+    }
+
+    return results;
 }
 
 /**

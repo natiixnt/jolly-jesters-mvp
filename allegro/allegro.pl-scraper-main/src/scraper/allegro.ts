@@ -127,42 +127,37 @@ export default class Allegro {
         const pageUrl = `https://allegro.pl/listing?string=${ean}&order=p`;
 
         // Strategy 1: curl-impersonate (Chrome 146 TLS fingerprint)
-        // This bypasses DataDome without needing to solve CAPTCHA
+        // Fire 3 parallel curl requests with different proxies - take first success
         if (isCurlAvailable()) {
-            // Try up to 3 proxies with curl-impersonate
-            for (let curlAttempt = 0; curlAttempt < 3; curlAttempt++) {
-                try {
-                    const curlRes = await curlGet(pageUrl, this.proxy.toString());
-                    this.logger.log(`curl attempt ${curlAttempt + 1}: status=${curlRes.status} size=${curlRes.body.length}`);
+            const { getRandomProxy } = await import('@/utils/proxy');
+            const proxies = [this.proxy, getRandomProxy(), getRandomProxy()];
+            const curlPromises = proxies.map((p, i) =>
+                curlGet(pageUrl, p.toString())
+                    .then(res => ({ res, proxy: p, idx: i }))
+                    .catch(() => null)
+            );
 
-                    // Real Allegro page is >50KB, DataDome challenge is <10KB
-                    const isRealPage = curlRes.status === 200
-                        && curlRes.body.length > 50000
-                        && !curlRes.body.includes('captcha-delivery.com')
-                        && !curlRes.body.includes('allegrocaptcha.com');
+            const results = await Promise.allSettled(curlPromises);
+            for (const r of results) {
+                if (r.status !== 'fulfilled' || !r.value) continue;
+                const { res: curlRes, proxy: usedProxy, idx } = r.value;
 
-                    if (isRealPage) {
-                        this.logger.log(`Page loaded via curl-impersonate (${curlRes.body.length} bytes)`);
-                        const scrapedAt = new Date().toISOString();
-                        dumpHtml(ean, `curl_ok_${curlRes.status}`, curlRes.body);
-                        const result = this.buildResult(curlRes.body, ean, scrapedAt, start, 0);
-                        result.proxyAttempts = curlAttempt + 1;
-                        result.proxyUrlHash = proxyUrlHash(this.proxy);
-                        result.proxySuccess = true;
-                        return result;
-                    }
+                const isRealPage = curlRes.status === 200
+                    && curlRes.body.length > 50000
+                    && !curlRes.body.includes('captcha-delivery.com')
+                    && !curlRes.body.includes('allegrocaptcha.com');
 
-                    // Got challenge page - try different proxy
-                    this.logger.log(`curl got challenge (${curlRes.body.length} bytes), rotating proxy`);
-                } catch (err) {
-                    this.logger.log(`curl attempt ${curlAttempt + 1} failed: ${(err as Error).message}`);
+                if (isRealPage) {
+                    this.logger.log(`Page loaded via curl-impersonate (${curlRes.body.length} bytes, proxy #${idx + 1})`);
+                    const scrapedAt = new Date().toISOString();
+                    const result = this.buildResult(curlRes.body, ean, scrapedAt, start, 0);
+                    result.proxyAttempts = idx + 1;
+                    result.proxyUrlHash = proxyUrlHash(usedProxy);
+                    result.proxySuccess = true;
+                    return result;
                 }
-
-                // Rotate to next proxy for retry
-                const nextProxyUrl = (await import('@/utils/proxy')).getRandomProxy();
-                this.proxy = nextProxyUrl;
             }
-            this.logger.log('curl-impersonate exhausted, falling back to TLS client');
+            this.logger.log('curl-impersonate: all 3 parallel attempts got challenge/failed');
         }
 
         // Strategy 2: TLS client (original method with CAPTCHA solving)
