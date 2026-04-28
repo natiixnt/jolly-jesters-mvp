@@ -68,6 +68,27 @@ def _get_or_fetch(provider, ean: str, run_id: str, cache: dict) -> AllegroResult
     return result
 
 
+async def _fetch_batch_async(provider, eans: list, run_id: str) -> list:
+    """Fetch multiple EANs in parallel."""
+    return await asyncio.gather(
+        *[provider.fetch(ean, run_id=run_id) for ean in eans],
+        return_exceptions=True
+    )
+
+
+def _get_or_fetch_batch(provider, eans: list, run_id: str, cache: dict) -> dict:
+    """Fetch a batch of EANs in parallel. Returns dict ean -> AllegroResult."""
+    to_fetch = [e for e in eans if e not in cache]
+    if to_fetch:
+        results = _get_loop().run_until_complete(_fetch_batch_async(provider, to_fetch, run_id))
+        for ean, result in zip(to_fetch, results):
+            if isinstance(result, Exception):
+                cache[ean] = _error_result(ean, f"unexpected:{type(result).__name__}")
+            else:
+                cache[ean] = result
+    return {ean: cache[ean] for ean in eans}
+
+
 _worker_loop: asyncio.AbstractEventLoop | None = None
 
 
@@ -399,109 +420,133 @@ def run_analysis_task(self, run_id: int):
         ))
 
         _ean_cache: dict[str, AllegroResult] = {}  # per-run EAN result cache
+        BATCH_SIZE = 10  # parallel scraper calls per batch
 
-        for item in items:
+        # Process items in batches for parallel scraping
+        for batch_start in range(0, len(items), BATCH_SIZE):
             db.refresh(run)
             if run.status == AnalysisStatus.canceled:
                 logger.info("RUN_TASK canceled mid-run run_id=%s", run.id)
                 break
 
-            product = item.product  # eager-loaded via selectinload
-            if not product:
-                item.source = AnalysisItemSource.error
-                item.scrape_status = ScrapeStatus.error
-                item.error_message = "Brak produktu dla wiersza"
-                run.processed_products += 1
-                db.commit()
-                continue
-
-            state = _ensure_product_state(db, product)
-            product.effective_state = state
-            item.scrape_status = ScrapeStatus.in_progress
-            item.error_message = None
-            db.commit()
-
-            market_data = state.last_market_data if state else None
-            result = None
-
+            batch = items[batch_start:batch_start + BATCH_SIZE]
             now = datetime.now(timezone.utc)
 
-            # Cached mode - NEVER call the scraper, use DB data only
-            if db_only_mode:
-                logger.info("CACHE_MODE: skipping scraper for EAN %s (mode=%s)", item.ean, run.mode)
-                if not market_data:
-                    # No cached data available - mark as not_found instead of scraping
-                    item.source = AnalysisItemSource.not_found
-                    item.scrape_status = ScrapeStatus.not_found
-                    item.error_message = "no_cached_data"
-                    item.allegro_price = None
-                    item.allegro_sold_count = None
-                    item.profitability_score = None
-                    item.profitability_label = None
+            # Phase 1: identify which items need scraping vs cached
+            items_to_scrape = []  # list of (item, product, state)
+            items_cached = []     # list of (item, product, state, market_data, source_type)
+
+            for item in batch:
+                product = item.product
+                if not product:
+                    item.source = AnalysisItemSource.error
+                    item.scrape_status = ScrapeStatus.error
+                    item.error_message = "Brak produktu dla wiersza"
+                    run.processed_products += 1
+                    continue
+
+                state = _ensure_product_state(db, product)
+                product.effective_state = state
+                market_data = state.last_market_data if state else None
+
+                if db_only_mode:
+                    items_cached.append((item, product, state, market_data, "db_only"))
+                    db_only_item_count += 1
+                elif _should_fetch_from_scraper(
+                    db_only_mode=False, market_data=market_data,
+                    cache_days=cache_days, now=now,
+                ):
+                    item.scrape_status = ScrapeStatus.in_progress
+                    item.error_message = None
+                    items_to_scrape.append((item, product, state))
                 else:
-                    _apply_cached_market_data(item, category, market_data)
-                db_only_item_count += 1
-            elif _should_fetch_from_scraper(
-                db_only_mode=False,
-                market_data=market_data,
-                cache_days=cache_days,
-                now=now,
-            ):
-                scraper_request_count += 1
-                if _scraper_breaker.is_open():
-                    result = _error_result(item.ean, "circuit_breaker_open")
-                else:
-                    try:
-                        provider = get_provider()
-                        result = _get_or_fetch(provider, item.ean, str(run.id), _ean_cache)
-                        _scraper_breaker.record_success()
-                    except Exception as exc:  # pragma: no cover - defensive
-                        logger.exception("RUN_TASK unexpected error ean=%s", item.ean)
-                        result = _error_result(item.ean, f"unexpected:{type(exc).__name__}")
-                        _scraper_breaker.record_failure()
+                    items_cached.append((item, product, state, market_data, "cache_hit"))
+                    db_cache_hit_count += 1
+            db.commit()
 
-                _apply_scraped_result(db, item, product, category, result)
-            else:
-                _apply_cached_market_data(item, category, market_data)
-                db_cache_hit_count += 1
-                logger.info("RUN_TASK db_cache hit run_id=%s ean=%s", run.id, item.ean)
-
-            run.processed_products += 1
-
-            # -- proxy scoring (best-effort) --
-            if result and getattr(result, 'proxy_url_hash', None):
+            # Phase 2: parallel scraper batch fetch (if needed)
+            scrape_results: dict = {}
+            if items_to_scrape and not _scraper_breaker.is_open():
                 try:
-                    if result.proxy_success:
-                        proxy_pool_service.record_success(db, result.proxy_url_hash)
-                    else:
-                        proxy_pool_service.record_failure(db, result.proxy_url_hash, result.error or "")
-                except Exception:
-                    logger.debug("PROXY_SCORING failed for hash=%s", getattr(result, 'proxy_url_hash', '?'))
+                    provider = get_provider()
+                    eans_to_fetch = [it.ean for it, _, _ in items_to_scrape]
+                    scrape_results = _get_or_fetch_batch(provider, eans_to_fetch, str(run.id), _ean_cache)
+                    scraper_request_count += len(items_to_scrape)
+                    _scraper_breaker.record_success()
+                except Exception as exc:
+                    logger.exception("RUN_TASK batch fetch error")
+                    _scraper_breaker.record_failure()
+                    for it, _, _ in items_to_scrape:
+                        scrape_results[it.ean] = _error_result(it.ean, f"unexpected:{type(exc).__name__}")
+            elif items_to_scrape and _scraper_breaker.is_open():
+                for it, _, _ in items_to_scrape:
+                    scrape_results[it.ean] = _error_result(it.ean, "circuit_breaker_open")
 
-            # -- stop-loss check --
-            verdict = stoploss.record(
-                item.scrape_status,
-                captcha_solves=getattr(result, 'captcha_solves', 0) or 0 if result else 0,
-                retries=getattr(result, 'retries', 0) or 0 if result else 0,
-                is_blocked=item.scrape_status == ScrapeStatus.blocked,
-                cost=getattr(result, 'cost', 0.0) or 0.0 if result else 0.0,
-            )
-            if verdict.should_stop:
-                logger.warning(
-                    "STOP_LOSS triggered run_id=%s reason=%s details=%s",
-                    run.id, verdict.reason, verdict.details,
+            # Phase 3: apply results sequentially (stop-loss can break)
+            should_break = False
+            for item_data in items_cached + [(it, p, s, scrape_results.get(it.ean), "scraped") for it, p, s in items_to_scrape]:
+                item = item_data[0]
+                product = item_data[1]
+                state = item_data[2]
+                source_type = item_data[4]
+                result = None
+
+                if source_type == "db_only":
+                    market_data = item_data[3]
+                    if not market_data:
+                        item.source = AnalysisItemSource.not_found
+                        item.scrape_status = ScrapeStatus.not_found
+                        item.error_message = "no_cached_data"
+                        item.allegro_price = None
+                        item.allegro_sold_count = None
+                        item.profitability_score = None
+                        item.profitability_label = None
+                    else:
+                        _apply_cached_market_data(item, category, market_data)
+                elif source_type == "cache_hit":
+                    market_data = item_data[3]
+                    _apply_cached_market_data(item, category, market_data)
+                    logger.info("RUN_TASK db_cache hit run_id=%s ean=%s", run.id, item.ean)
+                elif source_type == "scraped":
+                    result = item_data[3]
+                    _apply_scraped_result(db, item, product, category, result)
+
+                run.processed_products += 1
+
+                # proxy scoring
+                if result and getattr(result, 'proxy_url_hash', None):
+                    try:
+                        if result.proxy_success:
+                            proxy_pool_service.record_success(db, result.proxy_url_hash)
+                        else:
+                            proxy_pool_service.record_failure(db, result.proxy_url_hash, result.error or "")
+                    except Exception:
+                        pass
+
+                # stop-loss check
+                verdict = stoploss.record(
+                    item.scrape_status,
+                    captcha_solves=getattr(result, 'captcha_solves', 0) or 0 if result else 0,
+                    retries=getattr(result, 'retries', 0) or 0 if result else 0,
+                    is_blocked=item.scrape_status == ScrapeStatus.blocked,
+                    cost=getattr(result, 'cost', 0.0) or 0.0 if result else 0.0,
                 )
-                log_event("stoploss_trigger",
-                          tenant_id=str(run.tenant_id) if run.tenant_id else None,
-                          details={"run_id": run.id, "reason": verdict.reason,
-                                   "details": verdict.details})
-                run.status = AnalysisStatus.stopped
-                run.run_metadata = {
-                    **(run.run_metadata or {}),
-                    "stop_reason": verdict.reason,
-                    "stop_details": verdict.details,
-                    "stopped_at_item": item.row_number,
-                }
+                if verdict.should_stop:
+                    logger.warning("STOP_LOSS triggered run_id=%s reason=%s", run.id, verdict.reason)
+                    log_event("stoploss_trigger",
+                              tenant_id=str(run.tenant_id) if run.tenant_id else None,
+                              details={"run_id": run.id, "reason": verdict.reason, "details": verdict.details})
+                    run.status = AnalysisStatus.stopped
+                    run.run_metadata = {
+                        **(run.run_metadata or {}),
+                        "stop_reason": verdict.reason,
+                        "stop_details": verdict.details,
+                        "stopped_at_item": item.row_number,
+                    }
+                    should_break = True
+                    break
+            db.commit()
+            if should_break:
                 run.finished_at = datetime.now(timezone.utc)
                 # mark remaining pending items as stopped_by_guardrail
                 db.query(AnalysisRunItem).filter(
@@ -515,10 +560,8 @@ def run_analysis_task(self, run_id: int):
                 try:
                     alert_stoploss(run.id, verdict.reason, verdict.details or {})
                 except Exception:
-                    logger.debug("ALERT_WEBHOOK failed for run_id=%s", run.id)
+                    pass
                 break
-
-            db.commit()
 
         # update metadata once at end (not per-item)
         _update_run_metadata(
