@@ -390,6 +390,30 @@ def run_analysis_task(self, run_id: int):
             db.commit()
             return
 
+        # Resume support: skip items already processed in previous run.
+        # Reset processed_products counter to actual count from DB (not incremental).
+        already_processed_statuses = {
+            ScrapeStatus.ok, ScrapeStatus.not_found, ScrapeStatus.error,
+            ScrapeStatus.network_error, ScrapeStatus.blocked,
+        }
+        items_to_process = [
+            it for it in items
+            if it.scrape_status not in already_processed_statuses
+        ]
+        already_done_count = len(items) - len(items_to_process)
+        run.processed_products = already_done_count
+        items = items_to_process
+        db.commit()
+        logger.info("RUN_TASK run_id=%s already_done=%s to_process=%s",
+                    run.id, already_done_count, len(items))
+
+        if not items:
+            # All items already processed, just mark as completed
+            run.status = AnalysisStatus.completed
+            run.finished_at = datetime.now(timezone.utc)
+            db.commit()
+            return
+
         db_only_mode = (run.mode or "").strip().lower() == "cached"
         cache_days = _resolve_cache_days(run, db_only_mode=db_only_mode, db=db)
         scraper_request_count = 0
