@@ -893,7 +893,7 @@
   <!-- PREVIEW MODAL -->
   <div class="modal-bg" id="preview-modal">
     <div class="modal">
-      <div class="modal-hd"><h3 id="preview-title">Podgląd</h3><div style="display:flex;gap:8px;"><button class="btn sm" id="preview-cancel" style="display:none;background:rgb(var(--red));color:#fff;">Anuluj run</button><a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a><a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV</a><button class="btn sm" id="preview-refresh">Odśwież</button><button class="btn sm" id="preview-close">Zamknij</button></div></div>
+      <div class="modal-hd"><h3 id="preview-title">Podgląd</h3><div style="display:flex;gap:8px;"><button class="btn sm" id="preview-cancel" style="display:none;background:rgb(var(--red));color:#fff;">Anuluj run</button><a class="btn sm" id="preview-dl-xlsx" style="display:none;text-decoration:none;">XLSX</a><a class="btn sm" id="preview-dl-csv" style="display:none;text-decoration:none;">CSV</a><button class="btn sm" id="preview-recalc" title="Przelicz opłacalność wg aktualnych ustawień kategorii">Przelicz ponownie</button><button class="btn sm" id="preview-refresh">Odśwież</button><button class="btn sm" id="preview-close">Zamknij</button></div></div>
       <div class="modal-bd">
         <div id="preview-metrics" style="display:none;"><div class="card-label">Metryki</div><div class="mg" id="preview-mg"></div></div>
         <div id="preview-stoploss" style="display:none;background:#2d1b1b;border:1px solid #c0392b;border-radius:8px;padding:16px;margin:12px 0;">
@@ -1139,6 +1139,26 @@
       $('preview-refresh')?.setAttribute('data-id',id);
       const refreshBtn=$('preview-refresh');
       if(refreshBtn){const newBtn=refreshBtn.cloneNode(true);refreshBtn.parentNode.replaceChild(newBtn,refreshBtn);newBtn.addEventListener('click',()=>openPreview(newBtn.getAttribute('data-id')));}
+      const recalcBtn=$('preview-recalc');
+      if(recalcBtn){
+        const newRc=recalcBtn.cloneNode(true);recalcBtn.parentNode.replaceChild(newRc,recalcBtn);
+        newRc.addEventListener('click',async()=>{
+          if(!confirm('Przeliczyć opłacalność wg aktualnych ustawień kategorii?\n\nZostaną zaktualizowane flagi opłacalności dla wszystkich pozycji w tym runie.'))return;
+          const orig=newRc.textContent;newRc.textContent='Przeliczam...';newRc.disabled=true;
+          try{
+            const res=await apiPost(`/api/v1/analysis/${id}/recalculate`,{});
+            const bp=res.became_profitable||0,bu=res.became_unprofitable||0,unc=res.unchanged||0;
+            let msg=`Przeliczono ${res.items_updated||0} pozycji.\n\n+ ${bp} nowych opłacalnych\n- ${bu} już nieopłacalnych\n= ${unc} bez zmian`;
+            if(bp>0&&res.new_profitable_eans?.length){
+              msg+='\n\nNowe opłacalne EAN-y:\n'+res.new_profitable_eans.slice(0,15).join(', ');
+              if(res.new_profitable_eans.length>15)msg+=`\n... i ${res.new_profitable_eans.length-15} więcej`;
+            }
+            alert(msg);
+            openPreview(id);
+          }catch(e){alert('Błąd: '+(e.message||e));}
+          finally{newRc.textContent=orig;newRc.disabled=false;}
+        });
+      }
       const [data,metrics,info]=await Promise.all([apiGet(`/api/v1/analysis/${id}/results?limit=5000`).catch(()=>null),apiGet(`/api/v1/analysis/${id}/metrics`).catch(()=>null),apiGet(`/api/v1/analysis/${id}`).catch(()=>null)]);
       if(info&&['running','pending'].includes(info.status)&&cancelBtn){
         show(cancelBtn);

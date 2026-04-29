@@ -699,7 +699,8 @@ def stop_analysis_run(run_id: int, db: Session = Depends(get_db), current_user: 
 @router.post("/{run_id}/recalculate")
 def recalculate_profitability(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
     """Re-evaluate profitability for all items in a run using current category settings.
-    Useful after changing commission rate, multiplier, or category. Does not re-scrape."""
+    Useful after changing commission rate, multiplier, or thresholds. Does not re-scrape.
+    Returns counts of changed items (newly profitable / no longer profitable / unchanged)."""
     from app.services.profitability_service import evaluate_profitability
     from app.models.enums import ScrapeStatus, ProfitabilityLabel
     from app.models.analysis_run_item import AnalysisRunItem
@@ -718,10 +719,16 @@ def recalculate_profitability(run_id: int, db: Session = Depends(get_db), curren
     ).all()
 
     updated = 0
+    became_profitable = 0       # was nieoplacalny/nieokreslony, now oplacalny
+    became_unprofitable = 0     # was oplacalny, now not
+    unchanged = 0
+    new_profitable_eans: list[str] = []
+
     for item in items:
         purchase = item.purchase_price_pln or item.input_purchase_price
         if purchase is None or item.allegro_price is None:
             continue
+        old_label = item.profitability_label
         evaluation = evaluate_profitability(
             purchase_price=purchase,
             allegro_price=item.allegro_price,
@@ -733,8 +740,27 @@ def recalculate_profitability(run_id: int, db: Session = Depends(get_db), curren
         item.profitability_label = evaluation.label
         updated += 1
 
+        new_label = evaluation.label
+        if old_label == new_label:
+            unchanged += 1
+        elif new_label == ProfitabilityLabel.oplacalny:
+            became_profitable += 1
+            if len(new_profitable_eans) < 50:
+                new_profitable_eans.append(item.ean)
+        elif old_label == ProfitabilityLabel.oplacalny and new_label != ProfitabilityLabel.oplacalny:
+            became_unprofitable += 1
+
     db.commit()
-    return {"status": "ok", "run_id": run_id, "items_updated": updated, "category": category.name}
+    return {
+        "status": "ok",
+        "run_id": run_id,
+        "category": category.name,
+        "items_updated": updated,
+        "became_profitable": became_profitable,
+        "became_unprofitable": became_unprofitable,
+        "unchanged": unchanged,
+        "new_profitable_eans": new_profitable_eans,
+    }
 
 
 def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session, current_user: Optional[CurrentUser] = None) -> AnalysisUploadResponse:
