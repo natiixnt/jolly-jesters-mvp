@@ -393,6 +393,22 @@ def _to_result_item(
             category=category,
             evaluation=evaluation,
         )
+    # Calculate margin with Allegro commission
+    margin_pln = None
+    margin_percent = None
+    purchase = item.purchase_price_pln or item.input_purchase_price
+    price = item.allegro_price
+    if purchase is not None and price is not None:
+        try:
+            commission = float(category.commission_rate) if category and category.commission_rate else 0.1
+            net_revenue = float(price) * (1 - commission)
+            margin_value = net_revenue - float(purchase)
+            margin_pln = round(margin_value, 2)
+            if float(purchase) > 0:
+                margin_percent = round((margin_value / float(purchase)) * 100, 1)
+        except Exception:
+            pass
+
     return AnalysisResultItem(
         id=item.id,
         row_number=item.row_number,
@@ -404,8 +420,8 @@ def _to_result_item(
         allegro_price_pln=float(item.allegro_price) if item.allegro_price is not None else None,
         sold_count=item.allegro_sold_count,
         sold_count_status=None,
-        margin_pln=None,
-        margin_percent=None,
+        margin_pln=margin_pln,
+        margin_percent=margin_percent,
         is_profitable=item.profitability_label == ProfitabilityLabel.oplacalny if item.profitability_label else None,
         reason_code=evaluation.reason_code if evaluation is not None else None,
         source=_resolve_result_source(item, run_mode),

@@ -189,26 +189,35 @@ async def fetch_via_allegro_scraper(ean: str, run_id: str | None = None) -> Alle
         if run_id:
             create_payload["runId"] = str(run_id)
 
-        # Retry with exponential backoff on 429 (backpressure from scraper)
+        # Retry with exponential backoff on 429 (backpressure) or ConnectError (scraper unreachable)
         create = None
-        for backoff_attempt in range(5):
+        last_connect_error = None
+        for backoff_attempt in range(8):
             try:
                 create = await client.post("/createTask", json=create_payload)
+                last_connect_error = None
             except Exception as exc:
-                logger.exception("SCRAPER_HTTP_ERROR createTask ean=%s", ean)
-                return AllegroResult(
-                    ean=ean,
-                    status="error",
-                    total_offer_count=None,
-                    products=[],
-                    price=None,
-                    sold_count=None,
-                    is_not_found=False,
-                    is_temporary_error=True,
-                    raw_payload={"error": "create_failed"},
-                    error="create_failed",
-                    source="allegro_scraper",
-                )
+                # Retry on connection errors (scraper restarting, transient network)
+                last_connect_error = exc
+                if backoff_attempt >= 7:
+                    logger.warning("SCRAPER_CONNECT_FAILED ean=%s after %s retries: %s", ean, backoff_attempt + 1, exc)
+                    return AllegroResult(
+                        ean=ean,
+                        status="error",
+                        total_offer_count=None,
+                        products=[],
+                        price=None,
+                        sold_count=None,
+                        is_not_found=False,
+                        is_temporary_error=True,
+                        raw_payload={"error": "create_failed", "reason": str(exc)[:200]},
+                        error="create_failed",
+                        source="allegro_scraper",
+                    )
+                wait = min(2 ** backoff_attempt, 16)
+                logger.info("SCRAPER_CONNECT_RETRY ean=%s wait=%ss attempt=%s", ean, wait, backoff_attempt + 1)
+                await asyncio.sleep(wait)
+                continue
             if create.status_code == 429:
                 wait = min(2 ** backoff_attempt, 16)
                 logger.info("SCRAPER_BACKPRESSURE ean=%s wait=%ss attempt=%s", ean, wait, backoff_attempt + 1)
