@@ -18,19 +18,21 @@ def _category() -> Category:
 
 
 def test_export_contains_reason_column():
+    # Nowa formula: 50 EUR x 4.20 = 210 PLN, 400 brutto / 1.23 = 325.20 net,
+    # prowizja 10% x 400 = 40, zysk = 325.20 - 210 - 40 - 5 = 70.20 PLN, multiplier = 1.55
     profitable_item = AnalysisRunItem(
         id=1,
         row_number=1,
         ean="5901234123457",
         input_name="Prod A",
-        original_purchase_price=Decimal("100"),
-        original_currency="PLN",
-        input_purchase_price=Decimal("100"),
-        purchase_price_pln=Decimal("100"),
+        original_purchase_price=Decimal("50"),
+        original_currency="EUR",
+        input_purchase_price=Decimal("50"),
+        purchase_price_pln=Decimal("50"),
         source=AnalysisItemSource.scraping,
-        allegro_price=Decimal("166.67"),
+        allegro_price=Decimal("400"),
         allegro_sold_count=10,
-        profitability_score=Decimal("1.50"),
+        profitability_score=Decimal("1.55"),
         profitability_label=ProfitabilityLabel.oplacalny,
         scrape_status=ScrapeStatus.ok,
     )

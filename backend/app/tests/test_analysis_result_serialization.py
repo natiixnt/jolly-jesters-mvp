@@ -20,15 +20,17 @@ def _category() -> Category:
 
 
 def _item_with_offer_count(offer_count: int) -> AnalysisRunItem:
+    # Nowa formula: 50 EUR x 4.20 = 210 PLN, 400 brutto / 1.23 = 325.20 net (no VAT yet on cat),
+    # prowizja 0% -> zysk 110.20 PLN, multiplier 1.549. Wszystkie progi OK opracz competition.
     category_id = uuid4()
     product = Product(
         category_id=category_id,
         ean="5901234123000",
         name="Example",
-        purchase_price=Decimal("100"),
+        purchase_price=Decimal("50"),
     )
     market_data = ProductMarketData(
-        allegro_price=Decimal("150"),
+        allegro_price=Decimal("400"),
         allegro_sold_count=10,
         is_not_found=False,
         raw_payload={"products": [{} for _ in range(offer_count)]},
@@ -46,14 +48,14 @@ def _item_with_offer_count(offer_count: int) -> AnalysisRunItem:
         row_number=1,
         ean=product.ean,
         input_name="Example",
-        original_purchase_price=Decimal("100"),
-        original_currency="PLN",
-        input_purchase_price=Decimal("100"),
-        purchase_price_pln=Decimal("100"),
+        original_purchase_price=Decimal("50"),
+        original_currency="EUR",
+        input_purchase_price=Decimal("50"),
+        purchase_price_pln=Decimal("50"),
         source=AnalysisItemSource.baza,
-        allegro_price=Decimal("150"),
+        allegro_price=Decimal("400"),
         allegro_sold_count=10,
-        profitability_score=Decimal("1.50"),
+        profitability_score=Decimal("1.55"),
         profitability_label=ProfitabilityLabel.nieoplacalny,
         scrape_status=ScrapeStatus.ok,
         product=product,
