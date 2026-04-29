@@ -696,6 +696,47 @@ def stop_analysis_run(run_id: int, db: Session = Depends(get_db), current_user: 
     return cancel_analysis_run(run_id, db=db, current_user=current_user)
 
 
+@router.post("/{run_id}/recalculate")
+def recalculate_profitability(run_id: int, db: Session = Depends(get_db), current_user: Optional[CurrentUser] = Depends(get_current_user_optional)):
+    """Re-evaluate profitability for all items in a run using current category settings.
+    Useful after changing commission rate, multiplier, or category. Does not re-scrape."""
+    from app.services.profitability_service import evaluate_profitability
+    from app.models.enums import ScrapeStatus, ProfitabilityLabel
+    from app.models.analysis_run_item import AnalysisRunItem
+
+    run = db.query(AnalysisRun).filter(AnalysisRun.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run nie znaleziony")
+
+    category = db.query(Category).filter(Category.id == run.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Kategoria nie znaleziona")
+
+    items = db.query(AnalysisRunItem).filter(
+        AnalysisRunItem.analysis_run_id == run_id,
+        AnalysisRunItem.scrape_status == ScrapeStatus.ok,
+    ).all()
+
+    updated = 0
+    for item in items:
+        purchase = item.purchase_price_pln or item.input_purchase_price
+        if purchase is None or item.allegro_price is None:
+            continue
+        evaluation = evaluate_profitability(
+            purchase_price=purchase,
+            allegro_price=item.allegro_price,
+            sold_count=item.allegro_sold_count,
+            category=category,
+            offer_count=None,
+        )
+        item.profitability_score = evaluation.score
+        item.profitability_label = evaluation.label
+        updated += 1
+
+    db.commit()
+    return {"status": "ok", "run_id": run_id, "items_updated": updated, "category": category.name}
+
+
 def _start_cached_analysis(payload: AnalysisStartFromDbRequest, db: Session, current_user: Optional[CurrentUser] = None) -> AnalysisUploadResponse:
     category = db.query(Category).filter(Category.id == payload.category_id).first()
     if not category or not category.is_active:
