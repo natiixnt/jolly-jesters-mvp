@@ -282,10 +282,21 @@ async def fetch_via_allegro_scraper(ean: str, run_id: str | None = None) -> Alle
                     source="allegro_scraper",
                 )
 
-            try:
-                resp = await client.get(f"/getTaskResult/{task_id}")
-            except Exception as exc:
-                logger.exception("SCRAPER_HTTP_ERROR getTaskResult ean=%s task=%s", ean, task_id)
+            resp = None
+            poll_exc = None
+            for poll_retry in range(4):
+                try:
+                    resp = await client.get(f"/getTaskResult/{task_id}")
+                    break
+                except Exception as exc:
+                    poll_exc = exc
+                    if time.time() > deadline:
+                        break
+                    wait = min(0.5 * (2 ** poll_retry), 4.0)
+                    logger.info("SCRAPER_POLL_RETRY ean=%s task=%s wait=%ss attempt=%s err=%s", ean, task_id, wait, poll_retry + 1, type(exc).__name__)
+                    await asyncio.sleep(wait)
+            if resp is None:
+                logger.warning("SCRAPER_POLL_FAILED ean=%s task=%s after retries err=%s", ean, task_id, poll_exc)
                 return AllegroResult(
                     ean=ean,
                     status="error",
@@ -295,7 +306,7 @@ async def fetch_via_allegro_scraper(ean: str, run_id: str | None = None) -> Alle
                     sold_count=None,
                     is_not_found=False,
                     is_temporary_error=True,
-                    raw_payload={"error": "poll_failed", "task_id": task_id},
+                    raw_payload={"error": "poll_failed", "task_id": task_id, "reason": str(poll_exc)[:200]},
                     error="poll_failed",
                     source="allegro_scraper",
                 )
