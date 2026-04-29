@@ -587,6 +587,48 @@ def run_analysis_task(self, run_id: int):
                     pass
                 break
 
+        # Retry pass: re-scrape items that failed with transient network errors.
+        # Skips not_found (legit), blocked (proxy issues unlikely to recover), and ok.
+        retry_pass_recovered = 0
+        retry_pass_attempted = 0
+        if run.status not in {AnalysisStatus.canceled, AnalysisStatus.stopped} and not db_only_mode:
+            error_items = (
+                db.query(AnalysisRunItem)
+                .filter(
+                    AnalysisRunItem.analysis_run_id == run.id,
+                    AnalysisRunItem.scrape_status == ScrapeStatus.network_error,
+                )
+                .all()
+            )
+            retry_pass_attempted = len(error_items)
+            if error_items:
+                logger.info("RETRY_PASS run_id=%s items=%s", run.id, retry_pass_attempted)
+                retry_cache: dict = {}
+                provider = get_provider()
+                for i in range(0, len(error_items), BATCH_SIZE):
+                    if run.status in {AnalysisStatus.canceled, AnalysisStatus.stopped}:
+                        break
+                    batch = error_items[i:i + BATCH_SIZE]
+                    eans = [it.ean for it in batch]
+                    try:
+                        results = _get_or_fetch_batch(provider, eans, str(run.id), retry_cache)
+                    except Exception:
+                        logger.exception("RETRY_PASS batch fetch error run_id=%s", run.id)
+                        continue
+                    for item in batch:
+                        result = results.get(item.ean)
+                        if not result:
+                            continue
+                        product = db.query(Product).filter(Product.id == item.product_id).first()
+                        if not product:
+                            continue
+                        prev_status = item.scrape_status
+                        _apply_scraped_result(db, item, product, category, result)
+                        if item.scrape_status == ScrapeStatus.ok and prev_status == ScrapeStatus.network_error:
+                            retry_pass_recovered += 1
+                    db.commit()
+                logger.info("RETRY_PASS_DONE run_id=%s attempted=%s recovered=%s", run.id, retry_pass_attempted, retry_pass_recovered)
+
         # update metadata once at end (not per-item)
         _update_run_metadata(
             run,
@@ -596,6 +638,14 @@ def run_analysis_task(self, run_id: int):
             db_cache_hit_count=db_cache_hit_count,
             db_only_item_count=db_only_item_count,
         )
+
+        # Persist retry-pass stats in run metadata
+        if retry_pass_attempted > 0:
+            run.run_metadata = {
+                **(run.run_metadata or {}),
+                "retry_pass_attempted": retry_pass_attempted,
+                "retry_pass_recovered": retry_pass_recovered,
+            }
 
         if run.status not in {AnalysisStatus.canceled, AnalysisStatus.stopped}:
             run.status = AnalysisStatus.completed
