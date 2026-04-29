@@ -15,6 +15,7 @@ class CategoryBase(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     profitability_multiplier: Decimal = Field(default=Decimal("1.5"), ge=0, le=100)
     commission_rate: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    vat_rate: Optional[Decimal] = Field(default=Decimal("0.23"), ge=0, le=1)
     is_active: bool = True
 
     @validator("name")
@@ -37,6 +38,7 @@ class CategoryUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     profitability_multiplier: Optional[Decimal] = Field(default=None, ge=0, le=100)
     commission_rate: Optional[Decimal] = Field(default=None, ge=0, le=1)
+    vat_rate: Optional[Decimal] = Field(default=None, ge=0, le=1)
     is_active: Optional[bool] = None
 
     @validator("name", pre=True)

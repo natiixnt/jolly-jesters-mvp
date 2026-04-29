@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     profitability_min_profit_pln: Decimal = Field(default=Decimal("15"), env="PROFITABILITY_MIN_PROFIT_PLN")
     profitability_min_sales: int = Field(default=3, env="PROFITABILITY_MIN_SALES")
     profitability_max_competition: int = Field(default=50, env="PROFITABILITY_MAX_COMPETITION")
-    eur_to_pln_rate: float = Field(default=4.5, env="EUR_TO_PLN_RATE")
+    eur_to_pln_rate: float = Field(default=4.20, env="EUR_TO_PLN_RATE")
+    smart_delivery_cost_pln: Decimal = Field(default=Decimal("5.0"), env="SMART_DELIVERY_COST_PLN")
+    default_vat_rate: Decimal = Field(default=Decimal("0.23"), env="DEFAULT_VAT_RATE")
 
     data_root: Path = Field(default=Path("/workspace"), env="WORKSPACE")
     upload_dir_name: str = Field(default="uploads")

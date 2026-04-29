@@ -16,6 +16,7 @@ class Category(Base):
     description = Column(Text, nullable=True)
     profitability_multiplier = Column(Numeric(12, 4), nullable=False)
     commission_rate = Column(Numeric(12, 4), nullable=True)
+    vat_rate = Column(Numeric(5, 4), nullable=True, server_default="0.23")
     is_active = Column(Boolean, nullable=False, server_default="true", default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(

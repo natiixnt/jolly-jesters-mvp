@@ -393,19 +393,15 @@ def _to_result_item(
             category=category,
             evaluation=evaluation,
         )
-    # Calculate margin with Allegro commission
+    # Margin = realny zysk wg formuly: sprzedaz_netto - zakup_pln - prowizja - dostawa.
+    # Re-uses evaluation if available, fallback recomputes when category missing.
     margin_pln = None
     margin_percent = None
-    purchase = item.purchase_price_pln or item.input_purchase_price
-    price = item.allegro_price
-    if purchase is not None and price is not None:
+    if evaluation is not None and evaluation.profit is not None and evaluation.purchase_pln is not None:
         try:
-            commission = float(category.commission_rate) if category and category.commission_rate else 0.1
-            net_revenue = float(price) * (1 - commission)
-            margin_value = net_revenue - float(purchase)
-            margin_pln = round(margin_value, 2)
-            if float(purchase) > 0:
-                margin_percent = round((margin_value / float(purchase)) * 100, 1)
+            margin_pln = round(float(evaluation.profit), 2)
+            if float(evaluation.purchase_pln) > 0:
+                margin_percent = round((float(evaluation.profit) / float(evaluation.purchase_pln)) * 100, 1)
         except Exception:
             pass
 
@@ -441,19 +437,6 @@ def serialize_analysis_item(
 ) -> AnalysisResultItem:
     """Stable serializer used by API and Excel export."""
     result = _to_result_item(item, category, run_mode=run_mode, include_debug=include_debug)
-
-    purchase = item.purchase_price_pln or item.input_purchase_price
-    price = item.allegro_price
-    if purchase is not None and price is not None:
-        try:
-            commission = float(category.commission_rate) if category and category.commission_rate else 0.1
-            net_revenue = float(price) * (1 - commission)
-            margin_pln = net_revenue - float(purchase)
-            result.margin_pln = round(margin_pln, 2)
-            if purchase and float(purchase) > 0:
-                result.margin_percent = round((margin_pln / float(purchase)) * 100, 1)
-        except Exception:
-            pass
 
     # Fallback name: use product name if missing
     if (not result.name or result.name == result.ean) and item.product and item.product.name:
