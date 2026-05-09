@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from 'ink';
 import { serve } from '@hono/node-server';
 import { config } from '@/config';
-import { loadProxies } from '@/utils/proxy';
+import { loadProxies, expireQuarantines, proxiesMeta } from '@/utils/proxy';
 import { TaskQueue } from '@/queue/taskQueue';
 import { WorkerPool } from '@/worker/workerPool';
 import { createRoutes } from '@/api/routes';
@@ -53,9 +53,26 @@ if (robustConfig.ENABLE_ROBUST_FALLBACK) {
     serverLog.log('Robust fallback system disabled (set ENABLE_ROBUST_FALLBACK=true to enable)');
 }
 
+// Background quarantine sweep: every 10 minutes lift expired quarantines.
+// Logs only when something actually changes to keep noise low.
+const quarantineSweepInterval = setInterval(() => {
+    try {
+        const lifted = expireQuarantines();
+        if (lifted > 0) {
+            const meta = proxiesMeta();
+            serverLog.log(
+                `Quarantine sweep: lifted ${lifted}, active ${meta.activeCount}/${meta.count}`,
+            );
+        }
+    } catch (err) {
+        serverLog.log(`Quarantine sweep error: ${(err as Error).message}`);
+    }
+}, 10 * 60 * 1000);
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     serverLog.log('SIGTERM received, shutting down...');
+    clearInterval(quarantineSweepInterval);
     await destroyFallbackChain();
     process.exit(0);
 });

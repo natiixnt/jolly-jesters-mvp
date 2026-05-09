@@ -1,6 +1,13 @@
 import { Mutex } from 'async-mutex';
 import Allegro from '@/scraper/allegro';
-import { getRandomProxy, nextProxy, proxyCount, proxyUrlHash } from '@/utils/proxy';
+import {
+    getRandomProxy,
+    nextProxy,
+    proxyCount,
+    proxyUrlHash,
+    recordProxySuccess,
+    recordProxyFailure,
+} from '@/utils/proxy';
 import { config } from '@/config';
 import type { TaskQueue } from '@/queue/taskQueue';
 import type { Stats } from '@/utils/stats';
@@ -153,10 +160,15 @@ export class Worker {
                     try {
                         result = await this.allegro.fetch(task.ean);
                         result.proxyAttempts = attempt + 1;
+                        recordProxySuccess(proxy);
                         break;
                     } catch (err) {
                         const msg = err instanceof Error ? err.message : String(err);
                         this.logger.log(`Proxy attempt ${attempt + 1}/${proxyTries} failed: ${msg}`);
+                        const wasQuarantined = recordProxyFailure(proxy, msg);
+                        if (wasQuarantined) {
+                            this.logger.log(`Proxy session quarantined: ${proxyUrlHash(proxy)}`);
+                        }
 
                         // If CAPTCHA solver fails, don't waste time on more proxy retries
                         // Escalate to Playwright fallback immediately
