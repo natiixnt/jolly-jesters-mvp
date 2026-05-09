@@ -382,6 +382,11 @@
           <div class="stat-val" id="ds-proxy">0</div>
           <div class="stat-sub" id="ds-proxy-health">wgraj proxy w zakładce Proxy pool</div>
         </div>
+        <div class="stat" style="border-left:3px solid #8b5cf6;">
+          <div class="stat-label">Sesje sticky scrapera</div>
+          <div class="stat-val" id="ds-sticky-sessions">-</div>
+          <div class="stat-sub" id="ds-sticky-detail">aktywne / kwarantanna</div>
+        </div>
       </div>
 
       <!-- two-col: chart left, activity right -->
@@ -1069,6 +1074,28 @@
         if(totalRuns>0||localStorage.getItem('jj_onboarding_dismissed'))hide($('onboarding'));
         else show($('onboarding'));
       }catch(e){if(!localStorage.getItem('jj_onboarding_dismissed'))show($('onboarding'));}
+
+      // sticky sessions ze scrapera (Evomi residential)
+      try{
+        const s=await apiGet('/api/v1/status');
+        const px=s?.scraper?.details?.proxies;
+        if(px&&typeof px.count==='number'){
+          const active=px.activeCount??px.count;
+          const q=px.quarantinedCount||0;
+          setText($('ds-sticky-sessions'),`${active}/${px.count}`);
+          let detail=`${active} aktywnych`;
+          if(q>0)detail+=`, ${q} kwarantanna`;
+          if(px.providers?.length){
+            const enabled=px.providers.filter(p=>p.enabled).map(p=>p.name).join(',');
+            if(enabled)detail+=` | ${enabled}`;
+          }
+          setText($('ds-sticky-detail'),detail);
+          $('ds-sticky-detail').style.color=q>5?'rgb(var(--amber))':'';
+        }else{
+          setText($('ds-sticky-sessions'),'-');
+          setText($('ds-sticky-detail'),'scraper niedostępny');
+        }
+      }catch(e){setText($('ds-sticky-sessions'),'-');}
 
       // proxy count + health
       try{
