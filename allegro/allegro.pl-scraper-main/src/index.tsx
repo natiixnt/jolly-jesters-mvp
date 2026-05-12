@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from 'ink';
 import { serve } from '@hono/node-server';
 import { config } from '@/config';
-import { loadProxies, expireQuarantines, proxiesMeta } from '@/utils/proxy';
+import { loadProxies, reloadProxies, expireQuarantines, proxiesMeta } from '@/utils/proxy';
 import { TaskQueue } from '@/queue/taskQueue';
 import { WorkerPool } from '@/worker/workerPool';
 import { createRoutes } from '@/api/routes';
@@ -69,10 +69,28 @@ const quarantineSweepInterval = setInterval(() => {
     }
 }, 10 * 60 * 1000);
 
+// Periodic refresh of proxy pool: every 6 hours regenerate sticky-session IDs.
+// Only effective when providers are configured via env vars (Evomi/IPRoyal credentials).
+// For legacy proxies.txt fallback this is a no-op (file content reloaded but unchanged).
+const refreshIntervalHours = Math.max(1, parseInt(process.env.PROXY_REFRESH_HOURS || '6', 10));
+const proxyRefreshInterval = setInterval(() => {
+    try {
+        const res = reloadProxies();
+        const meta = proxiesMeta();
+        const providersEnabled = meta.providers.filter((p) => p.enabled).map((p) => p.name).join(',') || 'legacy-file';
+        serverLog.log(
+            `Proxy pool refreshed: ${res.count} sessions (${meta.activeCount} active) from ${providersEnabled}`,
+        );
+    } catch (err) {
+        serverLog.log(`Proxy refresh error: ${(err as Error).message}`);
+    }
+}, refreshIntervalHours * 60 * 60 * 1000);
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     serverLog.log('SIGTERM received, shutting down...');
     clearInterval(quarantineSweepInterval);
+    clearInterval(proxyRefreshInterval);
     await destroyFallbackChain();
     process.exit(0);
 });
