@@ -92,14 +92,22 @@ export interface BuiltProxy {
 /**
  * Build a fresh proxy pool from configured providers, with newly randomized
  * session-IDs. Each call returns a completely new set of sticky IPs.
+ *
+ * @param overrideSessionsPerProvider - if set, use this count per provider
+ *        instead of the provider's `sessionCount` (from env). Useful for
+ *        auto-scaling pool size based on run size.
  */
-export function buildProxyPool(): BuiltProxy[] {
+export function buildProxyPool(overrideSessionsPerProvider?: number): BuiltProxy[] {
     const enabled = PROVIDERS.filter((p) => p.enabled);
     if (enabled.length === 0) return [];
 
     const pool: BuiltProxy[] = [];
     for (const provider of enabled) {
-        for (let i = 0; i < provider.sessionCount; i++) {
+        const count =
+            overrideSessionsPerProvider !== undefined && overrideSessionsPerProvider > 0
+                ? overrideSessionsPerProvider
+                : provider.sessionCount;
+        for (let i = 0; i < count; i++) {
             const sessionId = randomSessionId();
             const url = new URL(provider.buildUrl(sessionId));
             pool.push({

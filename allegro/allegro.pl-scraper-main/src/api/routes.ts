@@ -81,6 +81,37 @@ export function createRoutes(taskQueue: TaskQueue, startWorkers: () => void, sta
         }
     });
 
+    /**
+     * Auto-resize the proxy pool, e.g. before starting a large run.
+     * Body: { sessions?: number, forEans?: number }
+     *   sessions  - exact target session count
+     *   forEans   - target derived from run size: ceil(forEans/15), clamped [60, 500]
+     */
+    app.post('/proxies/resize', async (c) => {
+        try {
+            const body = (await c.req.json().catch(() => ({}))) as {
+                sessions?: number;
+                forEans?: number;
+            };
+            let target: number | undefined;
+            if (typeof body.sessions === 'number' && body.sessions > 0) {
+                target = Math.floor(body.sessions);
+            } else if (typeof body.forEans === 'number' && body.forEans > 0) {
+                const EANS_PER_SESSION = 15;
+                target = Math.ceil(body.forEans / EANS_PER_SESSION);
+            }
+            if (!target) {
+                return c.json({ status: 'error', error: 'sessions or forEans required' }, 400);
+            }
+            target = Math.min(500, Math.max(60, target));
+            const meta = reloadProxies(undefined, target);
+            if (meta.count > 0) startWorkers();
+            return c.json({ status: 'ok', target, ...meta });
+        } catch (err) {
+            return c.json({ status: 'error', error: (err as Error).message }, 500);
+        }
+    });
+
     app.get('/logs', (c) => {
         // newest first
         const logs = [...stats.logs].reverse();

@@ -37,7 +37,7 @@ from app.services.alerting_service import alert_stoploss, notify_run_completed
 from app.services.audit_service import log_event
 from app.services.billing_service import record_run_usage
 from app.services.circuit_breaker import CircuitBreaker
-from app.utils.allegro_scraper_client import fetch_via_allegro_scraper
+from app.utils.allegro_scraper_client import fetch_via_allegro_scraper, _scraper_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -429,6 +429,17 @@ def run_analysis_task(self, run_id: int):
         run.error_message = None
         run.started_at = datetime.now(timezone.utc)
         db.commit()
+
+        # Auto-skaluj pulę sesji proxy w scraperze pod wielkość runa.
+        # Scraper sam liczy ceil(forEans/15), clamp [60, 500]. Best-effort - jak nie pyknie, run i tak ruszy.
+        if not db_only_mode and len(items) >= 60:
+            try:
+                import httpx as _httpx_resize
+                resize_url = f"{_scraper_base_url()}/proxies/resize"
+                _httpx_resize.post(resize_url, json={"forEans": len(items)}, timeout=10.0)
+                logger.info("RUN_TASK proxy pool resize requested run_id=%s eans=%s", run.id, len(items))
+            except Exception as exc:
+                logger.warning("RUN_TASK proxy resize failed (continuing): %s", exc)
 
         # -- stop-loss init --
         setting = get_settings(db)

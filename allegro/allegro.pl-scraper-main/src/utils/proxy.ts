@@ -75,17 +75,17 @@ function buildLegacySources(path: string): string[] {
  * Load proxies from configured providers (preferred) or legacy file/env (fallback).
  * Returns the count of loaded proxy entries.
  */
-export function loadProxies(path = 'proxies.txt'): number {
+export function loadProxies(path = 'proxies.txt', overrideSessions?: number): number {
     proxiesPath = path;
 
     // Preferred: provider-based config
-    const built = buildProxyPool();
+    const built = buildProxyPool(overrideSessions);
     if (built.length > 0) {
         entries = built.map(entryFromBuilt);
         return entries.length;
     }
 
-    // Fallback: legacy proxies.txt / PROXIES env
+    // Fallback: legacy proxies.txt / PROXIES env (overrideSessions ignored)
     const lines = buildLegacySources(path);
     const valid = lines
         .map((line) => entryFromLegacyUrl(line))
@@ -99,9 +99,12 @@ export function loadProxies(path = 'proxies.txt'): number {
     return entries.length;
 }
 
-export function reloadProxies(path?: string): { count: number; path: string } {
+export function reloadProxies(
+    path?: string,
+    overrideSessions?: number,
+): { count: number; path: string } {
     const usedPath = path ?? proxiesPath;
-    const count = loadProxies(usedPath);
+    const count = loadProxies(usedPath, overrideSessions);
     rrIndex = Math.floor(Math.random() * Math.max(1, entries.length));
     return { count, path: usedPath };
 }
